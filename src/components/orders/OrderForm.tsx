@@ -52,6 +52,13 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+const DEFAULT_SIZES = ["1 Ltr", "2 Ltr", "4 Ltr", "10 Ltr", "15 Ltr", "20 Ltr"];
+
+function leadingNumber(s: string) {
+  const m = s.match(/^(\d+(?:\.\d+)?)/);
+  return m ? parseFloat(m[1]) : Infinity;
+}
+
 export function OrderForm({ existing }: { existing?: ExistingOrder }) {
   const router = useRouter();
   const [supplier, setSupplier] = useState(existing?.supplier ?? "");
@@ -157,11 +164,20 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
       .from("order_items")
       .select("size")
       .then(({ data }) => {
-        const unique = Array.from(
-          new Set((data ?? []).map((i) => (i.size ?? "").trim()).filter(Boolean))
+        const counts = new Map<string, number>();
+        for (const name of DEFAULT_SIZES) counts.set(name, 0);
+        for (const i of data ?? []) {
+          const name = (i.size ?? "").trim();
+          if (!name) continue;
+          counts.set(name, (counts.get(name) ?? 0) + 1);
+        }
+        const byUsage = Array.from(counts.keys()).sort(
+          (a, b) =>
+            counts.get(b)! - counts.get(a)! ||
+            leadingNumber(a) - leadingNumber(b) ||
+            a.localeCompare(b)
         );
-        unique.sort((a, b) => a.localeCompare(b));
-        setSizeOptions(unique);
+        setSizeOptions(byUsage);
       });
 
     if (!existing) {
