@@ -107,15 +107,19 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
       });
 
     supabase
-      .from("sites")
-      .select("name")
-      .eq("is_active", true)
+      .from("orders")
+      .select("project")
       .then(({ data }) => {
-        const unique = Array.from(
-          new Set((data ?? []).map((s) => s.name.trim()).filter(Boolean))
+        const counts = new Map<string, number>();
+        for (const o of data ?? []) {
+          const name = o.project.trim();
+          if (!name) continue;
+          counts.set(name, (counts.get(name) ?? 0) + 1);
+        }
+        const byUsage = Array.from(counts.keys()).sort(
+          (a, b) => counts.get(b)! - counts.get(a)! || a.localeCompare(b)
         );
-        unique.sort((a, b) => a.localeCompare(b));
-        setProjectOptions(unique);
+        setProjectOptions(byUsage);
       });
 
     supabase
