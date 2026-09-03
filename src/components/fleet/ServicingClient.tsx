@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useUserRole } from "@/lib/supabase/useUserRole";
 import { Modal, Field, inputClass } from "@/components/fleet/Modal";
 import { fmtDate, fmtKm, fmtMoney } from "@/lib/fleet/format";
 
@@ -56,6 +57,8 @@ export function ServicingClient({
   vehicles: Vehicle[];
 }) {
   const router = useRouter();
+  const role = useUserRole();
+  const canDelete = role === "admin";
   const [editing, setEditing] = useState<ServiceRecord | null>(null);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm(vehicles[0]?.id ?? ""));
@@ -192,13 +195,15 @@ export function ServicingClient({
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => remove(r)}
-                          aria-label="Delete"
-                          className="rounded-md p-1.5 text-muted transition hover:bg-background hover:text-brand-red"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {canDelete && (
+                          <button
+                            onClick={() => remove(r)}
+                            aria-label="Delete"
+                            className="rounded-md p-1.5 text-muted transition hover:bg-background hover:text-brand-red"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

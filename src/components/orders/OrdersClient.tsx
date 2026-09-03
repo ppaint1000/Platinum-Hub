@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useUserRole } from "@/lib/supabase/useUserRole";
 import { fmtDate, fmtMoney } from "@/lib/orders/format";
 import { ConfirmDialog } from "@/components/orders/ConfirmDialog";
 
@@ -19,6 +20,8 @@ type OrderRow = {
 
 export function OrdersClient({ initialOrders }: { initialOrders: OrderRow[] }) {
   const router = useRouter();
+  const role = useUserRole();
+  const canDelete = role === "admin";
   const [confirmTarget, setConfirmTarget] = useState<OrderRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -106,16 +109,18 @@ export function OrdersClient({ initialOrders }: { initialOrders: OrderRow[] }) {
                       >
                         <Pencil className="h-4 w-4" />
                       </Link>
-                      <button
-                        onClick={() => {
-                          setDeleteError(null);
-                          setConfirmTarget(o);
-                        }}
-                        aria-label="Delete"
-                        className="rounded-md p-1.5 text-muted transition hover:bg-background hover:text-brand-red"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => {
+                            setDeleteError(null);
+                            setConfirmTarget(o);
+                          }}
+                          aria-label="Delete"
+                          className="rounded-md p-1.5 text-muted transition hover:bg-background hover:text-brand-red"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

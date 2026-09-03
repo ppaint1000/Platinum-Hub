@@ -48,8 +48,10 @@ export async function updateSession(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
+    const isAdminOrSupervisor = profile?.role === "admin" || profile?.role === "supervisor";
+
     const url = request.nextUrl.clone();
-    url.pathname = profile?.role === "admin" ? "/hub" : "/fleet/log";
+    url.pathname = isAdminOrSupervisor ? "/hub" : "/fleet/log";
     return NextResponse.redirect(url);
   }
 
@@ -60,12 +62,13 @@ export async function updateSession(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    const isAdmin = profile?.role === "admin";
+    const isAdminOrSupervisor = profile?.role === "admin" || profile?.role === "supervisor";
 
-    // Non-admins are confined to the driver fuel/mileage entry route —
-    // that's the whole point of the restriction, enforced server-side
-    // here as well as by RLS, not just hidden in the UI.
-    if (!isAdmin && !path.startsWith("/fleet/log")) {
+    // Drivers (and any other non-admin/supervisor role) are confined to
+    // the fuel/mileage entry route — that's the whole point of the
+    // restriction, enforced server-side here as well as by RLS, not just
+    // hidden in the UI.
+    if (!isAdminOrSupervisor && !path.startsWith("/fleet/log")) {
       const url = request.nextUrl.clone();
       url.pathname = "/fleet/log";
       return NextResponse.redirect(url);

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useUserRole } from "@/lib/supabase/useUserRole";
 import { Field, inputClass } from "@/components/fleet/Modal";
 import { ConfirmDialog } from "@/components/orders/ConfirmDialog";
 import { fmtDate, fmtDateTime, fmtMoney } from "@/lib/orders/format";
@@ -61,6 +62,8 @@ function leadingNumber(s: string) {
 
 export function OrderForm({ existing }: { existing?: ExistingOrder }) {
   const router = useRouter();
+  const role = useUserRole();
+  const canDelete = role === "admin";
   const [supplier, setSupplier] = useState(existing?.supplier ?? "");
   const [project, setProject] = useState(existing?.project ?? "");
   const orderDate = existing?.order_date ?? todayISO();
@@ -327,7 +330,7 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
     <div className="mx-auto max-w-6xl">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ink">{existing ? "Edit order" : "New order"}</h1>
-        {existing && (
+        {existing && canDelete && (
           <button
             onClick={() => {
               setDeleteError(null);

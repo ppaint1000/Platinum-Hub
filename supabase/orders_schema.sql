@@ -72,20 +72,66 @@ update public.order_items set is_paint = true where colour is not null and is_pa
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
 
--- ── orders / order_items: admin only ─────────────────────────────────────
+-- ── orders / order_items: admin has full access; supervisor can view,
+-- create and edit but not delete ─────────────────────────────────────────
 
 drop policy if exists "orders_admin_all" on public.orders;
-create policy "orders_admin_all" on public.orders
-  for all using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+
+drop policy if exists "orders_select" on public.orders;
+create policy "orders_select" on public.orders
+  for select using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
+  );
+
+drop policy if exists "orders_insert" on public.orders;
+create policy "orders_insert" on public.orders
+  for insert with check (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
+  );
+
+drop policy if exists "orders_update" on public.orders;
+create policy "orders_update" on public.orders
+  for update using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
   ) with check (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
+  );
+
+drop policy if exists "orders_delete" on public.orders;
+create policy "orders_delete" on public.orders
+  for delete using (
     exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
   );
 
 drop policy if exists "order_items_admin_all" on public.order_items;
-create policy "order_items_admin_all" on public.order_items
-  for all using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+
+drop policy if exists "order_items_select" on public.order_items;
+create policy "order_items_select" on public.order_items
+  for select using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
+  );
+
+drop policy if exists "order_items_insert" on public.order_items;
+create policy "order_items_insert" on public.order_items
+  for insert with check (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
+  );
+
+drop policy if exists "order_items_update" on public.order_items;
+create policy "order_items_update" on public.order_items
+  for update using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
   ) with check (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
+  );
+
+-- Note: editing an order's line items works by deleting and re-inserting
+-- them (see OrderForm's save()), so this needs to allow the same roles as
+-- insert/update, not just admin — otherwise a supervisor's edit would
+-- silently leave stale line items behind. Deleting the order itself
+-- (above) is what's actually restricted to admin.
+drop policy if exists "order_items_delete" on public.order_items;
+create policy "order_items_delete" on public.order_items
+  for delete using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
   );

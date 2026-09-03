@@ -60,14 +60,14 @@ drop policy if exists "fleet_hub_profiles_self_select" on public.profiles;
 create policy "fleet_hub_profiles_self_select" on public.profiles
   for select using (auth.uid() = id);
 
--- admins can see every profile (needed for the Vehicles driver-picker and
--- the Drivers page). Safe self-referencing pattern: the subquery can only
--- ever see the caller's own row (via the policy above), so this can't
--- recurse — it just checks "is my own row's role = admin".
+-- admins and supervisors can see every profile (needed for the Vehicles
+-- driver-picker and the Drivers page). Safe self-referencing pattern: the
+-- subquery can only ever see the caller's own row (via the policy above),
+-- so this can't recurse — it just checks "is my own row's role admin/supervisor".
 drop policy if exists "fleet_hub_profiles_admin_select_all" on public.profiles;
 create policy "fleet_hub_profiles_admin_select_all" on public.profiles
   for select using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
   );
 
 -- ── vehicles: any signed-in user can read (drivers need the picker list),
@@ -77,11 +77,26 @@ drop policy if exists "fleet_vehicles_select_authenticated" on public.vehicles;
 create policy "fleet_vehicles_select_authenticated" on public.vehicles
   for select using (auth.role() = 'authenticated');
 
+-- admin: full access (including delete). supervisor: create/edit, no delete.
 drop policy if exists "fleet_vehicles_admin_write" on public.vehicles;
-create policy "fleet_vehicles_admin_write" on public.vehicles
-  for all using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+
+drop policy if exists "fleet_vehicles_insert" on public.vehicles;
+create policy "fleet_vehicles_insert" on public.vehicles
+  for insert with check (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
+  );
+
+drop policy if exists "fleet_vehicles_update" on public.vehicles;
+create policy "fleet_vehicles_update" on public.vehicles
+  for update using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
   ) with check (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
+  );
+
+drop policy if exists "fleet_vehicles_delete" on public.vehicles;
+create policy "fleet_vehicles_delete" on public.vehicles
+  for delete using (
     exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
   );
 
@@ -96,13 +111,13 @@ drop policy if exists "fleet_fuel_select_own_or_admin" on public.fuel_entries;
 create policy "fleet_fuel_select_own_or_admin" on public.fuel_entries
   for select using (
     auth.uid() = driver_id
-    or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+    or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
   );
 
 drop policy if exists "fleet_fuel_admin_update" on public.fuel_entries;
 create policy "fleet_fuel_admin_update" on public.fuel_entries
   for update using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
   );
 
 drop policy if exists "fleet_fuel_admin_delete" on public.fuel_entries;
@@ -113,11 +128,32 @@ create policy "fleet_fuel_admin_delete" on public.fuel_entries
 
 -- ── service_records: admin only ───────────────────────────────────────
 
+-- admin: full access (including delete). supervisor: view/create/edit, no delete.
 drop policy if exists "fleet_service_admin_all" on public.service_records;
-create policy "fleet_service_admin_all" on public.service_records
-  for all using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+
+drop policy if exists "fleet_service_select" on public.service_records;
+create policy "fleet_service_select" on public.service_records
+  for select using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
+  );
+
+drop policy if exists "fleet_service_insert" on public.service_records;
+create policy "fleet_service_insert" on public.service_records
+  for insert with check (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
+  );
+
+drop policy if exists "fleet_service_update" on public.service_records;
+create policy "fleet_service_update" on public.service_records
+  for update using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
   ) with check (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
+  );
+
+drop policy if exists "fleet_service_delete" on public.service_records;
+create policy "fleet_service_delete" on public.service_records
+  for delete using (
     exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
   );
 
@@ -142,6 +178,6 @@ create policy "fleet_photos_select_own_or_admin" on storage.objects
     bucket_id = 'fleet-photos'
     and (
       (storage.foldername(name))[1] = auth.uid()::text
-      or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+      or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
     )
   );
