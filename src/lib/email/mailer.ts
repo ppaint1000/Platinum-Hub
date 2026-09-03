@@ -9,7 +9,7 @@ export type SendEmailOptions = {
 
 export type SendEmailResult = { sent: true } | { sent: false; reason: string };
 
-const FROM_NAME = "Platinum Painters Hub";
+const FROM_NAME = "Platinum Painters Order";
 
 export async function sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
   const user = process.env.GMAIL_USER;
