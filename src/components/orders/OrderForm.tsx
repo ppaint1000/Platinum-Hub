@@ -166,6 +166,8 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
     setItems((prev) => (prev.length > 1 ? prev.filter((it) => it.key !== key) : prev));
   }
 
+  const anyPaint = items.some((it) => it.isPaint);
+
   const total = items.reduce(
     (s, it) => s + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0),
     0
@@ -392,8 +394,12 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
                 <tr className="border-b border-border bg-background text-left text-xs font-semibold uppercase tracking-wide text-muted">
                   <th className="w-16 px-3 py-2 text-center">Paint</th>
                   <th className="w-72 px-3 py-2">Description</th>
-                  <th className="w-56 px-3 py-2">Colour</th>
-                  <th className="w-40 px-3 py-2">Size</th>
+                  {anyPaint && (
+                    <>
+                      <th className="w-56 px-3 py-2">Colour</th>
+                      <th className="w-40 px-3 py-2">Size</th>
+                    </>
+                  )}
                   <th className="w-24 px-3 py-2">Qty</th>
                   <th className="w-32 px-3 py-2">Price</th>
                   <th className="w-32 px-3 py-2">Line total</th>
@@ -443,7 +449,7 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
                         </td>
                       </>
                     ) : (
-                      <td className="px-3 py-2" colSpan={3}>
+                      <td className="px-3 py-2" colSpan={anyPaint ? 3 : 1}>
                         <input
                           className={inputClass + " w-full"}
                           value={it.description}
