@@ -121,12 +121,18 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
     supabase
       .from("order_items")
       .select("description")
+      .eq("is_paint", true)
       .then(({ data }) => {
-        const unique = Array.from(
-          new Set((data ?? []).map((i) => i.description.trim()).filter(Boolean))
+        const counts = new Map<string, number>();
+        for (const i of data ?? []) {
+          const name = i.description.trim();
+          if (!name) continue;
+          counts.set(name, (counts.get(name) ?? 0) + 1);
+        }
+        const byUsage = Array.from(counts.keys()).sort(
+          (a, b) => counts.get(b)! - counts.get(a)! || a.localeCompare(b)
         );
-        unique.sort((a, b) => a.localeCompare(b));
-        setDescriptionOptions(unique);
+        setDescriptionOptions(byUsage);
       });
 
     supabase
@@ -459,7 +465,6 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
                           className={inputClass + " w-full"}
                           value={it.description}
                           onChange={(e) => updateItem(it.key, { description: e.target.value })}
-                          list="description-options"
                           autoComplete="off"
                         />
                       </td>
