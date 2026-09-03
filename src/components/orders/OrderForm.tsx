@@ -94,11 +94,16 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
       .from("orders")
       .select("supplier")
       .then(({ data }) => {
-        const unique = Array.from(
-          new Set((data ?? []).map((o) => o.supplier.trim()).filter(Boolean))
+        const counts = new Map<string, number>();
+        for (const o of data ?? []) {
+          const name = o.supplier.trim();
+          if (!name) continue;
+          counts.set(name, (counts.get(name) ?? 0) + 1);
+        }
+        const byUsage = Array.from(counts.keys()).sort(
+          (a, b) => counts.get(b)! - counts.get(a)! || a.localeCompare(b)
         );
-        unique.sort((a, b) => a.localeCompare(b));
-        setSupplierOptions(unique);
+        setSupplierOptions(byUsage);
       });
 
     supabase
