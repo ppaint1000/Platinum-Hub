@@ -1,7 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import type { Metadata } from "next";
 import { SignOutButton } from "@/components/SignOutButton";
+
+export const metadata: Metadata = {
+  title: "Platinum Painters Orders",
+};
 
 export default function OrdersLayout({ children }: { children: React.ReactNode }) {
   return (
