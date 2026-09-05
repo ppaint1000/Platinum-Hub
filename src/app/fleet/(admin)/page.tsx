@@ -59,7 +59,7 @@ export default async function FleetDashboardPage() {
 
   const vList = vehicles ?? [];
   const fList = fuelEntries ?? [];
-  const sList = serviceRecords ?? [];
+  const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isArray(r.vehicle) ? r.vehicle[0] ?? null : r.vehicle, }));
 
   const thisMonth = new Date().toISOString().slice(0, 7);
   const monthEntries = fList.filter((f) => f.created_at.slice(0, 7) === thisMonth);

@@ -14,5 +14,5 @@ export default async function ServicingPage() {
     supabase.from("vehicles").select("id, plate, make, model").order("plate"),
   ]);
 
-  return <ServicingClient initialRecords={records ?? []} vehicles={vehicles ?? []} />;
+ const formattedRecords = (records ?? []).map((r: any) => ({ ...r, vehicle: Array.isArray(r.vehicle) ? r.vehicle[0] ?? null : r.vehicle, })); return <ServicingClient initialRecords={formattedRecords} vehicles={vehicles ?? []} />;
 }
