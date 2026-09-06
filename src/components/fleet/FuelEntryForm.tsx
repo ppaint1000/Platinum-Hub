@@ -28,11 +28,12 @@ export function FuelEntryForm({ vehicles }: { vehicles: Vehicle[] }) {
   const receiptInputRef = useRef<HTMLInputElement>(null);
   const odometerInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!("geolocation" in navigator)) {
-      setGps({ status: "unavailable" });
-      return;
-    }
+  useEffect(() => { 
+if (!("geolocation" in navigator)) { 
+// eslint-disable-next-line react-hooks/set-state-in-effect 
+setGps({ status: "unavailable" }); 
+return; 
+}
     navigator.geolocation.getCurrentPosition(
       (pos) =>
         setGps({

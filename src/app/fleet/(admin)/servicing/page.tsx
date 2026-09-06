@@ -28,5 +28,6 @@ export default async function ServicingPage() {
     supabase.from("vehicles").select("id, plate, make, model").order("plate"),
   ]);
 
- const formattedRecords = (records ?? []).map((r: any) => ({ ...r, vehicle: Array.isArray(r.vehicle) ? r.vehicle[0] ?? null : r.vehicle, })); return <ServicingClient initialRecords={formattedRecords} vehicles={vehicles ?? []} />;
+ // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const formattedRecords = (records ?? []).map((r: any) => ({ ...r, vehicle: Array.isArray(r.vehicle) ? r.vehicle[0] ?? null : r.vehicle, })); return <ServicingClient initialRecords={formattedRecords} vehicles={vehicles ?? []} />;
 }
