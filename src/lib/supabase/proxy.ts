@@ -36,9 +36,10 @@ export async function updateSession(request: NextRequest) {
   if (isPublicAsset) return response;
 
   if (!user && !isAuthRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/sign-in";
-    return NextResponse.redirect(url);
+    
+const url = request.nextUrl.clone();
+url.pathname = "/sign-in";
+return NextResponse.redirect(url);
   }
 
   if (user && isAuthRoute) {
@@ -50,9 +51,12 @@ export async function updateSession(request: NextRequest) {
 
     const isAdminOrSupervisor = profile?.role === "admin" || profile?.role === "supervisor";
 
-    const url = request.nextUrl.clone();
-    url.pathname = isAdminOrSupervisor ? "/hub" : "/fleet/log";
-    return NextResponse.redirect(url);
+   if (!isAdminOrSupervisor) {
+return NextResponse.redirect("https://platinum-painters-timesheets.vercel.app");
+}
+const url = request.nextUrl.clone();
+url.pathname = "/hub";
+return NextResponse.redirect(url);
   }
 
   if (user) {
