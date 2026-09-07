@@ -68,14 +68,11 @@ return NextResponse.redirect(url);
 
     const isAdminOrSupervisor = profile?.role === "admin" || profile?.role === "supervisor";
 
-    // Drivers (and any other non-admin/supervisor role) are confined to
-    // the fuel/mileage entry route — that's the whole point of the
-    // restriction, enforced server-side here as well as by RLS, not just
-    // hidden in the UI.
-    if (!isAdminOrSupervisor && !path.startsWith("/fleet/log")) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/fleet/log";
-      return NextResponse.redirect(url);
+    // Drivers (and any other non-admin/supervisor role) don't belong in
+    // this app at all — send them to Timesheets, same as the sign-in
+    // redirect, rather than confining them to a route inside the Hub.
+    if (!isAdminOrSupervisor) {
+      return NextResponse.redirect("https://platinum-painters-timesheets.vercel.app");
     }
   }
 
