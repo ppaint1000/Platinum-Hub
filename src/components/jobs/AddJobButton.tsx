@@ -4,42 +4,26 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Panel } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
-import { updateJobCoreDetailsAction } from "@/app/jobs/actions";
+import { createJobAction } from "@/app/jobs/actions";
 
 type ClientOption = { id: string; name: string };
 type LeadOption = { id: string; name: string };
 
-export function EditJobDetailsButton({
-  jobId,
-  initial,
+export function AddJobButton({
   clients,
   leadOptions,
 }: {
-  jobId: string;
-  initial: {
-    name: string;
-    description: string | null;
-    clientId: string | null;
-    quotedSellTotal: number | null;
-    quotedHours: number | null;
-    leadBy: string | null;
-    leadByUserId: string | null;
-  };
   clients: ClientOption[];
   leadOptions: LeadOption[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState(initial.name);
-  const [description, setDescription] = useState(initial.description ?? "");
-  const [clientId, setClientId] = useState(initial.clientId ?? "");
-  const [quotedSellTotal, setQuotedSellTotal] = useState(
-    initial.quotedSellTotal != null ? String(initial.quotedSellTotal) : ""
-  );
-  const [quotedHours, setQuotedHours] = useState(
-    initial.quotedHours != null ? String(initial.quotedHours) : ""
-  );
-  const [leadByUserId, setLeadByUserId] = useState(initial.leadByUserId ?? "");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [quotedSellTotal, setQuotedSellTotal] = useState("");
+  const [quotedHours, setQuotedHours] = useState("");
+  const [leadByUserId, setLeadByUserId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,34 +32,41 @@ export function EditJobDetailsButton({
     setSaving(true);
     setError(null);
 
-    const result = await updateJobCoreDetailsAction(jobId, {
+    const result = await createJobAction({
       name,
       description,
-      clientId: clientId || null,
+      clientId,
       quotedSellTotal: quotedSellTotal === "" ? null : Number(quotedSellTotal),
       quotedHours: quotedHours === "" ? null : Number(quotedHours),
       leadByUserId: leadByUserId || null,
     });
 
-    setSaving(false);
     if (result.error) {
+      setSaving(false);
       setError(result.error);
       return;
     }
-    setOpen(false);
-    router.refresh();
+    // Land straight on the new job — that's where budget lines get added.
+    router.push(`/jobs/${result.jobId}`);
   }
 
   if (!open) {
     return (
       <Button variant="secondary" onClick={() => setOpen(true)}>
-        Edit details
+        New job
       </Button>
     );
   }
 
   return (
     <Panel className="mb-6 p-4">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">
+        Add a job assessed by hand
+      </h2>
+      <p className="mb-4 text-sm text-ink-soft">
+        For a job you&apos;ve priced yourself rather than one that came through a Measures quote.
+        It starts as &ldquo;Quoted&rdquo; — add budget lines once it&apos;s created.
+      </p>
       <form onSubmit={save} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-ink-soft">Job name</span>
@@ -89,29 +80,33 @@ export function EditJobDetailsButton({
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-ink-soft">Description</span>
-          <textarea
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="rounded border border-line px-2 py-1.5"
-          />
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="text-ink-soft">Client</span>
           <select
+            required
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             className="rounded border border-line px-2 py-1.5"
           >
-            <option value="">No client</option>
+            <option value="" disabled>
+              Choose a client…
+            </option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
           </select>
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          <span className="text-ink-soft">Description</span>
+          <textarea
+            required
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="rounded border border-line px-2 py-1.5"
+          />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
@@ -137,12 +132,7 @@ export function EditJobDetailsButton({
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-ink-soft">
-            Lead by
-            {initial.leadBy && !initial.leadByUserId && (
-              <span className="text-ink-faint"> (was &ldquo;{initial.leadBy}&rdquo; — pick who that is)</span>
-            )}
-          </span>
+          <span className="text-ink-soft">Lead by</span>
           <select
             value={leadByUserId}
             onChange={(e) => setLeadByUserId(e.target.value)}
@@ -165,7 +155,7 @@ export function EditJobDetailsButton({
 
         <div className="flex gap-2 sm:col-span-2">
           <Button type="submit" disabled={saving}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Creating…" : "Create job"}
           </Button>
           <Button
             variant="secondary"

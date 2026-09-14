@@ -3,10 +3,56 @@
 import { revalidatePath } from "next/cache";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 
+// Lets someone add a job straight into the pipeline without it coming
+// through a Measures quote — e.g. a job assessed on-site and priced by
+// hand. Starts life as "quoted" (skipping "draft") since by the time
+// someone's filling this in, they've already assessed it and are ready to
+// treat it as a live quote; source_quote_id stays null, which is fine —
+// job_number is only ever assigned when a job is marked won, regardless of
+// where it came from.
+export async function createJobAction(input: {
+  name: string;
+  description: string;
+  clientId: string;
+  quotedSellTotal: number | null;
+  quotedHours: number | null;
+  leadByUserId: string | null;
+}) {
+  const supabase = await requireAppAccess("jobs");
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!input.name.trim()) return { error: "Job name is required." };
+  if (!input.description.trim()) return { error: "Description is required." };
+  if (!input.clientId) return { error: "Choose a client." };
+
+  const { data, error } = await supabase
+    .from("jobs")
+    .insert({
+      name: input.name.trim(),
+      description: input.description.trim(),
+      client_id: input.clientId,
+      status: "quoted",
+      quoted_sell_total: input.quotedSellTotal,
+      quoted_hours: input.quotedHours,
+      lead_by_user_id: input.leadByUserId,
+      created_by: user?.id ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/jobs");
+  return { jobId: data.id as string };
+}
+
 export async function updateJobCoreDetailsAction(
   jobId: string,
   input: {
     name: string;
+    description: string;
     clientId: string | null;
     quotedSellTotal: number | null;
     quotedHours: number | null;
@@ -21,6 +67,7 @@ export async function updateJobCoreDetailsAction(
     .from("jobs")
     .update({
       name: input.name.trim(),
+      description: input.description.trim() || null,
       client_id: input.clientId,
       quoted_sell_total: input.quotedSellTotal,
       quoted_hours: input.quotedHours,

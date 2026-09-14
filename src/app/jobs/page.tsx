@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { Panel, SummaryStat } from "@/components/ui";
 import { JobsList, type JobListRow } from "@/components/jobs/JobsList";
+import { AddJobButton } from "@/components/jobs/AddJobButton";
 
 type JobStatus = "draft" | "quoted" | "won" | "in_progress" | "complete" | "lost";
 
@@ -36,19 +37,31 @@ function money(n: number) {
 export default async function JobsPage() {
   const supabase = await requireAppAccess("jobs");
 
-  const [{ data: jobs }, { data: totals }] = await Promise.all([
-    supabase
-      .from("jobs")
-      .select(
-        "id, job_number, name, status, quoted_sell_total, quoted_hours, client:clients(name)"
-      )
-      .order("created_at", { ascending: false })
-      .returns<JobRow[]>(),
-    supabase
-      .from("job_totals")
-      .select("job_id, actual_total, hours_actual")
-      .returns<TotalsRow[]>(),
-  ]);
+  const [{ data: jobs }, { data: totals }, { data: clients }, { data: leadUsers }] =
+    await Promise.all([
+      supabase
+        .from("jobs")
+        .select(
+          "id, job_number, name, status, quoted_sell_total, quoted_hours, client:clients(name)"
+        )
+        .order("created_at", { ascending: false })
+        .returns<JobRow[]>(),
+      supabase
+        .from("job_totals")
+        .select("job_id, actual_total, hours_actual")
+        .returns<TotalsRow[]>(),
+      supabase
+        .from("clients")
+        .select("id, name")
+        .order("name")
+        .returns<{ id: string; name: string }[]>(),
+      supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("role", ["admin", "sales"])
+        .order("full_name")
+        .returns<{ id: string; full_name: string }[]>(),
+    ]);
 
   const rows = jobs ?? [];
   const totalsByJob = new Map((totals ?? []).map((t) => [t.job_id, t]));
@@ -102,7 +115,13 @@ export default async function JobsPage() {
         </div>
       </div>
 
-      <h1 className="mb-6 text-3xl font-bold text-ink">Jobs</h1>
+      <h1 className="mb-2 text-3xl font-bold text-ink">Jobs</h1>
+      <div className="mb-6">
+        <AddJobButton
+          clients={clients ?? []}
+          leadOptions={(leadUsers ?? []).map((u) => ({ id: u.id, name: u.full_name }))}
+        />
+      </div>
 
       <div className="mb-8 flex border-b border-line pb-6">
         <SummaryStat label="Quoted, awaiting decision" value={String(counts.quoted)} />
@@ -114,7 +133,7 @@ export default async function JobsPage() {
       {rows.length === 0 ? (
         <Panel className="p-6 text-center text-ink-soft">
           No jobs yet. Jobs appear here once a quote is created in Platinum
-          Quotes.
+          Quotes, or add one by hand above.
         </Panel>
       ) : (
         <JobsList jobs={jobListRows} />

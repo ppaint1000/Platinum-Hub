@@ -20,11 +20,13 @@ import {
   type AwaitingInvoiceOrderRow,
 } from "@/components/jobs/ReseneInvoiceCostsSection";
 import { CostLinesSection, type CostLineRow } from "@/components/jobs/CostLinesSection";
+import { BudgetLinesSection, type BudgetLineRow } from "@/components/jobs/BudgetLinesSection";
 
 type JobRow = {
   id: string;
   job_number: string | null;
   name: string;
+  description: string | null;
   status: "draft" | "quoted" | "won" | "in_progress" | "complete" | "lost";
   quoted_sell_total: number | null;
   quoted_hours: number | null;
@@ -60,6 +62,14 @@ type ActualCostRow = {
   category: { label: string } | null;
 };
 
+type BudgetLineDbRow = {
+  id: string;
+  category_id: string;
+  description: string | null;
+  budgeted_amount: number;
+  category: { label: string } | null;
+};
+
 function fmtMoney(n: number) {
   return new Intl.NumberFormat("en-NZ", {
     style: "currency",
@@ -79,7 +89,7 @@ export default async function JobDetailPage({
   const { data: job } = await supabase
     .from("jobs")
     .select(
-      "id, job_number, name, status, quoted_sell_total, quoted_hours, lead_by, lead_by_user_id, won_at, lost_at, lost_to, client_id, client:clients(name)"
+      "id, job_number, name, description, status, quoted_sell_total, quoted_hours, lead_by, lead_by_user_id, won_at, lost_at, lost_to, client_id, client:clients(name)"
     )
     .eq("id", id)
     .single<JobRow>();
@@ -94,6 +104,7 @@ export default async function JobDetailPage({
     { data: invoiceLines },
     { data: reseneOrders },
     { data: actualCosts },
+    { data: budgetLinesData },
   ] = await Promise.all([
     supabase
       .from("job_budget_vs_actual")
@@ -138,6 +149,11 @@ export default async function JobDetailPage({
       .eq("job_id", id)
       .order("incurred_at", { ascending: false })
       .returns<ActualCostRow[]>(),
+    supabase
+      .from("job_budget_lines")
+      .select("id, category_id, description, budgeted_amount, category:job_categories(label)")
+      .eq("job_id", id)
+      .returns<BudgetLineDbRow[]>(),
   ]);
 
   // "Awaiting invoice" = a Resene order on this job whose project_number
@@ -173,6 +189,14 @@ export default async function JobDetailPage({
     invoiceNumber: c.resene_invoice_line_id
       ? invoiceNumberByLineId.get(c.resene_invoice_line_id) ?? null
       : null,
+  }));
+
+  const budgetLines: BudgetLineRow[] = (budgetLinesData ?? []).map((b) => ({
+    id: b.id,
+    categoryId: b.category_id,
+    categoryLabel: b.category?.label ?? "—",
+    description: b.description ?? "",
+    amount: Number(b.budgeted_amount),
   }));
 
   const totals = rows.reduce(
@@ -215,6 +239,9 @@ export default async function JobDetailPage({
           <p className="mt-1 text-sm text-ink-soft">
             {job.client?.name ?? "No client set"}
           </p>
+          {job.description && (
+            <p className="mt-2 max-w-xl text-sm text-ink-soft">{job.description}</p>
+          )}
           {job.status === "lost" && (
             <p className="mt-1 text-sm text-ink-soft">
               Lost to {job.lost_to ?? "—"}
@@ -228,6 +255,7 @@ export default async function JobDetailPage({
             jobId={job.id}
             initial={{
               name: job.name,
+              description: job.description,
               clientId: job.client_id,
               quotedSellTotal: job.quoted_sell_total,
               quotedHours: job.quoted_hours,
@@ -279,6 +307,8 @@ export default async function JobDetailPage({
           value={job.quoted_hours != null ? `${hoursActual.toFixed(0)} / ${job.quoted_hours.toFixed(0)}` : hoursActual.toFixed(0)}
         />
       </div>
+
+      <BudgetLinesSection jobId={job.id} lines={budgetLines} categories={categoryOptions} />
 
       <ReseneInvoiceCostsSection
         jobId={job.id}
