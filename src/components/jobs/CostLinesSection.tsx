@@ -54,6 +54,7 @@ function CostLineItem({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [categoryId, setCategoryId] = useState(line.categoryId);
   const [description, setDescription] = useState(line.description);
   const [amount, setAmount] = useState(String(line.amount));
@@ -81,14 +82,12 @@ function CostLineItem({
   }
 
   async function remove() {
-    if (!confirm(`Delete "${line.description}" (${line.categoryLabel})? This can't be undone.`)) {
-      return;
-    }
     setSaving(true);
     setError(null);
 
     const result = await deleteActualCostAction(line.id, jobId);
     setSaving(false);
+    setConfirmingDelete(false);
     if (result.error) {
       setError(result.error);
       return;
@@ -149,7 +148,8 @@ function CostLineItem({
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 py-1.5 text-sm">
+    <div className="py-1.5">
+      <div className="flex items-center justify-between gap-4 text-sm">
       <div className="min-w-0">
         <span className="text-ink-soft">{line.description}</span>
         <span className="text-ink-faint">
@@ -160,23 +160,53 @@ function CostLineItem({
       </div>
       <div className="flex shrink-0 items-center gap-3">
         <Money value={line.amount} />
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="text-ink-faint underline hover:text-ink"
-        >
-          Edit
-        </button>
-        <button
-          type="button"
-          onClick={remove}
-          disabled={saving}
-          className="underline disabled:opacity-50"
-          style={{ color: overBudgetColor }}
-        >
-          Delete
-        </button>
+        {confirmingDelete ? (
+          <>
+            <span className="text-ink-faint">Delete this line?</span>
+            <button
+              type="button"
+              onClick={remove}
+              disabled={saving}
+              className="font-medium underline disabled:opacity-50"
+              style={{ color: overBudgetColor }}
+            >
+              {saving ? "Deleting…" : "Confirm"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(false)}
+              disabled={saving}
+              className="text-ink-faint underline hover:text-ink disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="text-ink-faint underline hover:text-ink"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="underline"
+              style={{ color: overBudgetColor }}
+            >
+              Delete
+            </button>
+          </>
+        )}
       </div>
+      </div>
+      {error && (
+        <p className="mt-1 text-sm" style={{ color: overBudgetColor }}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }
