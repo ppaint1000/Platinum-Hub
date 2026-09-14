@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -24,6 +24,7 @@ type ExistingOrder = {
   supplier: string;
   project: string;
   project_number: string | null;
+  job_id: string | null;
   order_date: string;
   updated_at: string | null;
   items: {
@@ -36,6 +37,8 @@ type ExistingOrder = {
     unit_price: number;
   }[];
 };
+
+type JobOption = { id: string; name: string; job_number: string | null };
 
 function emptyLine(): LineItem {
   return {
@@ -66,7 +69,10 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
   const canDelete = role === "admin";
   const [supplier, setSupplier] = useState(existing?.supplier ?? "");
   const [project, setProject] = useState(existing?.project ?? "");
+  const [jobId, setJobId] = useState(existing?.job_id ?? "");
+  const [jobOptions, setJobOptions] = useState<JobOption[]>([]);
   const orderDate = existing?.order_date ?? todayISO();
+  const existingItemIds = useRef(new Set((existing?.items ?? []).map((i) => i.id))).current;
   const [items, setItems] = useState<LineItem[]>(
     existing && existing.items.length > 0
       ? existing.items.map((i) => ({
@@ -114,6 +120,15 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
           (a, b) => counts.get(b)! - counts.get(a)! || a.localeCompare(b)
         );
         setSupplierOptions(byUsage);
+      });
+
+    supabase
+      .from("jobs")
+      .select("id, name, job_number")
+      .in("status", ["won", "in_progress"])
+      .order("won_at", { ascending: false })
+      .then(({ data }) => {
+        setJobOptions(data ?? []);
       });
 
     Promise.all([
@@ -221,15 +236,16 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
     setError(null);
     const supabase = createClient();
 
-    let orderId = existing?.id ?? null;
+    let orderId: string | null = existing?.id ?? null;
+    const orderPayload = {
+      supplier: supplier.trim(),
+      project: project.trim(),
+      job_id: jobId || null,
+    };
     if (orderId) {
       const { error } = await supabase
         .from("orders")
-        .update({
-          supplier: supplier.trim(),
-          project: project.trim(),
-          updated_at: new Date().toISOString(),
-        })
+        .update({ ...orderPayload, updated_at: new Date().toISOString() })
         .eq("id", orderId);
       if (error) {
         setSaving(false);
@@ -238,10 +254,7 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
     } else {
       const { data, error } = await supabase
         .from("orders")
-        .insert({
-          supplier: supplier.trim(),
-          project: project.trim(),
-        })
+        .insert(orderPayload)
         .select("id")
         .single();
       if (error || !data) {
@@ -250,23 +263,55 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
       }
       orderId = data.id;
     }
+    if (!orderId) {
+      setSaving(false);
+      return setError("Couldn't save — no order id.");
+    }
 
-    await supabase.from("order_items").delete().eq("order_id", orderId);
-    const rows = validItems.map((it, i) => ({
-      order_id: orderId,
-      is_paint: it.isPaint,
-      description: it.description.trim(),
-      colour: it.isPaint ? it.colour.trim() || null : null,
-      size: it.isPaint ? it.size.trim() || null : null,
-      quantity: Number(it.quantity) || 0,
-      unit_price: Number(it.unit_price) || 0,
-      sort_order: i,
-    }));
-    const { error: itemsError } = await supabase.from("order_items").insert(rows);
+    // Update/insert/delete rather than delete-all-and-reinsert, so an order
+    // item keeps the same id across edits instead of unnecessary churn.
+    const currentKeys = new Set(validItems.map((it) => it.key));
+    const toDelete = [...existingItemIds].filter((id) => !currentKeys.has(id));
+    if (toDelete.length) {
+      await supabase.from("order_items").delete().in("id", toDelete);
+    }
+
+    for (const [i, it] of validItems.entries()) {
+      const payload = {
+        order_id: orderId,
+        is_paint: it.isPaint,
+        description: it.description.trim(),
+        colour: it.isPaint ? it.colour.trim() || null : null,
+        size: it.isPaint ? it.size.trim() || null : null,
+        quantity: Number(it.quantity) || 0,
+        unit_price: Number(it.unit_price) || 0,
+        sort_order: i,
+      };
+
+      if (existingItemIds.has(it.key)) {
+        const { error: itemsError } = await supabase
+          .from("order_items")
+          .update(payload)
+          .eq("id", it.key);
+        if (itemsError) {
+          setSaving(false);
+          return setError("Couldn't save line items — " + itemsError.message);
+        }
+      } else {
+        const { data, error: itemsError } = await supabase
+          .from("order_items")
+          .insert(payload)
+          .select("id")
+          .single();
+        if (itemsError || !data) {
+          setSaving(false);
+          return setError("Couldn't save line items — " + (itemsError?.message ?? "unknown error"));
+        }
+        existingItemIds.add(data.id);
+      }
+    }
 
     setSaving(false);
-    if (itemsError) return setError("Couldn't save line items — " + itemsError.message);
-
     setSavedOrderId(orderId);
     setPostSaveStep("ask");
   }
@@ -360,6 +405,25 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
                 <option key={s} value={s} />
               ))}
             </datalist>
+          </Field>
+          <Field label="Job">
+            <select
+              className={inputClass}
+              value={jobId}
+              onChange={(e) => {
+                const id = e.target.value;
+                setJobId(id);
+                const job = jobOptions.find((j) => j.id === id);
+                if (job) setProject(job.name);
+              }}
+            >
+              <option value="">No job — free text project below</option>
+              {jobOptions.map((j) => (
+                <option key={j.id} value={j.id}>
+                  {j.job_number ? `${j.job_number} — ${j.name}` : j.name}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Project" required>
             <input

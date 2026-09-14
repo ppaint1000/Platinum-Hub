@@ -3,12 +3,15 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import { SignOutButton } from "@/components/SignOutButton";
+import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 
 export const metadata: Metadata = {
   title: "Platinum Painters Orders",
 };
 
-export default function OrdersLayout({ children }: { children: React.ReactNode }) {
+export default async function OrdersLayout({ children }: { children: React.ReactNode }) {
+  await requireAppAccess("orders");
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between border-b border-border bg-surface px-4 py-4 md:px-8">

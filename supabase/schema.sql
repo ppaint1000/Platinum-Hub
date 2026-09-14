@@ -60,14 +60,33 @@ drop policy if exists "fleet_hub_profiles_self_select" on public.profiles;
 create policy "fleet_hub_profiles_self_select" on public.profiles
   for select using (auth.uid() = id);
 
+-- Reads the caller's own role while bypassing RLS internally, instead of a
+-- correlated subquery on profiles directly (which re-triggers policy
+-- evaluation on profiles for every row it touches). Also (re)defined in
+-- sales_schema.sql - both are `create or replace`, so running either order
+-- is safe. See the comment on fleet_hub_profiles_admin_select_all below.
+create or replace function public.current_profile_role()
+returns text
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select role from public.profiles where id = auth.uid();
+$$;
+
 -- admins and supervisors can see every profile (needed for the Vehicles
--- driver-picker and the Drivers page). Safe self-referencing pattern: the
--- subquery can only ever see the caller's own row (via the policy above),
--- so this can't recurse — it just checks "is my own row's role admin/supervisor".
+-- driver-picker and the Drivers page). Reads the caller's own role via the
+-- SECURITY DEFINER helper above rather than a correlated subquery on
+-- profiles directly — a second self-referencing policy added later
+-- (profiles_sales_authority_select, in sales_schema.sql) combined with a
+-- subquery here put Postgres's RLS planner into genuine infinite
+-- recursion on every read of profiles, breaking sign-in across both the
+-- Hub and Timesheets (they share this database).
 drop policy if exists "fleet_hub_profiles_admin_select_all" on public.profiles;
 create policy "fleet_hub_profiles_admin_select_all" on public.profiles
   for select using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin', 'supervisor'))
+    public.current_profile_role() in ('admin', 'supervisor')
   );
 
 -- ── vehicles: any signed-in user can read (drivers need the picker list),

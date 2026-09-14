@@ -1,8 +1,32 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Clock, Truck, ClipboardList, ArrowUpRight } from "lucide-react";
+import {
+  Clock,
+  Truck,
+  ClipboardList,
+  ArrowUpRight,
+  Briefcase,
+  Users,
+  Ruler,
+  Contact,
+  TrendingUp,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/SignOutButton";
+
+type AppAccess = {
+  timesheets: boolean;
+  fleet: boolean;
+  orders: boolean;
+  jobs: boolean;
+  sales: boolean;
+};
+
+// Deployed as "platinum-quotes" on Vercel — the app itself was renamed to
+// Measures, but the Vercel project/URL wasn't. Override via
+// NEXT_PUBLIC_MEASURES_URL if that ever changes.
+const MEASURES_URL =
+  process.env.NEXT_PUBLIC_MEASURES_URL ?? "https://platinum-quotes.vercel.app";
 
 export default async function HubPage() {
   const supabase = await createClient();
@@ -10,13 +34,21 @@ export default async function HubPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user?.id ?? "")
-    .single();
+  const [{ data: profile }, { data: access }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("full_name, role")
+      .eq("id", user?.id ?? "")
+      .single(),
+    supabase
+      .from("user_app_access")
+      .select("timesheets, fleet, orders, jobs, sales")
+      .eq("user_id", user?.id ?? "")
+      .maybeSingle<AppAccess>(),
+  ]);
 
   const firstName = profile?.full_name?.split(" ")[0] ?? "there";
+  const isAdmin = profile?.role === "admin";
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
@@ -46,25 +78,72 @@ export default async function HubPage() {
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <AppTile
-          href="https://platinum-painters-timesheets.vercel.app"
-          external
-          icon={<Clock className="h-5 w-5" />}
-          title="Timesheets"
-          description="Staff clock in/out, leave, and schedules."
-        />
-        <AppTile
-          href="/fleet"
-          icon={<Truck className="h-5 w-5" />}
-          title="Fleet"
-          description="Vehicles, fuel, servicing, and WOF/rego."
-        />
-        <AppTile
-          href="/orders"
-          icon={<ClipboardList className="h-5 w-5" />}
-          title="Orders"
-          description="Supplier orders by project, with line items and totals."
-        />
+        {(isAdmin || access?.timesheets) && (
+          <AppTile
+            href="https://platinum-painters-timesheets.vercel.app"
+            external
+            icon={<Clock className="h-5 w-5" />}
+            title="Timesheets"
+            description="Staff clock in/out, leave, and schedules."
+          />
+        )}
+        {(isAdmin || access?.fleet) && (
+          <AppTile
+            href="/fleet"
+            icon={<Truck className="h-5 w-5" />}
+            title="Fleet"
+            description="Vehicles, fuel, servicing, and WOF/rego."
+          />
+        )}
+        {(isAdmin || access?.orders) && (
+          <AppTile
+            href="/orders"
+            icon={<ClipboardList className="h-5 w-5" />}
+            title="Orders"
+            description="Supplier orders by project, with line items and totals."
+          />
+        )}
+        {(isAdmin || access?.jobs) && (
+          <AppTile
+            href="/jobs"
+            icon={<Briefcase className="h-5 w-5" />}
+            title="Jobs"
+            description="Pipeline, budgets, and budget-vs-actual by job."
+          />
+        )}
+        {(isAdmin || access?.jobs) && (
+          <AppTile
+            href="/clients"
+            icon={<Contact className="h-5 w-5" />}
+            title="Clients"
+            description="Customer and contact details behind every job."
+          />
+        )}
+        {(isAdmin || access?.sales) && (
+          <AppTile
+            href="/sales"
+            icon={<TrendingUp className="h-5 w-5" />}
+            title="Sales"
+            description="Quoted and won $ by salesperson, against a monthly budget."
+          />
+        )}
+        {isAdmin && (
+          <AppTile
+            href={MEASURES_URL}
+            external
+            icon={<Ruler className="h-5 w-5" />}
+            title="Measures"
+            description="Costing, site measures, and quotes."
+          />
+        )}
+        {isAdmin && (
+          <AppTile
+            href="/users"
+            icon={<Users className="h-5 w-5" />}
+            title="Users"
+            description="Add, deactivate, or delete staff and set app access."
+          />
+        )}
       </div>
     </main>
   );

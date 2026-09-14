@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { SignOutButton } from "@/components/SignOutButton";
 import { NavLink } from "@/components/fleet/NavLink";
+import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 
 const NAV = [
   { href: "/fleet", label: "Dashboard", icon: LayoutDashboard },
@@ -21,11 +22,13 @@ const NAV = [
   { href: "/fleet/drivers", label: "Drivers", icon: Users },
 ];
 
-export default function FleetAdminLayout({
+export default async function FleetAdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requireAppAccess("fleet");
+
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <nav className="flex flex-col gap-1 border-b border-border bg-surface px-3 py-4 md:w-56 md:flex-none md:border-b-0 md:border-r md:px-3 md:py-5">

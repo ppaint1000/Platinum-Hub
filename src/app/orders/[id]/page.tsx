@@ -16,6 +16,7 @@ type OrderRow = {
   supplier: string;
   project: string;
   project_number: string | null;
+  job_id: string | null;
   order_date: string;
   updated_at: string | null;
   order_items: ItemRow[];
@@ -32,7 +33,7 @@ export default async function EditOrderPage({
   const { data: order } = await supabase
     .from("orders")
     .select(
-      "id, supplier, project, project_number, order_date, updated_at, order_items(id, is_paint, description, colour, size, quantity, unit_price)"
+      "id, supplier, project, project_number, job_id, order_date, updated_at, order_items(id, is_paint, description, colour, size, quantity, unit_price)"
     )
     .eq("id", id)
     .order("sort_order", { referencedTable: "order_items" })
@@ -47,6 +48,7 @@ export default async function EditOrderPage({
         supplier: order.supplier,
         project: order.project,
         project_number: order.project_number,
+        job_id: order.job_id,
         order_date: order.order_date,
         updated_at: order.updated_at,
         items: order.order_items,
