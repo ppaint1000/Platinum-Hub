@@ -80,8 +80,7 @@ export default async function HubPage() {
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {(isAdmin || access?.timesheets) && (
           <AppTile
-            href="https://platinum-painters-timesheets.vercel.app"
-            external
+            href="/timesheets"
             icon={<Clock className="h-5 w-5" />}
             title="Timesheets"
             description="Staff clock in/out, leave, and schedules."

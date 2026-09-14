@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export type AppKey = "fleet" | "orders" | "jobs" | "sales";
+export type AppKey = "fleet" | "orders" | "jobs" | "sales" | "timesheets";
 
 /** Gates a page to users with access to `app` (admins always pass), redirecting everyone else to the Hub. */
 export async function requireAppAccess(app: AppKey) {

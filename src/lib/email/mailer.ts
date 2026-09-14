@@ -5,11 +5,14 @@ export type SendEmailOptions = {
   subject: string;
   text: string;
   html?: string;
+  attachments?: { filename: string; content: Buffer }[];
+  /** Overrides the "from" display name for this send — defaults to the Orders app's name. */
+  fromName?: string;
 };
 
 export type SendEmailResult = { sent: true } | { sent: false; reason: string };
 
-const FROM_NAME = "Platinum Painters Order";
+const DEFAULT_FROM_NAME = "Platinum Painters Order";
 
 export async function sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
   const user = process.env.GMAIL_USER;
@@ -26,11 +29,12 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 
   try {
     await transporter.sendMail({
-      from: `${FROM_NAME} <${user}>`,
+      from: `${options.fromName ?? DEFAULT_FROM_NAME} <${user}>`,
       to: options.to,
       subject: options.subject,
       text: options.text,
       html: options.html,
+      attachments: options.attachments,
     });
     return { sent: true };
   } catch (err) {
