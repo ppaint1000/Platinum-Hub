@@ -86,9 +86,6 @@ export default async function JobsPage() {
           >
             Resene invoices
           </Link>
-          <Link href="/clients" className="text-sm font-medium text-accent hover:text-accent-hover">
-            Manage clients
-          </Link>
         </div>
       </div>
 

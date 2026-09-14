@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { Panel, LedgerTable, SummaryStat } from "@/components/ui";
+import { PrintButton } from "@/components/clients/PrintButton";
 
 type Period = "month" | "quarter" | "year";
 
@@ -111,7 +112,7 @@ export default async function ClientsReportPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl p-8">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between print:hidden">
         <Link
           href="/clients"
           className="flex items-center gap-1.5 text-sm font-medium text-ink-soft transition hover:text-ink"
@@ -119,24 +120,29 @@ export default async function ClientsReportPage({
           <ArrowLeft className="h-3.5 w-3.5" />
           Back to Clients
         </Link>
-        <div className="flex gap-1">
-          {(["month", "quarter", "year"] as Period[]).map((p) => (
-            <Link
-              key={p}
-              href={`/clients/report?period=${p}`}
-              className={`rounded px-3 py-1 text-sm font-medium capitalize ${
-                p === period
-                  ? "bg-accent text-white"
-                  : "text-ink-soft hover:bg-paper-sunken"
-              }`}
-            >
-              {p}
-            </Link>
-          ))}
+        <div className="flex items-center gap-3">
+          <div className="flex gap-1">
+            {(["month", "quarter", "year"] as Period[]).map((p) => (
+              <Link
+                key={p}
+                href={`/clients/report?period=${p}`}
+                className={`rounded px-3 py-1 text-sm font-medium capitalize ${
+                  p === period
+                    ? "bg-accent text-white"
+                    : "text-ink-soft hover:bg-paper-sunken"
+                }`}
+              >
+                {p}
+              </Link>
+            ))}
+          </div>
+          <PrintButton />
         </div>
       </div>
 
-      <h1 className="mb-6 text-3xl font-bold text-ink">Win rate</h1>
+      <h1 className="mb-6 text-3xl font-bold text-ink capitalize">
+        Win rate <span className="text-ink-soft font-normal">— {period}</span>
+      </h1>
 
       <div className="mb-8 flex border-b border-line pb-6">
         <SummaryStat label="Quoted" value={money(totals.quotedValue)} />
