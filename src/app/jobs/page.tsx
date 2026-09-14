@@ -4,8 +4,8 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
-import { Panel, StatusRow, StatusLabel, Money, SummaryStat } from "@/components/ui";
-import { jobStatusLabel } from "@/design/tailwind.tokens";
+import { Panel, SummaryStat } from "@/components/ui";
+import { JobsList, type JobListRow } from "@/components/jobs/JobsList";
 
 type JobStatus = "draft" | "quoted" | "won" | "in_progress" | "complete" | "lost";
 
@@ -24,8 +24,6 @@ type TotalsRow = {
   actual_total: number;
   hours_actual: number;
 };
-
-const STAGE_ORDER: JobStatus[] = ["quoted", "won", "in_progress", "complete", "lost", "draft"];
 
 function money(n: number) {
   return new Intl.NumberFormat("en-NZ", {
@@ -64,10 +62,25 @@ export default async function JobsPage() {
       .reduce((sum, j) => sum + (j.quoted_sell_total ?? 0), 0),
   };
 
-  const groups = STAGE_ORDER.map((status) => ({
-    status,
-    jobs: rows.filter((j) => j.status === status),
-  })).filter((g) => g.jobs.length > 0);
+  const jobListRows: JobListRow[] = rows.map((job) => {
+    const t = totalsByJob.get(job.id);
+    const quoted = job.quoted_sell_total ?? 0;
+    const actual = t?.actual_total ?? 0;
+    const profit = quoted > 0 ? quoted - actual : null;
+    const margin = quoted > 0 && profit != null ? profit / quoted : null;
+
+    return {
+      id: job.id,
+      jobNumber: job.job_number,
+      name: job.name,
+      status: job.status,
+      clientName: job.client?.name ?? null,
+      quotedSellTotal: job.quoted_sell_total,
+      quotedHours: job.quoted_hours,
+      hoursActual: t?.hours_actual ?? 0,
+      margin,
+    };
+  });
 
   return (
     <div className="mx-auto w-full max-w-5xl p-8">
@@ -98,63 +111,14 @@ export default async function JobsPage() {
         <SummaryStat label="Pipeline value" value={money(counts.pipelineValue)} />
       </div>
 
-      {rows.length === 0 && (
+      {rows.length === 0 ? (
         <Panel className="p-6 text-center text-ink-soft">
           No jobs yet. Jobs appear here once a quote is created in Platinum
           Quotes.
         </Panel>
+      ) : (
+        <JobsList jobs={jobListRows} />
       )}
-
-      <div className="space-y-8">
-        {groups.map((group) => (
-          <div key={group.status}>
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-faint">
-              {jobStatusLabel[group.status] ?? group.status} · {group.jobs.length}
-            </h2>
-            <div className="space-y-2">
-              {group.jobs.map((job) => {
-                const t = totalsByJob.get(job.id);
-                const quoted = job.quoted_sell_total ?? 0;
-                const actual = t?.actual_total ?? 0;
-                const profit = quoted > 0 ? quoted - actual : null;
-                const margin = quoted > 0 && profit != null ? profit / quoted : null;
-
-                return (
-                  <Link key={job.id} href={`/jobs/${job.id}`}>
-                    <StatusRow status={job.status}>
-                      <div className="flex items-center gap-4">
-                        <span className="w-24 font-mono text-sm text-ink-faint">
-                          {job.job_number ?? "—"}
-                        </span>
-                        <div>
-                          <div className="font-medium text-ink">{job.name}</div>
-                          <div className="text-sm text-ink-soft">
-                            {job.client?.name ?? "No client set"}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-6 text-sm">
-                        {job.quoted_hours != null && (
-                          <span className="text-ink-soft tabular-nums">
-                            {(t?.hours_actual ?? 0).toFixed(0)} / {job.quoted_hours.toFixed(0)} hrs
-                          </span>
-                        )}
-                        {margin != null && (
-                          <span className="tabular-nums text-ink-soft">
-                            {(margin * 100).toFixed(0)}% GP
-                          </span>
-                        )}
-                        {job.quoted_sell_total != null && <Money value={job.quoted_sell_total} />}
-                        <StatusLabel status={job.status} />
-                      </div>
-                    </StatusRow>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

@@ -19,6 +19,7 @@ import {
   type ReseneInvoiceLineRow,
   type AwaitingInvoiceOrderRow,
 } from "@/components/jobs/ReseneInvoiceCostsSection";
+import { CostLinesSection, type CostLineRow } from "@/components/jobs/CostLinesSection";
 
 type JobRow = {
   id: string;
@@ -47,6 +48,16 @@ type BudgetVsActualRow = {
 type TotalsRow = {
   actual_total: number;
   hours_actual: number;
+};
+
+type ActualCostRow = {
+  id: string;
+  category_id: string;
+  description: string | null;
+  amount: number;
+  incurred_at: string;
+  resene_invoice_line_id: string | null;
+  category: { label: string } | null;
 };
 
 function fmtMoney(n: number) {
@@ -82,6 +93,7 @@ export default async function JobDetailPage({
     { data: leadUsers },
     { data: invoiceLines },
     { data: reseneOrders },
+    { data: actualCosts },
   ] = await Promise.all([
     supabase
       .from("job_budget_vs_actual")
@@ -118,6 +130,14 @@ export default async function JobDetailPage({
       .eq("job_id", id)
       .ilike("supplier", "%resene%")
       .returns<AwaitingInvoiceOrderRow[]>(),
+    supabase
+      .from("job_actual_costs")
+      .select(
+        "id, category_id, description, amount, incurred_at, resene_invoice_line_id, category:job_categories(label)"
+      )
+      .eq("job_id", id)
+      .order("incurred_at", { ascending: false })
+      .returns<ActualCostRow[]>(),
   ]);
 
   // "Awaiting invoice" = a Resene order on this job whose project_number
@@ -139,6 +159,21 @@ export default async function JobDetailPage({
 
   const rows = budgetRows ?? [];
   const categoryOptions = rows.map((r) => ({ id: r.category_id, label: r.category_label }));
+
+  const invoiceNumberByLineId = new Map(
+    (invoiceLines ?? []).map((l) => [l.id, l.invoice?.invoice_number ?? null])
+  );
+  const costLines: CostLineRow[] = (actualCosts ?? []).map((c) => ({
+    id: c.id,
+    categoryId: c.category_id,
+    categoryLabel: c.category?.label ?? "—",
+    description: c.description ?? "",
+    amount: Number(c.amount),
+    incurredAt: c.incurred_at,
+    invoiceNumber: c.resene_invoice_line_id
+      ? invoiceNumberByLineId.get(c.resene_invoice_line_id) ?? null
+      : null,
+  }));
 
   const totals = rows.reduce(
     (acc, r) => ({
@@ -251,6 +286,8 @@ export default async function JobDetailPage({
         awaitingInvoice={awaitingInvoice}
         categories={categoryOptions}
       />
+
+      <CostLinesSection jobId={job.id} lines={costLines} categories={categoryOptions} />
 
       <Panel className="p-4">
         <LedgerTable headers={["Category", "Budgeted", "Actual", "Variance"]}>

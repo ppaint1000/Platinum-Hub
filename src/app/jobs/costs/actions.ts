@@ -100,3 +100,58 @@ export async function addManualActualCostAction(
   revalidatePath(`/jobs/${jobId}`);
   return {};
 }
+
+// Corrects a number/price on an existing actual cost line — whether it was
+// typed in manually or came from an approved Resene invoice line. Editing
+// here only touches the ledger copy; it doesn't rewrite the original
+// invoice line.
+export async function updateActualCostAction(
+  costId: string,
+  jobId: string,
+  input: { categoryId: string; description: string; amount: number }
+) {
+  const supabase = await requireAppAccess("jobs");
+
+  if (!input.categoryId) return { error: "Choose a category." };
+  if (!input.description.trim()) return { error: "Description is required." };
+
+  const { error } = await supabase
+    .from("job_actual_costs")
+    .update({
+      category_id: input.categoryId,
+      description: input.description.trim(),
+      amount: input.amount,
+    })
+    .eq("id", costId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/jobs/${jobId}`);
+  return {};
+}
+
+// Removing a cost line that came from an approved invoice line also flips
+// that invoice line back to pending, so it reappears for correction and
+// re-approval instead of silently vanishing from the invoice's history.
+export async function deleteActualCostAction(costId: string, jobId: string) {
+  const supabase = await requireAppAccess("jobs");
+
+  const { data: existing } = await supabase
+    .from("job_actual_costs")
+    .select("resene_invoice_line_id")
+    .eq("id", costId)
+    .maybeSingle();
+
+  const { error } = await supabase.from("job_actual_costs").delete().eq("id", costId);
+  if (error) return { error: error.message };
+
+  if (existing?.resene_invoice_line_id) {
+    await supabase
+      .from("resene_invoice_lines")
+      .update({ status: "pending", approved_at: null, approved_by: null })
+      .eq("id", existing.resene_invoice_line_id);
+  }
+
+  revalidatePath(`/jobs/${jobId}`);
+  return {};
+}

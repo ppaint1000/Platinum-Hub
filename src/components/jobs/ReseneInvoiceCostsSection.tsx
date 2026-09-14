@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Panel, Money, Button } from "@/components/ui";
+import { Panel, Button } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
 import {
   updateReseneInvoiceLineAction,
@@ -40,9 +40,8 @@ export function ReseneInvoiceCostsSection({
   categories: CategoryOption[];
 }) {
   const pending = lines.filter((l) => l.status === "pending");
-  const approved = lines.filter((l) => l.status === "approved");
 
-  if (lines.length === 0 && awaitingInvoice.length === 0) return null;
+  if (pending.length === 0 && awaitingInvoice.length === 0) return null;
 
   return (
     <Panel className="mb-8 p-4">
@@ -54,27 +53,6 @@ export function ReseneInvoiceCostsSection({
           <div className="mb-6 space-y-2">
             {pending.map((l) => (
               <PendingLineRow key={l.id} jobId={jobId} line={l} categories={categories} />
-            ))}
-          </div>
-        </>
-      )}
-
-      {approved.length > 0 && (
-        <>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">
-            Approved from invoices ({approved.length})
-          </h2>
-          <div className="mb-6 space-y-1">
-            {approved.map((l) => (
-              <div key={l.id} className="flex items-center justify-between py-1 text-sm">
-                <span className="text-ink-soft">
-                  {l.description}
-                  {l.invoice?.invoice_number && (
-                    <span className="text-ink-faint"> — invoice {l.invoice.invoice_number}</span>
-                  )}
-                </span>
-                <Money value={l.subtotal} />
-              </div>
             ))}
           </div>
         </>
