@@ -216,13 +216,13 @@ function UserRowItem({
           {user.is_active ? "Deactivate" : "Reactivate"}
         </button>
       </td>
-      <td className="py-2 pl-4 text-right">
+      <td className="py-2 pl-4 text-right whitespace-nowrap">
         <div className="flex justify-end gap-3">
           <button
             type="button"
             disabled={isPending}
             onClick={resetPassword}
-            className="text-sm font-medium text-accent hover:text-accent-hover"
+            className="text-sm font-medium whitespace-nowrap text-accent hover:text-accent-hover"
           >
             Reset password
           </button>
@@ -231,7 +231,7 @@ function UserRowItem({
             disabled={isPending}
             onClick={handleDeleteClick}
             style={{ color: overBudgetColor }}
-            className="text-sm font-medium hover:underline"
+            className="text-sm font-medium whitespace-nowrap hover:underline"
           >
             {confirmingDelete ? "Confirm delete" : "Delete"}
           </button>

@@ -16,6 +16,7 @@ export default async function UsersPage() {
       "id, full_name, email, role, is_active, user_app_access(timesheets, fleet, orders, jobs, sales, sales_authority, default_app)"
     )
     .is("deleted_at", null)
+    .order("is_active", { ascending: false })
     .order("full_name")
     .returns<UserRow[]>();
 
