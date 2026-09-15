@@ -5,22 +5,20 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
-import { Panel, StatusLabel, Money, SummaryStat, LedgerTable } from "@/components/ui";
+import { StatusLabel, Money, SummaryStat } from "@/components/ui";
 import { MarkAsWonButton } from "@/components/jobs/MarkAsWonButton";
 import { MarkAsLostButton } from "@/components/jobs/MarkAsLostButton";
 import { MarkAsInProgressButton } from "@/components/jobs/MarkAsInProgressButton";
 import { MarkAsCompleteButton } from "@/components/jobs/MarkAsCompleteButton";
 import { JobStatusControl } from "@/components/jobs/JobStatusControl";
 import { EditJobDetailsButton } from "@/components/jobs/EditJobDetailsButton";
-import { AddCategoryButton } from "@/components/jobs/AddCategoryButton";
-import { AddCostLineButton } from "@/components/jobs/AddCostLineButton";
 import {
   ReseneInvoiceCostsSection,
   type ReseneInvoiceLineRow,
   type AwaitingInvoiceOrderRow,
 } from "@/components/jobs/ReseneInvoiceCostsSection";
 import { CostLinesSection, type CostLineRow } from "@/components/jobs/CostLinesSection";
-import { BudgetLinesSection, type BudgetLineRow } from "@/components/jobs/BudgetLinesSection";
+import { JobBudgetTable, type CategoryBudgetRow } from "@/components/jobs/JobBudgetTable";
 
 type JobRow = {
   id: string;
@@ -62,14 +60,6 @@ type ActualCostRow = {
   category: { label: string } | null;
 };
 
-type BudgetLineDbRow = {
-  id: string;
-  category_id: string;
-  description: string | null;
-  budgeted_amount: number;
-  category: { label: string } | null;
-};
-
 function fmtMoney(n: number) {
   return new Intl.NumberFormat("en-NZ", {
     style: "currency",
@@ -104,7 +94,6 @@ export default async function JobDetailPage({
     { data: invoiceLines },
     { data: reseneOrders },
     { data: actualCosts },
-    { data: budgetLinesData },
   ] = await Promise.all([
     supabase
       .from("job_budget_vs_actual")
@@ -149,11 +138,6 @@ export default async function JobDetailPage({
       .eq("job_id", id)
       .order("incurred_at", { ascending: false })
       .returns<ActualCostRow[]>(),
-    supabase
-      .from("job_budget_lines")
-      .select("id, category_id, description, budgeted_amount, category:job_categories(label)")
-      .eq("job_id", id)
-      .returns<BudgetLineDbRow[]>(),
   ]);
 
   // "Awaiting invoice" = a Resene order on this job whose project_number
@@ -191,13 +175,16 @@ export default async function JobDetailPage({
       : null,
   }));
 
-  const budgetLines: BudgetLineRow[] = (budgetLinesData ?? []).map((b) => ({
-    id: b.id,
-    categoryId: b.category_id,
-    categoryLabel: b.category?.label ?? "—",
-    description: b.description ?? "",
-    amount: Number(b.budgeted_amount),
-  }));
+  const categoryBudgetRows: CategoryBudgetRow[] = rows
+    .filter((r) => Number(r.budgeted_amount) > 0 || Number(r.actual_amount) > 0)
+    .map((r) => ({
+      categoryId: r.category_id,
+      categoryLabel: r.category_label,
+      budgeted: Number(r.budgeted_amount),
+      actual: Number(r.actual_amount),
+      variance: Number(r.variance_amount),
+    }));
+  const categoryLabels = categoryOptions.map((c) => c.label);
 
   const totals = rows.reduce(
     (acc, r) => ({
@@ -308,7 +295,7 @@ export default async function JobDetailPage({
         />
       </div>
 
-      <BudgetLinesSection jobId={job.id} lines={budgetLines} categories={categoryOptions} />
+      <JobBudgetTable jobId={job.id} rows={categoryBudgetRows} categoryLabels={categoryLabels} />
 
       <ReseneInvoiceCostsSection
         jobId={job.id}
@@ -318,29 +305,6 @@ export default async function JobDetailPage({
       />
 
       <CostLinesSection jobId={job.id} lines={costLines} categories={categoryOptions} />
-
-      <Panel className="p-4">
-        <LedgerTable headers={["Category", "Budgeted", "Actual", "Variance"]}>
-          {rows.map((r) => (
-            <tr key={r.category_id}>
-              <td className="py-2 text-ink">{r.category_label}</td>
-              <td className="py-2 pl-4 text-right">
-                <Money value={Number(r.budgeted_amount)} />
-              </td>
-              <td className="py-2 pl-4 text-right">
-                <Money value={Number(r.actual_amount)} />
-              </td>
-              <td className="py-2 pl-4 text-right">
-                <Money value={Number(r.variance_amount)} variant="variance" />
-              </td>
-            </tr>
-          ))}
-        </LedgerTable>
-        <div className="mt-4 flex items-center gap-2 border-t border-line pt-4">
-          <AddCostLineButton jobId={job.id} categories={categoryOptions} />
-          <AddCategoryButton jobId={job.id} />
-        </div>
-      </Panel>
     </div>
   );
 }

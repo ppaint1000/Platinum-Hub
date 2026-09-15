@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Panel, Money, Button } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
 import { updateActualCostAction, deleteActualCostAction } from "@/app/jobs/costs/actions";
+import { AddCostLineButton } from "./AddCostLineButton";
 
 type CategoryOption = { id: string; label: string };
 
@@ -27,18 +28,21 @@ export function CostLinesSection({
   lines: CostLineRow[];
   categories: CategoryOption[];
 }) {
-  if (lines.length === 0) return null;
-
   return (
     <Panel className="mb-8 p-4">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">
         Actual cost lines ({lines.length})
       </h2>
-      <div className="space-y-1">
-        {lines.map((line) => (
-          <CostLineItem key={line.id} jobId={jobId} line={line} categories={categories} />
-        ))}
-      </div>
+      {lines.length === 0 ? (
+        <p className="mb-3 text-sm text-ink-soft">No actual costs recorded yet.</p>
+      ) : (
+        <div className="mb-3 space-y-1">
+          {lines.map((line) => (
+            <CostLineItem key={line.id} jobId={jobId} line={line} categories={categories} />
+          ))}
+        </div>
+      )}
+      <AddCostLineButton jobId={jobId} categories={categories} />
     </Panel>
   );
 }
