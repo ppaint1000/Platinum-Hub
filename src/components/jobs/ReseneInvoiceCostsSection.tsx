@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Panel, Button } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
@@ -40,6 +40,8 @@ export function ReseneInvoiceCostsSection({
   categories: CategoryOption[];
 }) {
   const pending = lines.filter((l) => l.status === "pending");
+  const datalistId = useId();
+  const categoryLabels = categories.map((c) => c.label);
 
   if (pending.length === 0 && awaitingInvoice.length === 0) return null;
 
@@ -52,9 +54,20 @@ export function ReseneInvoiceCostsSection({
           </h2>
           <div className="mb-6 space-y-2">
             {pending.map((l) => (
-              <PendingLineRow key={l.id} jobId={jobId} line={l} categories={categories} />
+              <PendingLineRow
+                key={l.id}
+                jobId={jobId}
+                line={l}
+                categories={categories}
+                datalistId={datalistId}
+              />
             ))}
           </div>
+          <datalist id={datalistId}>
+            {categoryLabels.map((label) => (
+              <option key={label} value={label} />
+            ))}
+          </datalist>
         </>
       )}
 
@@ -88,13 +101,16 @@ function PendingLineRow({
   jobId,
   line,
   categories,
+  datalistId,
 }: {
   jobId: string;
   line: ReseneInvoiceLineRow;
   categories: CategoryOption[];
+  datalistId: string;
 }) {
   const router = useRouter();
-  const [categoryId, setCategoryId] = useState(line.category_id ?? "");
+  const initialLabel = categories.find((c) => c.id === line.category_id)?.label ?? "";
+  const [categoryName, setCategoryName] = useState(initialLabel);
   const [description, setDescription] = useState(line.description);
   const [amount, setAmount] = useState(String(line.subtotal));
   const [saving, setSaving] = useState(false);
@@ -105,7 +121,7 @@ function PendingLineRow({
     setError(null);
 
     const saveResult = await updateReseneInvoiceLineAction(line.id, jobId, {
-      categoryId: categoryId || null,
+      categoryName,
       description,
       amount: Number(amount) || 0,
     });
@@ -130,18 +146,13 @@ function PendingLineRow({
         <span className="text-xs text-ink-faint">Invoice {line.invoice.invoice_number}</span>
       )}
       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_2fr_120px_auto]">
-        <select
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
+        <input
+          list={datalistId}
+          placeholder="Category — pick one or type a new one"
+          value={categoryName}
+          onChange={(e) => setCategoryName(e.target.value)}
           className="rounded border border-line px-2 py-1.5 text-sm"
-        >
-          <option value="">Choose category…</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label}
-            </option>
-          ))}
-        </select>
+        />
         <input
           value={description}
           onChange={(e) => setDescription(e.target.value)}

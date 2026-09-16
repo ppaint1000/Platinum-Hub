@@ -3,11 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { findOrCreateCategoryId } from "@/lib/jobs/findOrCreateCategory";
 
+// The category field here is free text, not a fixed picklist — pick an
+// existing category or type a new one (findOrCreateCategoryId creates it).
+// Whatever category gets set is also remembered against the invoice line's
+// Resene item code (resene_item_category_map), so the next invoice
+// carrying that same code defaults to it on upload — see
+// src/app/api/jobs/invoices/upload/route.ts, which already reads this map.
 export async function updateReseneInvoiceLineAction(
   lineId: string,
   jobId: string,
-  input: { categoryId: string | null; description: string; amount: number }
+  input: { categoryName: string; description: string; amount: number }
 ) {
   const supabase = await requireAppAccess("jobs");
 
@@ -15,7 +22,7 @@ export async function updateReseneInvoiceLineAction(
 
   const { data: existing } = await supabase
     .from("resene_invoice_lines")
-    .select("status")
+    .select("status, item_code")
     .eq("id", lineId)
     .single();
 
@@ -23,16 +30,32 @@ export async function updateReseneInvoiceLineAction(
     return { error: "Already approved — edit the actual cost line directly instead." };
   }
 
+  let categoryId: string | null = null;
+  if (input.categoryName.trim()) {
+    const category = await findOrCreateCategoryId(supabase, input.categoryName);
+    if ("error" in category) return { error: category.error };
+    categoryId = category.id;
+  }
+
   const { error } = await supabase
     .from("resene_invoice_lines")
     .update({
-      category_id: input.categoryId,
+      category_id: categoryId,
       description: input.description.trim(),
       subtotal: input.amount,
     })
     .eq("id", lineId);
 
   if (error) return { error: error.message };
+
+  if (categoryId && existing?.item_code) {
+    await supabase
+      .from("resene_item_category_map")
+      .upsert(
+        { item_code: existing.item_code, category_id: categoryId },
+        { onConflict: "item_code" }
+      );
+  }
 
   revalidatePath(`/jobs/${jobId}`);
   return {};
