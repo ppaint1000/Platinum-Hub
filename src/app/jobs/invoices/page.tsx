@@ -29,21 +29,65 @@ function fmtMoney(n: number) {
 export default async function ReseneInvoicesPage() {
   const supabase = await requireAppAccess("jobs");
 
-  const [{ data: invoices }, { data: jobs }] = await Promise.all([
-    supabase
-      .from("resene_invoices")
-      .select(
-        "id, invoice_number, customer_po_number, invoice_date, total, job:jobs(id, name, job_number)"
-      )
-      .order("created_at", { ascending: false })
-      .limit(50)
-      .returns<InvoiceRow[]>(),
-    supabase
-      .from("jobs")
-      .select("id, name, job_number")
-      .order("name")
-      .returns<{ id: string; name: string; job_number: string | null }[]>(),
-  ]);
+  const [{ data: invoices }, { data: jobs }, { data: orders }, { data: sites }, { data: entries }] =
+    await Promise.all([
+      supabase
+        .from("resene_invoices")
+        .select(
+          "id, invoice_number, customer_po_number, invoice_date, total, job:jobs(id, name, job_number)"
+        )
+        .order("created_at", { ascending: false })
+        .limit(50)
+        .returns<InvoiceRow[]>(),
+      supabase
+        .from("jobs")
+        .select("id, name, job_number")
+        .returns<{ id: string; name: string; job_number: string | null }[]>(),
+      // Which job an order belongs to, and when — one of the two "latest
+      // activity" signals below.
+      supabase
+        .from("orders")
+        .select("job_id, order_date")
+        .not("job_id", "is", null)
+        .returns<{ job_id: string; order_date: string }[]>(),
+      // Timesheets don't link to a job directly — staff clock in at a
+      // site, and a site belongs to a job — so this is the join needed to
+      // trace clock-ins back to a job.
+      supabase
+        .from("sites")
+        .select("id, job_id")
+        .not("job_id", "is", null)
+        .returns<{ id: string; job_id: string }[]>(),
+      supabase
+        .from("timesheet_entries")
+        .select("site_id, clock_in_at")
+        .order("clock_in_at", { ascending: false })
+        .limit(2000)
+        .returns<{ site_id: string; clock_in_at: string }[]>(),
+    ]);
+
+  // Latest activity per job, combining whichever of Orders/Timesheets is
+  // more recent — used only to sort the "needs a job" picker below so the
+  // jobs actually being worked on right now float to the top instead of
+  // scrolling through every job alphabetically.
+  const siteJob = new Map((sites ?? []).map((s) => [s.id, s.job_id]));
+  const latestActivity = new Map<string, string>();
+  function bumpLatest(jobId: string | null | undefined, when: string | null | undefined) {
+    if (!jobId || !when) return;
+    const current = latestActivity.get(jobId);
+    if (!current || when > current) latestActivity.set(jobId, when);
+  }
+  for (const o of orders ?? []) bumpLatest(o.job_id, o.order_date);
+  for (const e of entries ?? []) bumpLatest(siteJob.get(e.site_id), e.clock_in_at);
+
+  const jobsForPicker = [...(jobs ?? [])].sort((a, b) => {
+    const la = latestActivity.get(a.id);
+    const lb = latestActivity.get(b.id);
+    if (la && lb) return lb.localeCompare(la);
+    if (la) return -1;
+    if (lb) return 1;
+    return a.name.localeCompare(b.name);
+  });
 
   const rows = invoices ?? [];
   const unmatched = rows.filter((r) => !r.job);
@@ -75,7 +119,7 @@ export default async function ReseneInvoicesPage() {
                 invoiceId={inv.id}
                 invoiceNumber={inv.invoice_number}
                 customerPoNumber={inv.customer_po_number}
-                jobs={jobs ?? []}
+                jobs={jobsForPicker}
               />
             ))}
           </div>

@@ -14,6 +14,7 @@ export type JobListRow = {
   name: string;
   status: JobStatus;
   clientName: string | null;
+  leadName: string | null;
   quotedSellTotal: number | null;
   quotedHours: number | null;
   hoursActual: number;
@@ -32,18 +33,85 @@ function matches(job: JobListRow, query: string) {
   );
 }
 
+type View = "stage" | "salesperson";
+
+function JobRowItem({ job }: { job: JobListRow }) {
+  return (
+    <Link href={`/jobs/${job.id}`}>
+      <StatusRow status={job.status}>
+        <div className="flex items-center gap-4">
+          <span className="w-24 font-mono text-sm text-ink-faint">{job.jobNumber ?? "—"}</span>
+          <div>
+            <div className="font-medium text-ink">{job.name}</div>
+            <div className="text-sm text-ink-soft">{job.clientName ?? "No client set"}</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-6 text-sm">
+          {job.quotedHours != null && (
+            <span className="text-ink-soft tabular-nums">
+              {job.hoursActual.toFixed(0)} / {job.quotedHours.toFixed(0)} hrs
+            </span>
+          )}
+          {job.margin != null && (
+            <span className="tabular-nums text-ink-soft">{(job.margin * 100).toFixed(0)}% GP</span>
+          )}
+          {job.quotedSellTotal != null && <Money value={job.quotedSellTotal} />}
+          <StatusLabel status={job.status} />
+        </div>
+      </StatusRow>
+    </Link>
+  );
+}
+
 export function JobsList({ jobs }: { jobs: JobListRow[] }) {
   const [query, setQuery] = useState("");
+  const [view, setView] = useState<View>("stage");
 
   const filtered = useMemo(() => jobs.filter((j) => matches(j, query)), [jobs, query]);
 
-  const groups = STAGE_ORDER.map((status) => ({
-    status,
+  const stageGroups = STAGE_ORDER.map((status) => ({
+    key: status,
+    label: jobStatusLabel[status] ?? status,
     jobs: filtered.filter((j) => j.status === status),
   })).filter((g) => g.jobs.length > 0);
 
+  const salespersonGroups = useMemo(() => {
+    const names = Array.from(new Set(filtered.map((j) => j.leadName ?? "Unassigned"))).sort(
+      (a, b) => (a === "Unassigned" ? 1 : b === "Unassigned" ? -1 : a.localeCompare(b))
+    );
+    return names.map((name) => ({
+      key: name,
+      label: name,
+      jobs: filtered.filter((j) => (j.leadName ?? "Unassigned") === name),
+    }));
+  }, [filtered]);
+
+  const groups = view === "stage" ? stageGroups : salespersonGroups;
+
   return (
     <div>
+      <div className="mb-4 flex gap-1 border-b border-line">
+        {(
+          [
+            { key: "stage", label: "By stage" },
+            { key: "salesperson", label: "By salesperson" },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setView(tab.key)}
+            className={`border-b-2 px-3 py-2 text-sm font-medium transition ${
+              view === tab.key
+                ? "border-accent text-ink"
+                : "border-transparent text-ink-soft hover:text-ink"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       <div className="mb-6 relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
         <input
@@ -63,41 +131,13 @@ export function JobsList({ jobs }: { jobs: JobListRow[] }) {
 
       <div className="space-y-8">
         {groups.map((group) => (
-          <div key={group.status}>
+          <div key={group.key}>
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-faint">
-              {jobStatusLabel[group.status] ?? group.status} · {group.jobs.length}
+              {group.label} · {group.jobs.length}
             </h2>
             <div className="space-y-2">
               {group.jobs.map((job) => (
-                <Link key={job.id} href={`/jobs/${job.id}`}>
-                  <StatusRow status={job.status}>
-                    <div className="flex items-center gap-4">
-                      <span className="w-24 font-mono text-sm text-ink-faint">
-                        {job.jobNumber ?? "—"}
-                      </span>
-                      <div>
-                        <div className="font-medium text-ink">{job.name}</div>
-                        <div className="text-sm text-ink-soft">
-                          {job.clientName ?? "No client set"}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-6 text-sm">
-                      {job.quotedHours != null && (
-                        <span className="text-ink-soft tabular-nums">
-                          {job.hoursActual.toFixed(0)} / {job.quotedHours.toFixed(0)} hrs
-                        </span>
-                      )}
-                      {job.margin != null && (
-                        <span className="tabular-nums text-ink-soft">
-                          {(job.margin * 100).toFixed(0)}% GP
-                        </span>
-                      )}
-                      {job.quotedSellTotal != null && <Money value={job.quotedSellTotal} />}
-                      <StatusLabel status={job.status} />
-                    </div>
-                  </StatusRow>
-                </Link>
+                <JobRowItem key={job.id} job={job} />
               ))}
             </div>
           </div>

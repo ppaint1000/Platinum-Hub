@@ -18,6 +18,7 @@ type JobRow = {
   quoted_sell_total: number | null;
   quoted_hours: number | null;
   client: { name: string } | null;
+  lead: { full_name: string } | null;
 };
 
 type TotalsRow = {
@@ -42,8 +43,9 @@ export default async function JobsPage() {
       supabase
         .from("jobs")
         .select(
-          "id, job_number, name, status, quoted_sell_total, quoted_hours, client:clients(name)"
+          "id, job_number, name, status, quoted_sell_total, quoted_hours, client:clients(name), lead:profiles!lead_by_user_id(full_name)"
         )
+        .order("updated_at", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false })
         .returns<JobRow[]>(),
       supabase
@@ -88,6 +90,7 @@ export default async function JobsPage() {
       name: job.name,
       status: job.status,
       clientName: job.client?.name ?? null,
+      leadName: job.lead?.full_name ?? null,
       quotedSellTotal: job.quoted_sell_total,
       quotedHours: job.quoted_hours,
       hoursActual: t?.hours_actual ?? 0,
