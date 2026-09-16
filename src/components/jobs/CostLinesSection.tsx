@@ -7,7 +7,7 @@ import { overBudgetColor } from "@/design/tailwind.tokens";
 import { updateActualCostAction, deleteActualCostAction } from "@/app/jobs/costs/actions";
 import { AddCostLineButton } from "./AddCostLineButton";
 
-type CategoryOption = { id: string; label: string };
+export type CategoryOption = { id: string; label: string };
 
 export type CostLineRow = {
   id: string;
@@ -47,7 +47,7 @@ export function CostLinesSection({
   );
 }
 
-function CostLineItem({
+export function CostLineItem({
   jobId,
   line,
   categories,

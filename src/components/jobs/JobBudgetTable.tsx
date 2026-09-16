@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Panel, Money, Button } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
 import { setCategoryBudgetAction, deleteCategoryBudgetAction } from "@/app/jobs/budget/actions";
+import { CostLineItem, type CostLineRow, type CategoryOption } from "./CostLinesSection";
 
 export type CategoryBudgetRow = {
   categoryId: string;
@@ -18,10 +19,14 @@ export function JobBudgetTable({
   jobId,
   rows,
   categoryLabels,
+  costLines,
+  categories,
 }: {
   jobId: string;
   rows: CategoryBudgetRow[];
   categoryLabels: string[];
+  costLines: CostLineRow[];
+  categories: CategoryOption[];
 }) {
   const datalistId = useId();
 
@@ -49,7 +54,13 @@ export function JobBudgetTable({
           </thead>
           <tbody className="divide-y divide-line">
             {rows.map((row) => (
-              <CategoryRow key={row.categoryId} jobId={jobId} row={row} />
+              <CategoryRow
+                key={row.categoryId}
+                jobId={jobId}
+                row={row}
+                costLines={costLines.filter((l) => l.categoryId === row.categoryId)}
+                categories={categories}
+              />
             ))}
           </tbody>
         </table>
@@ -60,10 +71,21 @@ export function JobBudgetTable({
   );
 }
 
-function CategoryRow({ jobId, row }: { jobId: string; row: CategoryBudgetRow }) {
+function CategoryRow({
+  jobId,
+  row,
+  costLines,
+  categories,
+}: {
+  jobId: string;
+  row: CategoryBudgetRow;
+  costLines: CostLineRow[];
+  categories: CategoryOption[];
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [amount, setAmount] = useState(String(row.budgeted));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,8 +124,19 @@ function CategoryRow({ jobId, row }: { jobId: string; row: CategoryBudgetRow }) 
   }
 
   return (
+    <>
     <tr>
-      <td className="py-2 text-ink">{row.categoryLabel}</td>
+      <td className="py-2 text-ink">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="flex items-center gap-1.5 text-left hover:text-accent"
+        >
+          <span className="text-ink-faint">{expanded ? "▾" : "▸"}</span>
+          {row.categoryLabel}
+          <span className="text-ink-faint">({costLines.length})</span>
+        </button>
+      </td>
       {editing ? (
         <td className="py-2 pl-4" colSpan={4}>
           <form onSubmit={save} className="flex items-center justify-end gap-2">
@@ -192,6 +225,24 @@ function CategoryRow({ jobId, row }: { jobId: string; row: CategoryBudgetRow }) 
         </>
       )}
     </tr>
+    {expanded && (
+      <tr>
+        <td colSpan={5} className="bg-paper-raised/60 px-2 py-2">
+          {costLines.length === 0 ? (
+            <p className="text-sm text-ink-soft">
+              Nothing actually costed to this category yet.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {costLines.map((line) => (
+                <CostLineItem key={line.id} jobId={jobId} line={line} categories={categories} />
+              ))}
+            </div>
+          )}
+        </td>
+      </tr>
+    )}
+    </>
   );
 }
 

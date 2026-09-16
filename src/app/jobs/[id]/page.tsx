@@ -295,7 +295,13 @@ export default async function JobDetailPage({
         />
       </div>
 
-      <JobBudgetTable jobId={job.id} rows={categoryBudgetRows} categoryLabels={categoryLabels} />
+      <JobBudgetTable
+        jobId={job.id}
+        rows={categoryBudgetRows}
+        categoryLabels={categoryLabels}
+        costLines={costLines}
+        categories={categoryOptions}
+      />
 
       <ReseneInvoiceCostsSection
         jobId={job.id}
