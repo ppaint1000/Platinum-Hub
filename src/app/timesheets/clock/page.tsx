@@ -110,7 +110,7 @@ export default async function ClockPage() {
     : null
 
   return (
-    <main className="relative flex flex-1 flex-col items-center justify-center gap-6 p-4">
+    <main className="relative flex flex-1 flex-col items-center justify-start gap-6 p-4 pt-10 sm:justify-center sm:pt-4">
       <Watermark />
       <Image src="/logo.webp" alt="Platinum Painters" width={140} height={56} priority />
       <p className="text-sm text-black/60">Signed in as {profile.full_name}</p>
