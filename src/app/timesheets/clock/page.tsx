@@ -110,10 +110,19 @@ export default async function ClockPage() {
     : null
 
   return (
-    <main className="relative flex flex-1 flex-col items-center justify-start gap-6 p-4 pt-10 sm:justify-center sm:pt-4">
+    <main className="relative flex flex-1 flex-col items-center justify-center gap-6 p-4">
       <Watermark />
-      <Image src="/logo.webp" alt="Platinum Painters" width={140} height={56} priority />
-      <p className="text-sm text-black/60">Signed in as {profile.full_name}</p>
+      <div className="absolute inset-x-0 top-6 flex flex-col items-center gap-6 px-6 sm:static sm:inset-auto sm:px-0">
+        <Image
+          src="/logo.webp"
+          alt="Platinum Painters"
+          width={140}
+          height={56}
+          priority
+          className="h-auto w-full sm:w-[140px]"
+        />
+        <p className="text-sm text-black/60">Signed in as {profile.full_name}</p>
+      </div>
       <ClockWidget sites={sites} openEntry={openEntry} />
       <div className="flex flex-wrap items-center justify-center gap-2">
         {(profile.role === 'admin' || profile.role === 'supervisor') && (
