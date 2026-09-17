@@ -4,23 +4,58 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { Panel } from "@/components/ui";
-import { UsersTable, type UserRow } from "@/components/users/UsersTable";
+import { UsersTable, type UserRow, type PayRate } from "@/components/users/UsersTable";
 import { NewUserForm } from "@/components/users/NewUserForm";
+
+type RateRow = {
+  user_id: string;
+  employment_type: "contractor" | "employee";
+  hourly_rate: number;
+  hours_per_week: number;
+  annual_leave_weeks: number;
+  sick_leave_days: number;
+  public_holidays: number;
+};
 
 export default async function UsersPage() {
   const supabase = await requireAdmin();
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select(
-      "id, full_name, email, role, is_active, user_app_access(timesheets, fleet, orders, jobs, sales, sales_authority, default_app)"
-    )
-    .is("deleted_at", null)
-    .order("is_active", { ascending: false })
-    .order("full_name")
-    .returns<UserRow[]>();
+  const [{ data: profiles }, { data: rateRows }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select(
+        "id, full_name, email, role, is_active, user_app_access(timesheets, fleet, orders, jobs, sales, sales_authority, default_app)"
+      )
+      .is("deleted_at", null)
+      .order("is_active", { ascending: false })
+      .order("full_name")
+      .returns<UserRow[]>(),
+    supabase
+      .from("staff_hourly_rates")
+      .select(
+        "user_id, employment_type, hourly_rate, hours_per_week, annual_leave_weeks, sick_leave_days, public_holidays, effective_from"
+      )
+      // Most recent first, per user, so the reduce below keeps only each
+      // person's current (latest-effective) rate — older ones stay in the
+      // table for job_labour_actual() to match past shifts against, but
+      // this page only ever shows/edits the current one.
+      .order("effective_from", { ascending: false })
+      .returns<(RateRow & { effective_from: string })[]>(),
+  ]);
 
-  const rows = profiles ?? [];
+  const rateByUser = new Map<string, PayRate>();
+  for (const r of rateRows ?? []) {
+    if (rateByUser.has(r.user_id)) continue;
+    rateByUser.set(r.user_id, {
+      employmentType: r.employment_type,
+      hourlyRate: Number(r.hourly_rate),
+      hoursPerWeek: Number(r.hours_per_week),
+      annualLeaveWeeks: Number(r.annual_leave_weeks),
+      sickLeaveDays: Number(r.sick_leave_days),
+      publicHolidays: Number(r.public_holidays),
+    });
+  }
+  const rows = (profiles ?? []).map((p) => ({ ...p, payRate: rateByUser.get(p.id) ?? null }));
 
   return (
     <div className="mx-auto w-full max-w-5xl p-8">

@@ -189,6 +189,76 @@ export async function resetPasswordAction(userId: string) {
   return { tempPassword };
 }
 
+// staff_hourly_rates is admin-only end to end: RLS on the table itself
+// restricts it to admins, this page is already requireAdmin()-gated, and
+// no other query in the app ever selects from it — only the
+// job_labour_actual() SQL function reads it, and that only ever returns
+// an aggregate $ total, never a rate. See
+// supabase/staff_hourly_rates_labour_cost.sql and
+// supabase/staff_hourly_rates_history.sql.
+//
+// Every save inserts a new dated row rather than overwriting the
+// existing one, so a rate change never rewrites the cost of work already
+// logged under the old rate (see job_labour_actual — it matches each
+// shift to whichever rate was in effect on that shift's date). The first
+// rate ever entered for someone is backdated so it covers whatever
+// timesheet history already exists for them; every rate after that is
+// effective from today, i.e. a pay rise only affects work logged from
+// now on.
+export async function updateHourlyRateAction(
+  userId: string,
+  input: {
+    employmentType: "contractor" | "employee";
+    hourlyRate: number;
+    hoursPerWeek: number;
+    annualLeaveWeeks: number;
+    sickLeaveDays: number;
+    publicHolidays: number;
+  }
+) {
+  const supabase = await requireAdmin();
+
+  if (!Number.isFinite(input.hourlyRate) || input.hourlyRate < 0) {
+    return { error: "Enter a valid hourly rate." };
+  }
+  if (!Number.isFinite(input.hoursPerWeek) || input.hoursPerWeek <= 0) {
+    return { error: "Enter valid hours per week." };
+  }
+  for (const [label, value] of [
+    ["annual leave weeks", input.annualLeaveWeeks],
+    ["sick leave days", input.sickLeaveDays],
+    ["public holidays", input.publicHolidays],
+  ] as const) {
+    if (!Number.isFinite(value) || value < 0) {
+      return { error: `Enter a valid number for ${label}.` };
+    }
+  }
+
+  const { count: existingCount } = await supabase
+    .from("staff_hourly_rates")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  const effectiveFrom =
+    (existingCount ?? 0) > 0 ? new Date().toISOString().slice(0, 10) : "2020-01-01";
+
+  const { error } = await supabase.from("staff_hourly_rates").insert({
+    user_id: userId,
+    employment_type: input.employmentType,
+    hourly_rate: input.hourlyRate,
+    hours_per_week: input.hoursPerWeek,
+    annual_leave_weeks: input.annualLeaveWeeks,
+    sick_leave_days: input.sickLeaveDays,
+    public_holidays: input.publicHolidays,
+    effective_from: effectiveFrom,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/users");
+  return {};
+}
+
 export async function deleteUserAction(userId: string) {
   await requireAdmin();
 
