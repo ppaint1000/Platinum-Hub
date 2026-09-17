@@ -168,7 +168,7 @@ function AppTile({
       rel={external ? "noopener noreferrer" : undefined}
       className="group flex items-start gap-4 rounded-xl border border-border bg-surface p-5 shadow-sm transition hover:border-brand-red/40 hover:shadow-md"
     >
-      <div className="flex h-11 w-11 flex-none items-center justify-center rounded-lg bg-brand-red/10 text-brand-red">
+      <div className="flex h-11 w-11 flex-none items-center justify-center rounded-lg bg-brand-red text-white">
         {icon}
       </div>
       <div className="min-w-0 flex-1">
