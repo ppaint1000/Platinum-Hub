@@ -100,41 +100,6 @@ export async function adminClockOut(entryId: string): Promise<ActionResult> {
   revalidatePath('/timesheets/admin/activity')
 }
 
-// Lets a painter correct a punch (wrong site/start/finish/break) while
-// reviewing their week on /timesheets/timesheet/weekly, before confirming it.
-export async function updateTimesheetEntry(input: {
-  entryId: string
-  siteId: string
-  clockInAt: string
-  clockOutAt: string
-  breakMinutes: number
-}): Promise<ActionResult> {
-  const profile = await getCurrentProfile()
-  const supabase = await createClient()
-
-  if (new Date(input.clockOutAt).getTime() <= new Date(input.clockInAt).getTime()) {
-    return { error: 'Finish time must be after start time.' }
-  }
-
-  const { error } = await supabase
-    .from('timesheet_entries')
-    .update({
-      site_id: input.siteId,
-      clock_in_at: input.clockInAt,
-      clock_out_at: input.clockOutAt,
-      break_minutes: Math.max(0, Math.round(input.breakMinutes)),
-    })
-    .eq('id', input.entryId)
-    .eq('user_id', profile.id)
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  revalidatePath('/timesheets/timesheet/weekly')
-  revalidatePath('/timesheets/timesheet')
-}
-
 // Sends the painter's reviewed week (already-saved punches) to the office
 // by email, as a confirmation that the hours are correct.
 export async function confirmWeeklyTimesheet(input: { from: string; to: string }): Promise<ActionResult> {

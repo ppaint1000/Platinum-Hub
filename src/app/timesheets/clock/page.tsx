@@ -125,6 +125,9 @@ export default async function ClockPage() {
         <Link href="/timesheets/timesheet/weekly" className={pillClass}>
           Weekly Timesheet
         </Link>
+        <Link href="/timesheets/timesheet/requests" className={pillClass}>
+          Request a Change
+        </Link>
         <Link href="/hub" className={pillClass}>
           Hub
         </Link>

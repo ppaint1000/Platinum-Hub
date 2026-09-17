@@ -9,6 +9,7 @@ const links = [
   { href: '/timesheets/clock', label: 'Clock In/Out' },
   { href: '/timesheets/timesheet', label: 'Timesheet' },
   { href: '/timesheets/admin/activity', label: 'Activity' },
+  { href: '/timesheets/admin/change-requests', label: 'Change Requests', adminOnly: true },
   { href: '/timesheets/admin/reports', label: 'Reports', adminOnly: true },
   { href: '/timesheets/admin/reports/by-job', label: 'Hours by Job', adminOnly: true },
   { href: '/timesheets/admin/customers', label: 'Customers' },

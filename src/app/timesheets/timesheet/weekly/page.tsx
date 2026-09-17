@@ -1,21 +1,8 @@
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/supabase/profile'
 import { getReportEntries } from '@/lib/timesheets/reports'
 import { addDays, mondayOf, nzDateKey, nzTimeString, nzTodayDateString } from '@/lib/timesheets/formatNZ'
 import { WeeklyTimesheetReview } from './weekly-timesheet-review'
-
-type CustomerRelation = { name: string } | { name: string }[] | null
-
-type SiteRow = {
-  id: string
-  name: string
-  customers: CustomerRelation
-}
-
-function customerName(relation: CustomerRelation): string | undefined {
-  return Array.isArray(relation) ? relation[0]?.name : relation?.name
-}
 
 const DAY_LABELS = ['MON', 'TUE', 'WED', 'THUR', 'FRI', 'SAT', 'SUN']
 
@@ -28,20 +15,11 @@ export default async function WeeklyTimesheetPage({
   const requested = typeof sp.from === 'string' ? sp.from : ''
 
   const profile = await getCurrentProfile()
-  const supabase = await createClient()
 
   const from = mondayOf(requested || nzTodayDateString())
   const to = addDays(from, 6)
 
-  const [{ data: siteRows }, entries] = await Promise.all([
-    supabase.from('sites').select('id, name, customers(name)').eq('is_active', true).order('name').returns<SiteRow[]>(),
-    getReportEntries({ userId: profile.id, from, to }),
-  ])
-
-  const sites = (siteRows ?? []).map((s) => ({
-    id: s.id,
-    label: customerName(s.customers) ? `${s.name} (${customerName(s.customers)})` : s.name,
-  }))
+  const entries = await getReportEntries({ userId: profile.id, from, to })
 
   const days = DAY_LABELS.map((label, i) => {
     const date = addDays(from, i)
@@ -70,6 +48,9 @@ export default async function WeeklyTimesheetPage({
           <Link href="/timesheets/timesheet" className="underline">
             My Timesheet
           </Link>
+          <Link href="/timesheets/timesheet/requests" className="underline">
+            Request a Change
+          </Link>
           <Link href="/timesheets/clock" className="underline">
             Clock In/Out
           </Link>
@@ -89,7 +70,7 @@ export default async function WeeklyTimesheetPage({
         </Link>
       </div>
 
-      <WeeklyTimesheetReview key={from} days={days} sites={sites} from={from} to={to} />
+      <WeeklyTimesheetReview key={from} days={days} from={from} to={to} />
     </div>
   )
 }
