@@ -19,9 +19,19 @@ export type JobListRow = {
   quotedHours: number | null;
   hoursActual: number;
   margin: number | null;
+  completedAt: string | null;
+  lostAt: string | null;
+  lostTo: string | null;
 };
 
-const STAGE_ORDER: JobStatus[] = ["quoted", "won", "in_progress", "complete", "lost", "draft"];
+// Fixed order the user actually asked for; "draft" only shows up as a tab
+// when there's at least one (it's a rare transient state, not part of the
+// normal pipeline).
+const STAGE_TABS: JobStatus[] = ["quoted", "won", "in_progress", "complete", "lost"];
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-NZ", { day: "2-digit", month: "short", year: "numeric" });
+}
 
 function matches(job: JobListRow, query: string) {
   const q = query.trim().toLowerCase();
@@ -33,7 +43,7 @@ function matches(job: JobListRow, query: string) {
   );
 }
 
-type View = "stage" | "salesperson";
+type Tab = JobStatus | "salesperson";
 
 function JobRowItem({ job }: { job: JobListRow }) {
   return (
@@ -43,7 +53,12 @@ function JobRowItem({ job }: { job: JobListRow }) {
           <span className="w-24 font-mono text-sm text-ink-faint">{job.jobNumber ?? "—"}</span>
           <div>
             <div className="font-medium text-ink">{job.name}</div>
-            <div className="text-sm text-ink-soft">{job.clientName ?? "No client set"}</div>
+            <div className="text-sm text-ink-soft">
+              {job.clientName ?? "No client set"}
+              {job.status === "complete" && job.completedAt && ` — completed ${fmtDate(job.completedAt)}`}
+              {job.status === "lost" &&
+                ` — lost to ${job.lostTo ?? "unknown"}${job.lostAt ? ` on ${fmtDate(job.lostAt)}` : ""}`}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-6 text-sm">
@@ -65,15 +80,17 @@ function JobRowItem({ job }: { job: JobListRow }) {
 
 export function JobsList({ jobs }: { jobs: JobListRow[] }) {
   const [query, setQuery] = useState("");
-  const [view, setView] = useState<View>("stage");
+  const hasDraft = jobs.some((j) => j.status === "draft");
+  const tabs: Tab[] = [...STAGE_TABS.slice(0, 1), ...(hasDraft ? (["draft"] as Tab[]) : []), ...STAGE_TABS.slice(1), "salesperson"];
+  const [tab, setTab] = useState<Tab>("quoted");
 
   const filtered = useMemo(() => jobs.filter((j) => matches(j, query)), [jobs, query]);
 
-  const stageGroups = STAGE_ORDER.map((status) => ({
-    key: status,
-    label: jobStatusLabel[status] ?? status,
-    jobs: filtered.filter((j) => j.status === status),
-  })).filter((g) => g.jobs.length > 0);
+  const countByStatus = useMemo(() => {
+    const counts = new Map<JobStatus, number>();
+    for (const j of filtered) counts.set(j.status, (counts.get(j.status) ?? 0) + 1);
+    return counts;
+  }, [filtered]);
 
   const salespersonGroups = useMemo(() => {
     const names = Array.from(new Set(filtered.map((j) => j.leadName ?? "Unassigned"))).sort(
@@ -86,28 +103,33 @@ export function JobsList({ jobs }: { jobs: JobListRow[] }) {
     }));
   }, [filtered]);
 
-  const groups = view === "stage" ? stageGroups : salespersonGroups;
+  const groups: { key: string; label: string; jobs: JobListRow[] }[] =
+    tab === "salesperson"
+      ? salespersonGroups
+      : [
+          {
+            key: tab,
+            label: jobStatusLabel[tab] ?? tab,
+            jobs: filtered.filter((j) => j.status === tab),
+          },
+        ];
 
   return (
     <div>
-      <div className="mb-4 flex gap-1 border-b border-line">
-        {(
-          [
-            { key: "stage", label: "By stage" },
-            { key: "salesperson", label: "By salesperson" },
-          ] as const
-        ).map((tab) => (
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-line">
+        {tabs.map((t) => (
           <button
-            key={tab.key}
+            key={t}
             type="button"
-            onClick={() => setView(tab.key)}
+            onClick={() => setTab(t)}
             className={`border-b-2 px-3 py-2 text-sm font-medium transition ${
-              view === tab.key
+              tab === t
                 ? "border-accent text-ink"
                 : "border-transparent text-ink-soft hover:text-ink"
             }`}
           >
-            {tab.label}
+            {t === "salesperson" ? "By salesperson" : jobStatusLabel[t] ?? t}
+            {t !== "salesperson" && ` · ${countByStatus.get(t) ?? 0}`}
           </button>
         ))}
       </div>
@@ -130,18 +152,28 @@ export function JobsList({ jobs }: { jobs: JobListRow[] }) {
       )}
 
       <div className="space-y-8">
-        {groups.map((group) => (
-          <div key={group.key}>
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-faint">
-              {group.label} · {group.jobs.length}
-            </h2>
-            <div className="space-y-2">
-              {group.jobs.map((job) => (
-                <JobRowItem key={job.id} job={job} />
-              ))}
+        {groups.map((group) =>
+          group.jobs.length === 0 ? (
+            tab === "salesperson" ? null : (
+              <p key={group.key} className="text-sm text-ink-soft">
+                No jobs in this stage{query ? " match your search" : ""}.
+              </p>
+            )
+          ) : (
+            <div key={group.key}>
+              {tab === "salesperson" && (
+                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-faint">
+                  {group.label} · {group.jobs.length}
+                </h2>
+              )}
+              <div className="space-y-2">
+                {group.jobs.map((job) => (
+                  <JobRowItem key={job.id} job={job} />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        )}
       </div>
     </div>
   );

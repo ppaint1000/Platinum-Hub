@@ -31,6 +31,7 @@ type JobRow = {
   lead_by: string | null;
   lead_by_user_id: string | null;
   won_at: string | null;
+  completed_at: string | null;
   lost_at: string | null;
   lost_to: string | null;
   client_id: string | null;
@@ -79,7 +80,7 @@ export default async function JobDetailPage({
   const { data: job } = await supabase
     .from("jobs")
     .select(
-      "id, job_number, name, description, status, quoted_sell_total, quoted_hours, lead_by, lead_by_user_id, won_at, lost_at, lost_to, client_id, client:clients(name)"
+      "id, job_number, name, description, status, quoted_sell_total, quoted_hours, lead_by, lead_by_user_id, won_at, completed_at, lost_at, lost_to, client_id, client:clients(name)"
     )
     .eq("id", id)
     .single<JobRow>();
@@ -94,6 +95,7 @@ export default async function JobDetailPage({
     { data: invoiceLines },
     { data: reseneOrders },
     { data: actualCosts },
+    { data: lostToRows },
   ] = await Promise.all([
     supabase
       .from("job_budget_vs_actual")
@@ -138,7 +140,16 @@ export default async function JobDetailPage({
       .eq("job_id", id)
       .order("incurred_at", { ascending: false })
       .returns<ActualCostRow[]>(),
+    supabase
+      .from("jobs")
+      .select("lost_to")
+      .not("lost_to", "is", null)
+      .returns<{ lost_to: string }[]>(),
   ]);
+
+  const lostToOptions = [...new Set((lostToRows ?? []).map((r) => r.lost_to))].sort((a, b) =>
+    a.localeCompare(b)
+  );
 
   // "Awaiting invoice" = a Resene order on this job whose project_number
   // has no matching resene_invoices.customer_po_number yet — informational
@@ -231,13 +242,18 @@ export default async function JobDetailPage({
           )}
           {job.status === "lost" && (
             <p className="mt-1 text-sm text-ink-soft">
-              Lost to {job.lost_to ?? "—"}
+              Lost to {job.lost_to ?? "unknown"}
               {job.lost_at && ` on ${new Date(job.lost_at).toLocaleDateString("en-NZ")}`}
+            </p>
+          )}
+          {job.status === "complete" && job.completed_at && (
+            <p className="mt-1 text-sm text-ink-soft">
+              Completed {new Date(job.completed_at).toLocaleDateString("en-NZ")}
             </p>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <EditJobDetailsButton
             jobId={job.id}
             initial={{
@@ -255,7 +271,7 @@ export default async function JobDetailPage({
           {(job.status === "draft" || job.status === "quoted") && (
             <>
               <MarkAsWonButton jobId={job.id} />
-              <MarkAsLostButton jobId={job.id} />
+              <MarkAsLostButton jobId={job.id} lostToOptions={lostToOptions} />
             </>
           )}
           {job.status === "won" && <MarkAsInProgressButton jobId={job.id} />}
@@ -264,6 +280,7 @@ export default async function JobDetailPage({
             jobId={job.id}
             currentStatus={job.status}
             currentLostTo={job.lost_to}
+            lostToOptions={lostToOptions}
           />
         </div>
       </div>

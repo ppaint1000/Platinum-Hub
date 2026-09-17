@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui";
+import { LostToField } from "./LostToField";
 
 const STATUS_OPTIONS = [
   { value: "draft", label: "Draft" },
@@ -23,10 +24,12 @@ export function JobStatusControl({
   jobId,
   currentStatus,
   currentLostTo,
+  lostToOptions,
 }: {
   jobId: string;
   currentStatus: JobStatus;
   currentLostTo: string | null;
+  lostToOptions: string[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -43,12 +46,8 @@ export function JobStatusControl({
   }
 
   async function confirmChange() {
-    if (target === currentStatus) {
+    if (target === currentStatus && target !== "lost") {
       setOpen(false);
-      return;
-    }
-    if (target === "lost" && !lostTo.trim()) {
-      setError("Enter who it was lost to.");
       return;
     }
 
@@ -107,12 +106,7 @@ export function JobStatusControl({
           ))}
         </select>
         {target === "lost" && (
-          <input
-            value={lostTo}
-            onChange={(e) => setLostTo(e.target.value)}
-            placeholder="Lost to…"
-            className="rounded border border-line px-2 py-1.5 text-sm"
-          />
+          <LostToField value={lostTo} onChange={setLostTo} options={lostToOptions} />
         )}
         <Button onClick={confirmChange} disabled={saving}>
           {saving ? "Saving…" : "Confirm"}

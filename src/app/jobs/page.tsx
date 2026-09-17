@@ -17,6 +17,9 @@ type JobRow = {
   status: JobStatus;
   quoted_sell_total: number | null;
   quoted_hours: number | null;
+  completed_at: string | null;
+  lost_at: string | null;
+  lost_to: string | null;
   client: { name: string } | null;
   lead: { full_name: string } | null;
 };
@@ -43,7 +46,7 @@ export default async function JobsPage() {
       supabase
         .from("jobs")
         .select(
-          "id, job_number, name, status, quoted_sell_total, quoted_hours, client:clients(name), lead:profiles!lead_by_user_id(full_name)"
+          "id, job_number, name, status, quoted_sell_total, quoted_hours, completed_at, lost_at, lost_to, client:clients(name), lead:profiles!lead_by_user_id(full_name)"
         )
         .order("updated_at", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false })
@@ -95,6 +98,9 @@ export default async function JobsPage() {
       quotedHours: job.quoted_hours,
       hoursActual: t?.hours_actual ?? 0,
       margin,
+      completedAt: job.completed_at,
+      lostAt: job.lost_at,
+      lostTo: job.lost_to,
     };
   });
 
@@ -109,6 +115,12 @@ export default async function JobsPage() {
           Back to Hub
         </Link>
         <div className="flex items-center gap-4">
+          <Link
+            href="/jobs/lost-report"
+            className="text-sm font-medium text-accent hover:text-accent-hover"
+          >
+            Lost to report
+          </Link>
           <Link
             href="/jobs/invoices"
             className="text-sm font-medium text-accent hover:text-accent-hover"
