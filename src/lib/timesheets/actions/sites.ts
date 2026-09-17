@@ -169,16 +169,26 @@ export async function setSiteActive(siteId: string, isActive: boolean) {
 // needs to stay, since deleting cascades and would wipe that history. The
 // UI only offers this for already-archived sites, same pattern as
 // deleteCustomer/deleteStaff.
-export async function deleteSite(siteId: string) {
+//
+// Every step's result is checked and surfaced — this used to fail
+// completely silently (no error returned, nothing logged) whenever the
+// final delete affected zero rows, which is exactly what happens if RLS
+// blocks it: a blocked DELETE isn't an error in Postgres, it's just a
+// no-op. The UI now shows whatever comes back instead of pretending it
+// worked.
+export async function deleteSite(siteId: string): Promise<{ error?: string }> {
   await requireAdmin()
 
   const supabase = await createClient()
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from('timesheet_entries')
     .select('id', { count: 'exact', head: true })
     .eq('site_id', siteId)
 
-  if ((count ?? 0) > 0) return
+  if (countError) return { error: countError.message }
+  if ((count ?? 0) > 0) {
+    return { error: `${count} timesheet ${count === 1 ? 'entry' : 'entries'} reference this site — can't delete.` }
+  }
 
   await supabase.storage.from('site-documents').remove([
     siteDocumentPath(siteId, 'extent-of-work'),
@@ -192,9 +202,19 @@ export async function deleteSite(siteId: string) {
     await supabase.storage.from('site-documents').remove(extraDocs.map((d) => d.storage_path))
   }
 
-  await supabase.from('sites').delete().eq('id', siteId)
+  const { data: deleted, error: deleteError } = await supabase
+    .from('sites')
+    .delete()
+    .eq('id', siteId)
+    .select('id')
+
+  if (deleteError) return { error: deleteError.message }
+  if (!deleted || deleted.length === 0) {
+    return { error: "Delete didn't go through — you may not have permission to delete this site." }
+  }
 
   revalidatePath('/timesheets/admin/sites')
+  return {}
 }
 
 // Any number of additional named documents per site, on top of the two

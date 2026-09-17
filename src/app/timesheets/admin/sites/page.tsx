@@ -1,7 +1,9 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { createSite, setSiteActive, deleteSite } from '@/lib/timesheets/actions/sites'
+import { createSite, setSiteActive } from '@/lib/timesheets/actions/sites'
 import { getCurrentProfile } from '@/lib/supabase/profile'
+import { DeleteSiteButton } from './DeleteSiteButton'
+import { AddSiteSubmitButton } from './AddSiteSubmitButton'
 
 type SiteRow = {
   id: string
@@ -155,12 +157,7 @@ export default async function SitesPage() {
                 />
               </div>
             </div>
-            <button
-              type="submit"
-              className="rounded-md bg-black px-4 py-2 text-sm text-white"
-            >
-              Add site
-            </button>
+            <AddSiteSubmitButton />
           </>
         )}
       </form>
@@ -244,11 +241,7 @@ function SiteList({
                     </button>
                   </form>
                   {!site.is_active && site.entryCount === 0 && (
-                    <form action={deleteSite.bind(null, site.id)}>
-                      <button type="submit" className="text-sm text-red-600 underline">
-                        Delete
-                      </button>
-                    </form>
+                    <DeleteSiteButton siteId={site.id} />
                   )}
                 </div>
               )}

@@ -60,18 +60,31 @@ export async function setCustomerActive(customerId: string, isActive: boolean) {
 
 // Only for customers with zero sites - one with sites would fail on the
 // foreign key anyway, but checking first avoids relying on that for UX.
-export async function deleteCustomer(customerId: string) {
+export async function deleteCustomer(customerId: string): Promise<{ error?: string }> {
   await requireAdmin()
 
   const supabase = await createClient()
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from('sites')
     .select('id', { count: 'exact', head: true })
     .eq('customer_id', customerId)
 
-  if ((count ?? 0) > 0) return
+  if (countError) return { error: countError.message }
+  if ((count ?? 0) > 0) {
+    return { error: `${count} ${count === 1 ? 'site' : 'sites'} reference this customer — can't delete.` }
+  }
 
-  await supabase.from('customers').delete().eq('id', customerId)
+  const { data: deleted, error: deleteError } = await supabase
+    .from('customers')
+    .delete()
+    .eq('id', customerId)
+    .select('id')
+
+  if (deleteError) return { error: deleteError.message }
+  if (!deleted || deleted.length === 0) {
+    return { error: "Delete didn't go through — you may not have permission to delete this customer." }
+  }
 
   revalidatePath('/timesheets/admin/customers')
+  return {}
 }

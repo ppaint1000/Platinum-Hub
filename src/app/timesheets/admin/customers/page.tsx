@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { createCustomer, setCustomerActive, deleteCustomer } from '@/lib/timesheets/actions/customers'
+import { createCustomer, setCustomerActive } from '@/lib/timesheets/actions/customers'
 import { getCurrentProfile } from '@/lib/supabase/profile'
+import { DeleteCustomerButton } from './DeleteCustomerButton'
 
 type Customer = {
   id: string
@@ -146,11 +147,7 @@ function CustomerList({
                   </button>
                 </form>
                 {!customer.is_active && customer.siteCount === 0 && (
-                  <form action={deleteCustomer.bind(null, customer.id)}>
-                    <button type="submit" className="text-sm text-red-600 underline">
-                      Delete
-                    </button>
-                  </form>
+                  <DeleteCustomerButton customerId={customer.id} />
                 )}
               </div>
             )}
