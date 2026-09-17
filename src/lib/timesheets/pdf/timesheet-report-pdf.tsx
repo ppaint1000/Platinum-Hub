@@ -35,6 +35,7 @@ const styles = StyleSheet.create({
   pageNumber: { position: 'absolute', bottom: 16, right: 24, fontSize: 8, color: '#999999' },
   checkNote: { backgroundColor: '#fff3cd', padding: 6, marginBottom: 8 },
   checkNoteText: { fontSize: 9, color: '#856404' },
+  watermark: { position: 'absolute', top: '35%', left: '12%', width: '76%', opacity: 0.11 },
 })
 
 const COLS = {
@@ -81,6 +82,8 @@ export function TimesheetReportPdf({
   return (
     <Document>
       <Page size="A4" style={styles.page} wrap>
+        {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer's Image, not an HTML img */}
+        <Image src={logoSrc} style={styles.watermark} fixed />
         <View style={styles.header} fixed>
           {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer's Image, not an HTML img */}
           <Image src={logoSrc} style={styles.logo} />

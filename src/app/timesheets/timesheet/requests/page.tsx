@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/supabase/profile'
 import { getReportEntries } from '@/lib/timesheets/reports'
 import { addDays, nzDateKey, nzTimeString, nzTodayDateString } from '@/lib/timesheets/formatNZ'
+import { Watermark } from '@/components/timesheets/Watermark'
 import { ChangeRequestsView } from './change-requests-view'
 
 type SiteRelation = { name: string } | { name: string }[] | null
@@ -92,7 +93,8 @@ export default async function ChangeRequestsPage({
   })
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4">
+    <div className="relative mx-auto max-w-3xl space-y-4 p-4">
+      <Watermark />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Request a Change</h1>
         <div className="flex gap-3 text-sm">

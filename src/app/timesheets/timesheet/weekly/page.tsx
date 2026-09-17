@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { getCurrentProfile } from '@/lib/supabase/profile'
 import { getReportEntries } from '@/lib/timesheets/reports'
 import { addDays, mondayOf, nzDateKey, nzTimeString, nzTodayDateString } from '@/lib/timesheets/formatNZ'
+import { Watermark } from '@/components/timesheets/Watermark'
 import { WeeklyTimesheetReview } from './weekly-timesheet-review'
 
 const DAY_LABELS = ['MON', 'TUE', 'WED', 'THUR', 'FRI', 'SAT', 'SUN']
@@ -41,7 +42,8 @@ export default async function WeeklyTimesheetPage({
   })
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4">
+    <div className="relative mx-auto max-w-3xl space-y-4 p-4">
+      <Watermark />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Weekly Timesheet</h1>
         <div className="flex gap-3 text-sm">
