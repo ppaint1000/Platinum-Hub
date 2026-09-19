@@ -8,6 +8,7 @@ import {
   Briefcase,
   Users,
   Ruler,
+  Calculator,
   Contact,
   TrendingUp,
 } from "lucide-react";
@@ -24,9 +25,11 @@ type AppAccess = {
 
 // Deployed as "platinum-quotes" on Vercel — the app itself was renamed to
 // Measures, but the Vercel project/URL wasn't. Override via
-// NEXT_PUBLIC_MEASURES_URL if that ever changes.
-const MEASURES_URL =
-  process.env.NEXT_PUBLIC_MEASURES_URL ?? "https://platinum-quotes.vercel.app";
+// NEXT_PUBLIC_MEASURES_URL if that ever changes. Both the Costing and
+// Measures tiles point into this one app (/costing and /site-measures).
+const MEASURES_URL = (
+  process.env.NEXT_PUBLIC_MEASURES_URL ?? "https://platinum-quotes.vercel.app"
+).replace(/\/$/, "");
 
 export default async function HubPage() {
   const supabase = await createClient();
@@ -128,11 +131,20 @@ export default async function HubPage() {
         )}
         {isAdmin && (
           <AppTile
-            href={MEASURES_URL}
+            href={`${MEASURES_URL}/costing`}
+            external
+            icon={<Calculator className="h-5 w-5" />}
+            title="Costing"
+            description="Job costings."
+          />
+        )}
+        {isAdmin && (
+          <AppTile
+            href={`${MEASURES_URL}/site-measures`}
             external
             icon={<Ruler className="h-5 w-5" />}
             title="Measures"
-            description="Costing, site measures, and quotes."
+            description="Site measures."
           />
         )}
         {isAdmin && (
