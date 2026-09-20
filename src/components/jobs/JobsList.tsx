@@ -19,6 +19,9 @@ export type JobListRow = {
   quotedHours: number | null;
   hoursActual: number;
   margin: number | null;
+  // True when there are no recorded costs yet and the margin is worked out
+  // from the quote's budget instead.
+  marginIsEstimate: boolean;
   completedAt: string | null;
   lostAt: string | null;
   lostTo: string | null;
@@ -68,7 +71,12 @@ function JobRowItem({ job }: { job: JobListRow }) {
             </span>
           )}
           {job.margin != null && (
-            <span className="tabular-nums text-ink-soft">{(job.margin * 100).toFixed(0)}% GP</span>
+            <span
+              className="tabular-nums text-ink-soft"
+              title={job.marginIsEstimate ? "Expected GP from the quote's budget - no costs recorded yet" : undefined}
+            >
+              {(job.margin * 100).toFixed(0)}%{job.marginIsEstimate ? " est." : ""} GP
+            </span>
           )}
           {job.quotedSellTotal != null && <Money value={job.quotedSellTotal} />}
           <StatusLabel status={job.status} />

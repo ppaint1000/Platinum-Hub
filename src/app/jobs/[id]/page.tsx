@@ -19,6 +19,8 @@ import {
 } from "@/components/jobs/ReseneInvoiceCostsSection";
 import { CostLinesSection, type CostLineRow } from "@/components/jobs/CostLinesSection";
 import { JobBudgetTable, type CategoryBudgetRow } from "@/components/jobs/JobBudgetTable";
+import { fetchSalesTeam } from "@/lib/jobs/salesTeam";
+import { jobMargin } from "@/lib/jobs/margin";
 
 type JobRow = {
   id: string;
@@ -96,6 +98,7 @@ export default async function JobDetailPage({
     { data: reseneOrders },
     { data: actualCosts },
     { data: lostToRows },
+    salesTeam,
   ] = await Promise.all([
     supabase
       .from("job_budget_vs_actual")
@@ -145,6 +148,7 @@ export default async function JobDetailPage({
       .select("lost_to")
       .not("lost_to", "is", null)
       .returns<{ lost_to: string }[]>(),
+    fetchSalesTeam(supabase),
   ]);
 
   const lostToOptions = [...new Set((lostToRows ?? []).map((r) => r.lost_to))].sort((a, b) =>
@@ -165,10 +169,16 @@ export default async function JobDetailPage({
 
   const hoursActual = jobTotals?.hours_actual ?? 0;
   const quotedTotal = job.quoted_sell_total ?? 0;
-  const profit = quotedTotal > 0 ? quotedTotal - (jobTotals?.actual_total ?? 0) : null;
-  const margin = quotedTotal > 0 && profit != null ? profit / quotedTotal : null;
-
   const rows = budgetRows ?? [];
+  const {
+    profit,
+    margin,
+    estimated: marginIsEstimate,
+  } = jobMargin({
+    quoted: quotedTotal,
+    budgeted: rows.reduce((sum, r) => sum + Number(r.budgeted_amount), 0),
+    actual: Number(jobTotals?.actual_total ?? 0),
+  });
   const categoryOptions = rows.map((r) => ({ id: r.category_id, label: r.category_label }));
 
   const invoiceNumberByLineId = new Map(
@@ -281,6 +291,7 @@ export default async function JobDetailPage({
             currentStatus={job.status}
             currentLostTo={job.lost_to}
             lostToOptions={lostToOptions}
+            salesTeam={salesTeam}
           />
         </div>
       </div>
@@ -299,11 +310,11 @@ export default async function JobDetailPage({
 
       <div className="mb-8 flex border-b border-line pb-6">
         <SummaryStat
-          label="Profit"
+          label={marginIsEstimate ? "Est. profit" : "Profit"}
           value={profit != null ? fmtMoney(profit) : "—"}
         />
         <SummaryStat
-          label="Margin"
+          label={marginIsEstimate ? "Est. margin" : "Margin"}
           value={margin != null ? `${(margin * 100).toFixed(0)}%` : "—"}
         />
         <SummaryStat

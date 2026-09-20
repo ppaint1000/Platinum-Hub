@@ -16,7 +16,7 @@ export async function createJobAction(input: {
   clientId: string;
   quotedSellTotal: number | null;
   quotedHours: number | null;
-  leadByUserId: string | null;
+  leadByUserId: string;
 }) {
   const supabase = await requireAppAccess("jobs");
   const {
@@ -26,6 +26,9 @@ export async function createJobAction(input: {
   if (!input.name.trim()) return { error: "Job name is required." };
   if (!input.description.trim()) return { error: "Description is required." };
   if (!input.clientId) return { error: "Choose a client." };
+  // Quoted $ on the Sales page is credited by lead_by_user_id, so a quoted
+  // job needs a sales person on it to show up there at all.
+  if (!input.leadByUserId) return { error: "Choose which sales person quoted this job." };
 
   const { data, error } = await supabase
     .from("jobs")

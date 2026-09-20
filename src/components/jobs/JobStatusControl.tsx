@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui";
 import { LostToField } from "./LostToField";
+import { ConfirmDialog } from "@/components/orders/ConfirmDialog";
 
 const STATUS_OPTIONS = [
   { value: "draft", label: "Draft" },
@@ -25,16 +26,23 @@ export function JobStatusControl({
   currentStatus,
   currentLostTo,
   lostToOptions,
+  salesTeam,
 }: {
   jobId: string;
   currentStatus: JobStatus;
   currentLostTo: string | null;
   lostToOptions: string[];
+  salesTeam: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [target, setTarget] = useState<JobStatus>(currentStatus);
   const [lostTo, setLostTo] = useState(currentLostTo ?? "");
+  // Moving a job into "quoted" asks which sales person quoted it before
+  // saving - the Sales page credits quoted $ by lead_by_user_id, so a
+  // quoted job with nobody attached to it wouldn't show up there.
+  const [quotedBy, setQuotedBy] = useState("");
+  const [askingQuotedBy, setAskingQuotedBy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,15 +50,26 @@ export function JobStatusControl({
     setOpen(false);
     setTarget(currentStatus);
     setLostTo(currentLostTo ?? "");
+    setQuotedBy("");
+    setAskingQuotedBy(false);
     setError(null);
   }
 
-  async function confirmChange() {
+  function confirmChange() {
     if (target === currentStatus && target !== "lost") {
       setOpen(false);
       return;
     }
+    if (target === "quoted") {
+      setQuotedBy("");
+      setError(null);
+      setAskingQuotedBy(true);
+      return;
+    }
+    save();
+  }
 
+  async function save() {
     setSaving(true);
     setError(null);
     const supabase = createClient();
@@ -70,6 +89,9 @@ export function JobStatusControl({
       update.job_number = null;
       update.won_at = null;
     }
+    if (target === "quoted") {
+      update.lead_by_user_id = quotedBy;
+    }
 
     const { error: updateError } = await supabase.from("jobs").update(update).eq("id", jobId);
     setSaving(false);
@@ -78,6 +100,7 @@ export function JobStatusControl({
       setError(updateError.message);
       return;
     }
+    setAskingQuotedBy(false);
     setOpen(false);
     router.refresh();
   }
@@ -115,7 +138,51 @@ export function JobStatusControl({
           Cancel
         </Button>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && !askingQuotedBy && <p className="text-sm text-red-600">{error}</p>}
+      {askingQuotedBy && (
+        <ConfirmDialog
+          title="Who quoted this job?"
+          message="Choose the sales person to record this quote against. It counts towards their quoted total on the Sales page."
+          confirmLabel="Mark as quoted"
+          confirmingLabel="Saving…"
+          tone="primary"
+          confirming={saving}
+          error={error}
+          onConfirm={() => {
+            if (!quotedBy) {
+              setError("Choose a sales person to continue.");
+              return;
+            }
+            save();
+          }}
+          onCancel={() => {
+            setAskingQuotedBy(false);
+            setError(null);
+          }}
+        >
+          {salesTeam.length === 0 ? (
+            <p className="text-sm text-ink-soft">
+              No sales people are set up yet. Tick “Sales” for someone on the Users page first.
+            </p>
+          ) : (
+            <select
+              autoFocus
+              value={quotedBy}
+              onChange={(e) => setQuotedBy(e.target.value)}
+              className="w-full rounded border border-line px-2 py-1.5 text-sm"
+            >
+              <option value="" disabled>
+                Choose a sales person…
+              </option>
+              {salesTeam.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </ConfirmDialog>
+      )}
     </div>
   );
 }

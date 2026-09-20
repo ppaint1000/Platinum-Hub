@@ -7,6 +7,8 @@ import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { Panel, SummaryStat } from "@/components/ui";
 import { JobsList, type JobListRow } from "@/components/jobs/JobsList";
 import { AddJobButton } from "@/components/jobs/AddJobButton";
+import { fetchSalesTeam } from "@/lib/jobs/salesTeam";
+import { jobMargin } from "@/lib/jobs/margin";
 
 type JobStatus = "draft" | "quoted" | "won" | "in_progress" | "complete" | "lost";
 
@@ -26,6 +28,7 @@ type JobRow = {
 
 type TotalsRow = {
   job_id: string;
+  budgeted_total: number;
   actual_total: number;
   hours_actual: number;
 };
@@ -41,7 +44,7 @@ function money(n: number) {
 export default async function JobsPage() {
   const supabase = await requireAppAccess("jobs");
 
-  const [{ data: jobs }, { data: totals }, { data: clients }, { data: leadUsers }] =
+  const [{ data: jobs }, { data: totals }, { data: clients }, salesTeam] =
     await Promise.all([
       supabase
         .from("jobs")
@@ -53,19 +56,14 @@ export default async function JobsPage() {
         .returns<JobRow[]>(),
       supabase
         .from("job_totals")
-        .select("job_id, actual_total, hours_actual")
+        .select("job_id, budgeted_total, actual_total, hours_actual")
         .returns<TotalsRow[]>(),
       supabase
         .from("clients")
         .select("id, name")
         .order("name")
         .returns<{ id: string; name: string }[]>(),
-      supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("role", ["admin", "sales"])
-        .order("full_name")
-        .returns<{ id: string; full_name: string }[]>(),
+      fetchSalesTeam(supabase),
     ]);
 
   const rows = jobs ?? [];
@@ -82,10 +80,11 @@ export default async function JobsPage() {
 
   const jobListRows: JobListRow[] = rows.map((job) => {
     const t = totalsByJob.get(job.id);
-    const quoted = job.quoted_sell_total ?? 0;
-    const actual = t?.actual_total ?? 0;
-    const profit = quoted > 0 ? quoted - actual : null;
-    const margin = quoted > 0 && profit != null ? profit / quoted : null;
+    const { margin, estimated } = jobMargin({
+      quoted: job.quoted_sell_total ?? 0,
+      budgeted: Number(t?.budgeted_total ?? 0),
+      actual: Number(t?.actual_total ?? 0),
+    });
 
     return {
       id: job.id,
@@ -98,6 +97,7 @@ export default async function JobsPage() {
       quotedHours: job.quoted_hours,
       hoursActual: t?.hours_actual ?? 0,
       margin,
+      marginIsEstimate: estimated,
       completedAt: job.completed_at,
       lostAt: job.lost_at,
       lostTo: job.lost_to,
@@ -134,7 +134,7 @@ export default async function JobsPage() {
       <div className="mb-6">
         <AddJobButton
           clients={clients ?? []}
-          leadOptions={(leadUsers ?? []).map((u) => ({ id: u.id, name: u.full_name }))}
+          leadOptions={salesTeam}
         />
       </div>
 

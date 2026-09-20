@@ -38,7 +38,7 @@ export function AddJobButton({
       clientId,
       quotedSellTotal: quotedSellTotal === "" ? null : Number(quotedSellTotal),
       quotedHours: quotedHours === "" ? null : Number(quotedHours),
-      leadByUserId: leadByUserId || null,
+      leadByUserId,
     });
 
     if (result.error) {
@@ -132,13 +132,16 @@ export function AddJobButton({
         </label>
 
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-          <span className="text-ink-soft">Lead by</span>
+          <span className="text-ink-soft">Quoted by</span>
           <select
+            required
             value={leadByUserId}
             onChange={(e) => setLeadByUserId(e.target.value)}
             className="rounded border border-line px-2 py-1.5"
           >
-            <option value="">No one set</option>
+            <option value="" disabled>
+              Choose a sales person…
+            </option>
             {leadOptions.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name}
