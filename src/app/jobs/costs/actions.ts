@@ -124,6 +124,64 @@ export async function addManualActualCostAction(
   return {};
 }
 
+// Sets a category's Actual total straight from the budget table, for when an
+// admin wants to type the figure rather than manage cost lines one by one.
+// Actual is the sum of the category's cost lines (plus, for Labour, the
+// live timesheet figure), so this works out the difference from what the
+// category currently totals and books it against the cost lines: a lone
+// line that isn't tied to an invoice is edited in place, otherwise a
+// "Manual adjustment" line for the difference is added, so every other
+// line and the invoice history stay as they were.
+export async function setCategoryActualAction(
+  jobId: string,
+  input: { categoryId: string; amount: number }
+) {
+  const supabase = await requireAppAccess("jobs");
+
+  if (!input.categoryId) return { error: "Choose a category." };
+  if (!Number.isFinite(input.amount)) return { error: "Enter a valid actual amount." };
+
+  const { data: current, error: currentError } = await supabase
+    .from("job_budget_vs_actual")
+    .select("actual_amount")
+    .eq("job_id", jobId)
+    .eq("category_id", input.categoryId)
+    .maybeSingle<{ actual_amount: number }>();
+  if (currentError) return { error: currentError.message };
+
+  const delta = Math.round((input.amount - Number(current?.actual_amount ?? 0)) * 100) / 100;
+  if (delta === 0) return {};
+
+  const { data: lines, error: linesError } = await supabase
+    .from("job_actual_costs")
+    .select("id, amount, resene_invoice_line_id")
+    .eq("job_id", jobId)
+    .eq("category_id", input.categoryId)
+    .returns<{ id: string; amount: number; resene_invoice_line_id: string | null }[]>();
+  if (linesError) return { error: linesError.message };
+
+  const only = lines?.length === 1 ? lines[0] : null;
+  const { error } =
+    only && !only.resene_invoice_line_id
+      ? await supabase
+          .from("job_actual_costs")
+          .update({ amount: Math.round((Number(only.amount) + delta) * 100) / 100 })
+          .eq("id", only.id)
+      : await supabase.from("job_actual_costs").insert({
+          job_id: jobId,
+          category_id: input.categoryId,
+          description: "Manual adjustment",
+          amount: delta,
+          source: "manual",
+          incurred_at: new Date().toISOString().slice(0, 10),
+        });
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/jobs/${jobId}`);
+  return {};
+}
+
 // Corrects a number/price on an existing actual cost line — whether it was
 // typed in manually or came from an approved Resene invoice line. Editing
 // here only touches the ledger copy; it doesn't rewrite the original
@@ -150,6 +208,46 @@ export async function updateActualCostAction(
   if (error) return { error: error.message };
 
   revalidatePath(`/jobs/${jobId}`);
+  return {};
+}
+
+// Moves a manually-entered cost line onto a different job (e.g. it was
+// logged against the wrong one). Lines that came from an approved Resene
+// invoice can't move on their own: the job is set on the invoice, so
+// moving one line would split the invoice across two jobs. Those move with
+// their invoice instead - see moveInvoiceToJobAction.
+export async function moveActualCostToJobAction(costId: string, fromJobId: string, toJobId: string) {
+  const supabase = await requireAppAccess("jobs");
+
+  if (!toJobId) return { error: "Choose a job." };
+  if (toJobId === fromJobId) return { error: "That cost is already on this job." };
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("job_actual_costs")
+    .select("resene_invoice_line_id")
+    .eq("id", costId)
+    .eq("job_id", fromJobId)
+    .maybeSingle<{ resene_invoice_line_id: string | null }>();
+  if (fetchError) return { error: fetchError.message };
+  if (!existing) return { error: "Cost line not found on this job." };
+  if (existing.resene_invoice_line_id) {
+    return {
+      error:
+        "This cost came from a Resene invoice — move the invoice to the other job from the Resene invoices page instead.",
+    };
+  }
+
+  const { data: moved, error } = await supabase
+    .from("job_actual_costs")
+    .update({ job_id: toJobId })
+    .eq("id", costId)
+    .eq("job_id", fromJobId)
+    .select("id");
+  if (error) return { error: error.message };
+  if (!moved || moved.length === 0) return { error: "Cost line could not be moved." };
+
+  revalidatePath(`/jobs/${fromJobId}`);
+  revalidatePath(`/jobs/${toJobId}`);
   return {};
 }
 

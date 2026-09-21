@@ -4,10 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Panel, Money, Button } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
-import { updateActualCostAction, deleteActualCostAction } from "@/app/jobs/costs/actions";
+import {
+  updateActualCostAction,
+  deleteActualCostAction,
+  moveActualCostToJobAction,
+} from "@/app/jobs/costs/actions";
 import { AddCostLineButton } from "./AddCostLineButton";
 
 export type CategoryOption = { id: string; label: string };
+export type JobOption = { id: string; name: string; job_number: string | null };
 
 export type CostLineRow = {
   id: string;
@@ -17,16 +22,20 @@ export type CostLineRow = {
   amount: number;
   incurredAt: string;
   invoiceNumber: string | null;
+  // Came from an approved Resene invoice line - moves with its invoice, not on its own.
+  fromInvoice: boolean;
 };
 
 export function CostLinesSection({
   jobId,
   lines,
   categories,
+  jobOptions,
 }: {
   jobId: string;
   lines: CostLineRow[];
   categories: CategoryOption[];
+  jobOptions: JobOption[];
 }) {
   return (
     <Panel className="mb-8 p-4">
@@ -38,7 +47,13 @@ export function CostLinesSection({
       ) : (
         <div className="mb-3 space-y-1">
           {lines.map((line) => (
-            <CostLineItem key={line.id} jobId={jobId} line={line} categories={categories} />
+            <CostLineItem
+              key={line.id}
+              jobId={jobId}
+              line={line}
+              categories={categories}
+              jobOptions={jobOptions}
+            />
           ))}
         </div>
       )}
@@ -51,14 +66,18 @@ export function CostLineItem({
   jobId,
   line,
   categories,
+  jobOptions,
 }: {
   jobId: string;
   line: CostLineRow;
   categories: CategoryOption[];
+  jobOptions: JobOption[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const [moveToJobId, setMoveToJobId] = useState("");
   const [categoryId, setCategoryId] = useState(line.categoryId);
   const [description, setDescription] = useState(line.description);
   const [amount, setAmount] = useState(String(line.amount));
@@ -82,6 +101,20 @@ export function CostLineItem({
       return;
     }
     setEditing(false);
+    router.refresh();
+  }
+
+  async function move() {
+    setSaving(true);
+    setError(null);
+
+    const result = await moveActualCostToJobAction(line.id, jobId, moveToJobId);
+    setSaving(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setMoving(false);
     router.refresh();
   }
 
@@ -128,7 +161,7 @@ export function CostLineItem({
           step="0.01"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="rounded border border-line px-2 py-1.5 text-sm"
+          className="no-spinner rounded border border-line px-2 py-1.5 text-sm"
         />
         <Button type="submit" disabled={saving}>
           {saving ? "Saving…" : "Save"}
@@ -164,7 +197,42 @@ export function CostLineItem({
       </div>
       <div className="flex shrink-0 items-center gap-3">
         <Money value={line.amount} />
-        {confirmingDelete ? (
+        {moving ? (
+          <>
+            <select
+              autoFocus
+              value={moveToJobId}
+              onChange={(e) => setMoveToJobId(e.target.value)}
+              className="max-w-[16rem] rounded border border-line px-2 py-1 text-sm"
+            >
+              <option value="">Move to job…</option>
+              {jobOptions.map((j) => (
+                <option key={j.id} value={j.id}>
+                  {j.job_number ? `${j.job_number} — ${j.name}` : j.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={move}
+              disabled={saving || !moveToJobId}
+              className="font-medium underline disabled:opacity-50"
+            >
+              {saving ? "Moving…" : "Move"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMoving(false);
+                setError(null);
+              }}
+              disabled={saving}
+              className="text-ink-faint underline hover:text-ink disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </>
+        ) : confirmingDelete ? (
           <>
             <span className="text-ink-faint">Delete this line?</span>
             <button
@@ -194,6 +262,19 @@ export function CostLineItem({
             >
               Edit
             </button>
+            {!line.fromInvoice && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMoveToJobId("");
+                  setError(null);
+                  setMoving(true);
+                }}
+                className="text-ink-faint underline hover:text-ink"
+              >
+                Move
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setConfirmingDelete(true)}

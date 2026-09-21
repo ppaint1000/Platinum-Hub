@@ -47,3 +47,16 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* Hides the browser's up/down spinner arrows on number fields. Used on the
+   Jobs money/hours inputs, where nobody nudges a $ figure by 1 with a click. */
+@utility no-spinner {
+  appearance: textfield;
+  -moz-appearance: textfield;
+
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}

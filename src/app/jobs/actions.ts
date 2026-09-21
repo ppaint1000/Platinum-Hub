@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 
 // Lets someone add a job straight into the pipeline without it coming
 // through a Measures quote — e.g. a job assessed on-site and priced by
@@ -141,5 +142,55 @@ export async function renameJobCategoryAction(jobId: string, categoryId: string,
   if (error) return { error: error.message };
 
   revalidatePath(`/jobs/${jobId}`);
+  return {};
+}
+
+// Removes a job entered by mistake, at any status. Its budget and cost
+// lines go with it (cascade), and orders / client contacts just lose their
+// link. Resene invoices and timesheet sites are different: an invoice
+// assigned to the job has no cascade, and a linked site is where the
+// job's labour hours come from, so either one blocks the delete with a
+// pointer to unlink it first rather than silently dropping that history.
+export async function deleteJobAction(jobId: string) {
+  const supabase = await requireAdmin();
+
+  const [{ data: invoices, error: invoiceError }, { count: siteCount, error: siteError }] =
+    await Promise.all([
+      supabase
+        .from("resene_invoices")
+        .select("invoice_number")
+        .eq("job_id", jobId)
+        .returns<{ invoice_number: string | null }[]>(),
+      supabase.from("sites").select("id", { count: "exact", head: true }).eq("job_id", jobId),
+    ]);
+  if (invoiceError) return { error: invoiceError.message };
+  if (siteError) return { error: siteError.message };
+
+  const invoiceCount = invoices?.length ?? 0;
+  if (invoiceCount > 0) {
+    const numbers = (invoices ?? []).map((i) => i.invoice_number ?? "no number").join(", ");
+    return {
+      error: `${invoiceCount} Resene invoice${invoiceCount === 1 ? " is" : "s are"} assigned to this job (${numbers}) — move or unlink ${invoiceCount === 1 ? "it" : "them"} on the Resene invoices page first.`,
+    };
+  }
+  if ((siteCount ?? 0) > 0) {
+    return {
+      error: `${siteCount} timesheet site${siteCount === 1 ? " is" : "s are"} linked to this job — unlink ${siteCount === 1 ? "it" : "them"} on the site page first.`,
+    };
+  }
+
+  // .select() so a delete that matched nothing (e.g. blocked by RLS) is
+  // reported instead of looking like success.
+  const { data: deleted, error } = await supabase
+    .from("jobs")
+    .delete()
+    .eq("id", jobId)
+    .select("id");
+
+  if (error) return { error: error.message };
+  if (!deleted || deleted.length === 0) return { error: "Job could not be deleted." };
+
+  revalidatePath("/jobs");
+  revalidatePath("/sales");
   return {};
 }

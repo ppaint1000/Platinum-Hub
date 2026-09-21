@@ -8,6 +8,7 @@ import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { Panel } from "@/components/ui";
 import { InvoiceUploadForm } from "@/components/jobs/InvoiceUploadForm";
 import { AssignInvoiceJobRow } from "@/components/jobs/AssignInvoiceJobRow";
+import { MatchedInvoiceRow } from "@/components/jobs/MatchedInvoiceRow";
 
 type InvoiceRow = {
   id: string;
@@ -37,7 +38,7 @@ export default async function ReseneInvoicesPage() {
           "id, invoice_number, customer_po_number, invoice_date, total, job:jobs(id, name, job_number)"
         )
         .order("created_at", { ascending: false })
-        .limit(50)
+        .limit(200)
         .returns<InvoiceRow[]>(),
       supabase
         .from("jobs")
@@ -135,19 +136,14 @@ export default async function ReseneInvoicesPage() {
         ) : (
           <div className="space-y-1">
             {matched.map((inv) => (
-              <Link
+              <MatchedInvoiceRow
                 key={inv.id}
-                href={`/jobs/${inv.job?.id}`}
-                className="flex items-center justify-between rounded px-1 py-2 text-sm transition hover:bg-accent-soft/40"
-              >
-                <span className="text-ink">
-                  Invoice {inv.invoice_number ?? "—"}
-                  <span className="text-ink-faint"> — {inv.job?.name}</span>
-                </span>
-                <span className="text-ink-soft">
-                  {inv.total != null ? fmtMoney(inv.total) : "—"}
-                </span>
-              </Link>
+                invoiceId={inv.id}
+                invoiceNumber={inv.invoice_number}
+                total={inv.total != null ? fmtMoney(inv.total) : null}
+                job={inv.job!}
+                jobs={jobsForPicker}
+              />
             ))}
           </div>
         )}

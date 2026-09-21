@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { Panel, Money, Button } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
 import { setCategoryBudgetAction, deleteCategoryBudgetAction } from "@/app/jobs/budget/actions";
-import { CostLineItem, type CostLineRow, type CategoryOption } from "./CostLinesSection";
+import { setCategoryActualAction } from "@/app/jobs/costs/actions";
+import {
+  CostLineItem,
+  type CostLineRow,
+  type CategoryOption,
+  type JobOption,
+} from "./CostLinesSection";
 
 export type CategoryBudgetRow = {
   categoryId: string;
@@ -21,12 +27,14 @@ export function JobBudgetTable({
   categoryLabels,
   costLines,
   categories,
+  jobOptions,
 }: {
   jobId: string;
   rows: CategoryBudgetRow[];
   categoryLabels: string[];
   costLines: CostLineRow[];
   categories: CategoryOption[];
+  jobOptions: JobOption[];
 }) {
   const datalistId = useId();
 
@@ -60,6 +68,7 @@ export function JobBudgetTable({
                 row={row}
                 costLines={costLines.filter((l) => l.categoryId === row.categoryId)}
                 categories={categories}
+                jobOptions={jobOptions}
               />
             ))}
           </tbody>
@@ -76,37 +85,66 @@ function CategoryRow({
   row,
   costLines,
   categories,
+  jobOptions,
 }: {
   jobId: string;
   row: CategoryBudgetRow;
   costLines: CostLineRow[];
   categories: CategoryOption[];
+  jobOptions: JobOption[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [amount, setAmount] = useState(String(row.budgeted));
+  const [actualAmount, setActualAmount] = useState(String(row.actual));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
+  // Budgeted and Actual are both editable here; only the ones that actually
+  // changed get sent, so touching one doesn't rewrite the other.
+  async function save() {
     setSaving(true);
     setError(null);
 
-    const result = await setCategoryBudgetAction(jobId, {
-      categoryName: row.categoryLabel,
-      amount: Number(amount) || 0,
-    });
+    const newBudget = Number(amount) || 0;
+    const newActual = Number(actualAmount) || 0;
+
+    if (newBudget !== row.budgeted) {
+      const result = await setCategoryBudgetAction(jobId, {
+        categoryName: row.categoryLabel,
+        amount: newBudget,
+      });
+      if (result.error) {
+        setSaving(false);
+        setError(result.error);
+        return;
+      }
+    }
+    if (newActual !== row.actual) {
+      const result = await setCategoryActualAction(jobId, {
+        categoryId: row.categoryId,
+        amount: newActual,
+      });
+      if (result.error) {
+        setSaving(false);
+        setError(result.error);
+        router.refresh();
+        return;
+      }
+    }
 
     setSaving(false);
-    if (result.error) {
-      setError(result.error);
-      return;
-    }
     setEditing(false);
     router.refresh();
+  }
+
+  function saveOnEnter(e: React.KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      save();
+    }
   }
 
   async function remove() {
@@ -138,35 +176,55 @@ function CategoryRow({
         </button>
       </td>
       {editing ? (
-        <td className="py-2 pl-4" colSpan={4}>
-          <form onSubmit={save} className="flex items-center justify-end gap-2">
+        <>
+          <td className="py-2 pl-4 text-right">
             <input
               autoFocus
               type="number"
               step="0.01"
+              aria-label={`${row.categoryLabel} budgeted`}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-28 rounded border border-line px-2 py-1 text-right text-sm"
+              onKeyDown={saveOnEnter}
+              className="no-spinner w-28 rounded border border-line px-2 py-1 text-right text-sm"
             />
-            <Button type="submit" disabled={saving}>
-              {saving ? "Saving…" : "Save"}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setEditing(false);
-                setError(null);
-              }}
-            >
-              Cancel
-            </Button>
+          </td>
+          <td className="py-2 pl-4 text-right">
+            <input
+              type="number"
+              step="0.01"
+              aria-label={`${row.categoryLabel} actual`}
+              value={actualAmount}
+              onChange={(e) => setActualAmount(e.target.value)}
+              onKeyDown={saveOnEnter}
+              className="no-spinner w-28 rounded border border-line px-2 py-1 text-right text-sm"
+            />
+          </td>
+          <td className="py-2 pl-4 text-right">
+            <Money value={(Number(actualAmount) || 0) - (Number(amount) || 0)} variant="variance" />
+          </td>
+          <td className="py-2 pl-4">
+            <div className="flex items-center justify-end gap-2">
+              <Button onClick={save} disabled={saving}>
+                {saving ? "Saving…" : "Save"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setEditing(false);
+                  setError(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
             {error && (
-              <span className="text-sm" style={{ color: overBudgetColor }}>
+              <p className="mt-1 text-right text-sm" style={{ color: overBudgetColor }}>
                 {error}
-              </span>
+              </p>
             )}
-          </form>
-        </td>
+          </td>
+        </>
       ) : (
         <>
           <td className="py-2 pl-4 text-right">
@@ -205,7 +263,12 @@ function CategoryRow({
                 <>
                   <button
                     type="button"
-                    onClick={() => setEditing(true)}
+                    onClick={() => {
+                      setAmount(String(row.budgeted));
+                      setActualAmount(String(row.actual));
+                      setError(null);
+                      setEditing(true);
+                    }}
                     className="text-ink-faint underline hover:text-ink"
                   >
                     Edit
@@ -235,7 +298,13 @@ function CategoryRow({
           ) : (
             <div className="space-y-1">
               {costLines.map((line) => (
-                <CostLineItem key={line.id} jobId={jobId} line={line} categories={categories} />
+                <CostLineItem
+                  key={line.id}
+                  jobId={jobId}
+                  line={line}
+                  categories={categories}
+                  jobOptions={jobOptions}
+                />
               ))}
             </div>
           )}
@@ -316,7 +385,7 @@ function AddCategoryBudgetForm({
         placeholder="Budgeted $"
         value={amount}
         onChange={(e) => setAmount(e.target.value)}
-        className="rounded border border-line px-2 py-1.5 text-sm"
+        className="no-spinner rounded border border-line px-2 py-1.5 text-sm"
       />
       <Button type="submit" disabled={saving}>
         {saving ? "Saving…" : "Add"}

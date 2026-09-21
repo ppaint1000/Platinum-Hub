@@ -121,7 +121,7 @@ export function EditJobDetailsButton({
             step="0.01"
             value={quotedSellTotal}
             onChange={(e) => setQuotedSellTotal(e.target.value)}
-            className="rounded border border-line px-2 py-1.5"
+            className="no-spinner rounded border border-line px-2 py-1.5"
           />
         </label>
 
@@ -132,7 +132,7 @@ export function EditJobDetailsButton({
             step="0.01"
             value={quotedHours}
             onChange={(e) => setQuotedHours(e.target.value)}
-            className="rounded border border-line px-2 py-1.5"
+            className="no-spinner rounded border border-line px-2 py-1.5"
           />
         </label>
 

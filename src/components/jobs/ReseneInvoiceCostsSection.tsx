@@ -163,7 +163,7 @@ function PendingLineRow({
           step="0.01"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="rounded border border-line px-2 py-1.5 text-sm"
+          className="no-spinner rounded border border-line px-2 py-1.5 text-sm"
         />
         <Button onClick={approve} disabled={saving}>
           {saving ? "Approving…" : "Approve"}

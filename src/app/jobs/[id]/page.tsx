@@ -11,6 +11,7 @@ import { MarkAsLostButton } from "@/components/jobs/MarkAsLostButton";
 import { MarkAsInProgressButton } from "@/components/jobs/MarkAsInProgressButton";
 import { MarkAsCompleteButton } from "@/components/jobs/MarkAsCompleteButton";
 import { JobStatusControl } from "@/components/jobs/JobStatusControl";
+import { DeleteJobButton } from "@/components/jobs/DeleteJobButton";
 import { EditJobDetailsButton } from "@/components/jobs/EditJobDetailsButton";
 import {
   ReseneInvoiceCostsSection,
@@ -99,6 +100,7 @@ export default async function JobDetailPage({
     { data: actualCosts },
     { data: lostToRows },
     salesTeam,
+    { data: otherJobs },
   ] = await Promise.all([
     supabase
       .from("job_budget_vs_actual")
@@ -149,6 +151,12 @@ export default async function JobDetailPage({
       .not("lost_to", "is", null)
       .returns<{ lost_to: string }[]>(),
     fetchSalesTeam(supabase),
+    supabase
+      .from("jobs")
+      .select("id, name, job_number")
+      .neq("id", id)
+      .order("name")
+      .returns<{ id: string; name: string; job_number: string | null }[]>(),
   ]);
 
   const lostToOptions = [...new Set((lostToRows ?? []).map((r) => r.lost_to))].sort((a, b) =>
@@ -194,6 +202,7 @@ export default async function JobDetailPage({
     invoiceNumber: c.resene_invoice_line_id
       ? invoiceNumberByLineId.get(c.resene_invoice_line_id) ?? null
       : null,
+    fromInvoice: !!c.resene_invoice_line_id,
   }));
 
   const categoryBudgetRows: CategoryBudgetRow[] = rows
@@ -293,6 +302,7 @@ export default async function JobDetailPage({
             lostToOptions={lostToOptions}
             salesTeam={salesTeam}
           />
+          <DeleteJobButton jobId={job.id} jobName={job.name} costLineCount={costLines.length} />
         </div>
       </div>
 
@@ -329,6 +339,7 @@ export default async function JobDetailPage({
         categoryLabels={categoryLabels}
         costLines={costLines}
         categories={categoryOptions}
+        jobOptions={otherJobs ?? []}
       />
 
       <ReseneInvoiceCostsSection
@@ -338,7 +349,12 @@ export default async function JobDetailPage({
         categories={categoryOptions}
       />
 
-      <CostLinesSection jobId={job.id} lines={costLines} categories={categoryOptions} />
+      <CostLinesSection
+        jobId={job.id}
+        lines={costLines}
+        categories={categoryOptions}
+        jobOptions={otherJobs ?? []}
+      />
     </div>
   );
 }
