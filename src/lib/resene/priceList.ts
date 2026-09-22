@@ -93,31 +93,70 @@ export function buildPriceRows(
 
 /**
  * Saves prices from a newly uploaded invoice. An older invoice uploaded
- * late doesn't overwrite a price from a newer one.
+ * late doesn't overwrite a price from a newer one. A re-invoice at the
+ * *same* $ as what's already stored is skipped entirely, not just
+ * timestamp-bumped - otherwise a routine reorder at an unchanged price
+ * would silently wipe out a base/size someone corrected by hand in
+ * Measures (Costing > Resene Paint Prices) with whatever this invoice's
+ * description happens to parse to.
  */
 export async function recordPrices(supabase: SupabaseClient, rows: PriceRow[]) {
   if (rows.length === 0) return;
 
   const { data: existing, error: existingError } = await supabase
     .from("resene_prices")
-    .select("item_code, price_date")
+    .select("item_code, unit_price, price_date")
     .in("item_code", rows.map((r) => r.item_code))
-    .returns<{ item_code: string; price_date: string | null }[]>();
+    .returns<{ item_code: string; unit_price: number; price_date: string | null }[]>();
   if (existingError) throw new Error(existingError.message);
 
-  const current = new Map((existing ?? []).map((e) => [e.item_code, e.price_date]));
+  const current = new Map((existing ?? []).map((e) => [e.item_code, e]));
   const toWrite = rows.filter((r) => {
-    if (!current.has(r.item_code)) return true;
     const prev = current.get(r.item_code);
-    return prev == null || (r.price_date != null && r.price_date >= prev);
+    if (!prev) return true;
+    if (Math.abs(Number(prev.unit_price) - r.unit_price) < 0.005) return false;
+    return prev.price_date == null || (r.price_date != null && r.price_date >= prev.price_date);
   });
   if (toWrite.length === 0) return;
 
   const now = new Date().toISOString();
   const { error } = await supabase
     .from("resene_prices")
-    .upsert(toWrite.map((r) => ({ ...r, updated_at: now })), { onConflict: "item_code" });
+    // A genuinely different price is real new information about what this
+    // item actually costs, so it takes over from a manual edit too -
+    // source resets to 'invoice' and edited_at clears.
+    .upsert(
+      toWrite.map((r) => ({ ...r, source: "invoice", edited_at: null, updated_at: now })),
+      { onConflict: "item_code" }
+    );
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Applies a hand-correction from Measures (Costing > Resene Paint Prices) to
+ * one item - e.g. the invoice text didn't parse a base, or got the size
+ * wrong. Updates the existing row in place (item_code is the primary key,
+ * so there's never a second row for the same item to create); the item
+ * must already be listed, since this isn't a way to add a new product.
+ */
+export async function updatePriceManually(
+  supabase: SupabaseClient,
+  itemCode: string,
+  input: { base: string | null; sizeLitres: number | null; unitPrice: number }
+) {
+  const { data, error } = await supabase
+    .from("resene_prices")
+    .update({
+      base: input.base,
+      size_litres: input.sizeLitres,
+      unit_price: input.unitPrice,
+      source: "manual",
+      edited_at: new Date().toISOString(),
+    })
+    .eq("item_code", itemCode)
+    .select("item_code");
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("That product isn't in the price list.");
 }
 
 /** Builds the whole list from every invoice already stored, oldest first so the newest price wins. */
