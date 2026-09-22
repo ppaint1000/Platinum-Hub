@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { extractText, getDocumentProxy } from "unpdf";
 import { parseReseneInvoice } from "@/lib/resene/parseInvoice";
+import { buildPriceRows, recordPrices } from "@/lib/resene/priceList";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -116,6 +117,21 @@ export async function POST(request: NextRequest) {
   const { error: linesError } = await supabase.from("resene_invoice_lines").insert(lineRows);
   if (linesError) {
     return NextResponse.json({ error: linesError.message }, { status: 500 });
+  }
+
+  // Keep the Resene price list current with what this invoice charged.
+  // Best effort: the invoice is already saved, so a problem here (e.g. the
+  // price-list table not set up yet) must not fail the upload.
+  try {
+    await recordPrices(
+      supabase,
+      buildPriceRows(lineRows, {
+        invoiceNumber: parsed.invoiceNumber,
+        invoiceDate: parsed.invoiceDate,
+      })
+    );
+  } catch (e) {
+    console.error("[resene-prices] couldn't update the price list", e);
   }
 
   return NextResponse.json({
