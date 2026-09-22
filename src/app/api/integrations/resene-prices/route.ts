@@ -27,11 +27,13 @@ export async function GET(request: NextRequest) {
   const columns =
     "item_code, description, base, size_litres, unit_price, price_per_litre, discount, invoice_number, price_date";
 
-  let { data, error } = await admin
+  const initial = await admin
     .from("resene_prices")
     .select(columns)
     .order("description")
     .returns<PriceRow[]>();
+  let data = initial.data;
+  const error = initial.error;
 
   if (error) {
     // 42P01 / PGRST205: the table hasn't been created yet.
