@@ -125,8 +125,8 @@ export default async function JobDetailPage({
       .order("full_name")
       .returns<{ id: string; full_name: string }[]>(),
     supabase
-      .from("resene_invoice_lines")
-      .select("id, category_id, description, subtotal, status, invoice:resene_invoices(invoice_number)")
+      .from("supplier_invoice_lines")
+      .select("id, category_id, description, subtotal, status, invoice:supplier_invoices(invoice_number)")
       .eq("job_id", id)
       .returns<ReseneInvoiceLineRow[]>(),
     supabase
@@ -162,10 +162,10 @@ export default async function JobDetailPage({
   );
 
   // "Awaiting invoice" = a Resene order on this job whose project_number
-  // has no matching resene_invoices.customer_po_number yet — informational
+  // has no matching supplier_invoices.customer_po_number yet — informational
   // only, computed here rather than in SQL since it's a small, job-scoped list.
   const { data: matchedPoNumbers } = await supabase
-    .from("resene_invoices")
+    .from("supplier_invoices")
     .select("customer_po_number")
     .not("customer_po_number", "is", null);
   const matchedSet = new Set((matchedPoNumbers ?? []).map((r) => r.customer_po_number));

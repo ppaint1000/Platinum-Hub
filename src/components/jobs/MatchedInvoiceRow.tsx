@@ -26,12 +26,14 @@ type Mode = "idle" | "change" | "unlink" | "delete" | "split";
 export function MatchedInvoiceRow({
   invoiceId,
   invoiceNumber,
+  supplierName,
   total,
   job,
   jobs,
 }: {
   invoiceId: string;
   invoiceNumber: string | null;
+  supplierName: string | null;
   total: string | null;
   job: JobOption;
   jobs: JobOption[];
@@ -115,7 +117,8 @@ export function MatchedInvoiceRow({
     <div className="rounded px-1 py-2 text-sm transition hover:bg-accent-soft/40">
       <div className="flex items-center justify-between gap-4">
         <Link href={`/jobs/${job.id}`} className="min-w-0 text-ink">
-          Invoice {invoiceNumber ?? "—"}
+          {supplierName && <span className="font-medium">{supplierName}</span>} Invoice{" "}
+          {invoiceNumber ?? "—"}
           <span className="text-ink-faint"> — {job.name}</span>
         </Link>
         <div className="flex shrink-0 items-center gap-3">

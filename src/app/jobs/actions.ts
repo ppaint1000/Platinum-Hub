@@ -147,7 +147,7 @@ export async function renameJobCategoryAction(jobId: string, categoryId: string,
 
 // Removes a job entered by mistake, at any status. Its budget and cost
 // lines go with it (cascade), and orders / client contacts just lose their
-// link. Resene invoices and timesheet sites are different: an invoice
+// link. Supplier invoices and timesheet sites are different: an invoice
 // assigned to the job has no cascade, and a linked site is where the
 // job's labour hours come from, so either one blocks the delete with a
 // pointer to unlink it first rather than silently dropping that history.
@@ -157,7 +157,7 @@ export async function deleteJobAction(jobId: string) {
   const [{ data: invoices, error: invoiceError }, { data: splitLines, error: splitError }, { count: siteCount, error: siteError }] =
     await Promise.all([
       supabase
-        .from("resene_invoices")
+        .from("supplier_invoices")
         .select("invoice_number")
         .eq("job_id", jobId)
         .returns<{ invoice_number: string | null }[]>(),
@@ -165,8 +165,8 @@ export async function deleteJobAction(jobId: string) {
       // lines can still point at this job even though the invoice row
       // wouldn't show up in the query above.
       supabase
-        .from("resene_invoice_lines")
-        .select("invoice:resene_invoices(invoice_number)")
+        .from("supplier_invoice_lines")
+        .select("invoice:supplier_invoices(invoice_number)")
         .eq("job_id", jobId)
         .returns<{ invoice: { invoice_number: string | null } | null }[]>(),
       supabase.from("sites").select("id", { count: "exact", head: true }).eq("job_id", jobId),
@@ -182,7 +182,7 @@ export async function deleteJobAction(jobId: string) {
   if (numbers.size > 0) {
     const invoiceCount = numbers.size;
     return {
-      error: `${invoiceCount} Resene invoice${invoiceCount === 1 ? " is" : "s are"} assigned to this job (${[...numbers].join(", ")}) — move, unlink or re-split ${invoiceCount === 1 ? "it" : "them"} on the Resene invoices page first.`,
+      error: `${invoiceCount} supplier invoice${invoiceCount === 1 ? " is" : "s are"} assigned to this job (${[...numbers].join(", ")}) — move, unlink or re-split ${invoiceCount === 1 ? "it" : "them"} on the Supplier invoices page first.`,
     };
   }
   if ((siteCount ?? 0) > 0) {

@@ -2,6 +2,93 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
+import { findOrCreateSupplierId } from "@/lib/jobs/findOrCreateSupplier";
+
+// The supplier dropdown on the upload form - "type a new one" style, same
+// as job categories. Ordered with Resene first (the only one with a PDF
+// parser today) rather than alphabetically, so it stays the obvious default.
+export async function fetchSuppliersAction() {
+  const supabase = await requireAppAccess("jobs");
+  const { data, error } = await supabase
+    .from("suppliers")
+    .select("id, name")
+    .order("name")
+    .returns<{ id: string; name: string }[]>();
+  if (error) return { error: error.message };
+
+  const suppliers = data ?? [];
+  suppliers.sort((a, b) => (a.name.toLowerCase() === "resene" ? -1 : b.name.toLowerCase() === "resene" ? 1 : 0));
+  return { suppliers };
+}
+
+// A supplier with no PDF parser yet is entered by hand: invoice number,
+// date and a list of description/$ lines, typed straight into the same
+// tables a parsed Resene invoice lands in (source='manual' instead of
+// 'parsed') - so it goes through the exact same job-assignment, approval
+// and delete flow as any other invoice from here on.
+export async function createManualInvoiceAction(input: {
+  supplierName: string;
+  invoiceNumber: string;
+  invoiceDate: string | null;
+  lines: { description: string; amount: number }[];
+}) {
+  const supabase = await requireAppAccess("jobs");
+
+  const supplier = await findOrCreateSupplierId(supabase, input.supplierName);
+  if ("error" in supplier) return { error: supplier.error };
+
+  const cleanedLines = input.lines
+    .map((l) => ({ description: l.description.trim(), amount: Number(l.amount) || 0 }))
+    .filter((l) => l.description && l.amount > 0);
+  if (cleanedLines.length === 0) {
+    return { error: "Add at least one line with a description and amount." };
+  }
+
+  const total = Math.round(cleanedLines.reduce((sum, l) => sum + l.amount, 0) * 100) / 100;
+  const invoiceNumber = input.invoiceNumber.trim() || null;
+
+  if (invoiceNumber) {
+    const { data: existing } = await supabase
+      .from("supplier_invoices")
+      .select("id")
+      .eq("supplier_id", supplier.id)
+      .eq("invoice_number", invoiceNumber)
+      .maybeSingle();
+    if (existing) return { error: `Invoice ${invoiceNumber} has already been entered.` };
+  }
+
+  const { data: invoice, error: invoiceError } = await supabase
+    .from("supplier_invoices")
+    .insert({
+      supplier_id: supplier.id,
+      source: "manual",
+      invoice_number: invoiceNumber,
+      invoice_date: input.invoiceDate,
+      subtotal: total,
+      total,
+    })
+    .select("id")
+    .single();
+  if (invoiceError || !invoice) {
+    const duplicate = invoiceError?.code === "23505";
+    return { error: duplicate ? `Invoice ${invoiceNumber} has already been entered.` : invoiceError?.message ?? "Couldn't save the invoice." };
+  }
+
+  const { error: linesError } = await supabase.from("supplier_invoice_lines").insert(
+    cleanedLines.map((l, i) => ({
+      invoice_id: invoice.id,
+      line_no: i + 1,
+      description: l.description,
+      subtotal: l.amount,
+      quantity: 1,
+      unit_price: l.amount,
+    }))
+  );
+  if (linesError) return { error: linesError.message };
+
+  revalidatePath("/jobs/invoices");
+  return { invoiceId: invoice.id };
+}
 
 // Lines aren't fetched up front for every matched invoice on the list page
 // (most never need splitting) - MatchedInvoiceRow calls this on demand,
@@ -10,7 +97,7 @@ export async function fetchInvoiceLinesAction(invoiceId: string) {
   const supabase = await requireAppAccess("jobs");
 
   const { data, error } = await supabase
-    .from("resene_invoice_lines")
+    .from("supplier_invoice_lines")
     .select("id, description, subtotal")
     .eq("invoice_id", invoiceId)
     .order("line_no")
@@ -26,7 +113,7 @@ export async function assignInvoiceJobAction(invoiceId: string, jobId: string) {
   if (!jobId) return { error: "Choose a job." };
 
   const { error } = await supabase
-    .from("resene_invoices")
+    .from("supplier_invoices")
     .update({ job_id: jobId, split: false })
     .eq("id", invoiceId);
   if (error) return { error: error.message };
@@ -34,7 +121,7 @@ export async function assignInvoiceJobAction(invoiceId: string, jobId: string) {
   // A job's pending-approvals list filters on the line's own job_id, not
   // the invoice's - keep every line in step with a whole-invoice assign.
   const { error: linesError } = await supabase
-    .from("resene_invoice_lines")
+    .from("supplier_invoice_lines")
     .update({ job_id: jobId })
     .eq("invoice_id", invoiceId);
   if (linesError) return { error: linesError.message };
@@ -60,12 +147,12 @@ export async function splitInvoiceLinesAction(
   if (cleaned.length === 0) return { error: "Choose a job for at least one line." };
 
   for (const { lineId, jobId } of cleaned) {
-    const { error } = await supabase.from("resene_invoice_lines").update({ job_id: jobId }).eq("id", lineId);
+    const { error } = await supabase.from("supplier_invoice_lines").update({ job_id: jobId }).eq("id", lineId);
     if (error) return { error: error.message };
   }
 
   const { error: invoiceError } = await supabase
-    .from("resene_invoices")
+    .from("supplier_invoices")
     .update({ job_id: null, split: true })
     .eq("id", invoiceId);
   if (invoiceError) return { error: invoiceError.message };
@@ -91,7 +178,7 @@ export async function moveInvoiceToJobAction(invoiceId: string, newJobId: string
   const supabase = await requireAppAccess("jobs");
 
   const { data: invoice, error: invoiceError } = await supabase
-    .from("resene_invoices")
+    .from("supplier_invoices")
     .select("id, job_id")
     .eq("id", invoiceId)
     .maybeSingle<{ id: string; job_id: string | null }>();
@@ -101,7 +188,7 @@ export async function moveInvoiceToJobAction(invoiceId: string, newJobId: string
   const oldJobId = invoice.job_id;
 
   const { data: lineRows, error: linesError } = await supabase
-    .from("resene_invoice_lines")
+    .from("supplier_invoice_lines")
     .select("id")
     .eq("invoice_id", invoiceId)
     .returns<{ id: string }[]>();
@@ -117,14 +204,14 @@ export async function moveInvoiceToJobAction(invoiceId: string, newJobId: string
       if (costsError) return { error: costsError.message };
 
       const { error: lineJobError } = await supabase
-        .from("resene_invoice_lines")
+        .from("supplier_invoice_lines")
         .update({ job_id: newJobId })
         .in("id", lineIds);
       if (lineJobError) return { error: lineJobError.message };
     }
 
     const { data: updated, error: updateError } = await supabase
-      .from("resene_invoices")
+      .from("supplier_invoices")
       .update({ job_id: newJobId, split: false })
       .eq("id", invoiceId)
       .select("id");
@@ -135,7 +222,7 @@ export async function moveInvoiceToJobAction(invoiceId: string, newJobId: string
           .from("job_actual_costs")
           .update({ job_id: oldJobId })
           .in("resene_invoice_line_id", lineIds);
-        await supabase.from("resene_invoice_lines").update({ job_id: oldJobId }).in("id", lineIds);
+        await supabase.from("supplier_invoice_lines").update({ job_id: oldJobId }).in("id", lineIds);
       }
       return { error: updateError?.message ?? "Invoice could not be moved." };
     }
@@ -148,7 +235,7 @@ export async function moveInvoiceToJobAction(invoiceId: string, newJobId: string
       if (deleteError) return { error: deleteError.message };
 
       const { error: resetError } = await supabase
-        .from("resene_invoice_lines")
+        .from("supplier_invoice_lines")
         .update({ status: "pending", approved_at: null, approved_by: null })
         .in("id", lineIds)
         .eq("status", "approved");
@@ -157,14 +244,14 @@ export async function moveInvoiceToJobAction(invoiceId: string, newJobId: string
       // Every line loses its job_id on a full unlink, regardless of
       // whether it was approved or already pending.
       const { error: lineJobError } = await supabase
-        .from("resene_invoice_lines")
+        .from("supplier_invoice_lines")
         .update({ job_id: null })
         .in("id", lineIds);
       if (lineJobError) return { error: lineJobError.message };
     }
 
     const { data: updated, error: updateError } = await supabase
-      .from("resene_invoices")
+      .from("supplier_invoices")
       .update({ job_id: null, split: false })
       .eq("id", invoiceId)
       .select("id");
@@ -190,7 +277,7 @@ export async function deleteInvoiceAction(invoiceId: string) {
   const supabase = await requireAppAccess("jobs");
 
   const { data: invoice, error: invoiceError } = await supabase
-    .from("resene_invoices")
+    .from("supplier_invoices")
     .select("id, job_id, pdf_path")
     .eq("id", invoiceId)
     .maybeSingle<{ id: string; job_id: string | null; pdf_path: string | null }>();
@@ -198,7 +285,7 @@ export async function deleteInvoiceAction(invoiceId: string) {
   if (!invoice) return { error: "Invoice not found." };
 
   const { data: lineRows, error: linesError } = await supabase
-    .from("resene_invoice_lines")
+    .from("supplier_invoice_lines")
     .select("id")
     .eq("invoice_id", invoiceId)
     .returns<{ id: string }[]>();
@@ -213,7 +300,7 @@ export async function deleteInvoiceAction(invoiceId: string) {
     if (costsError) return { error: costsError.message };
   }
 
-  const { error: deleteError } = await supabase.from("resene_invoices").delete().eq("id", invoiceId);
+  const { error: deleteError } = await supabase.from("supplier_invoices").delete().eq("id", invoiceId);
   if (deleteError) return { error: deleteError.message };
 
   if (invoice.pdf_path) {

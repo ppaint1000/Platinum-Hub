@@ -30,11 +30,13 @@ function jobLabel(j: JobOption | null) {
 export function SplitInvoiceRow({
   invoiceId,
   invoiceNumber,
+  supplierName,
   jobs,
   lines,
 }: {
   invoiceId: string;
   invoiceNumber: string | null;
+  supplierName: string | null;
   jobs: JobOption[];
   lines: LineRow[];
 }) {
@@ -83,7 +85,10 @@ export function SplitInvoiceRow({
   return (
     <div className="rounded border border-line p-3">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-sm text-ink">Invoice {invoiceNumber ?? "—"}</div>
+        <div className="text-sm text-ink">
+          {supplierName && <span className="font-medium">{supplierName}</span>} Invoice{" "}
+          {invoiceNumber ?? "—"}
+        </div>
         {!editing && !confirmingDelete && (
           <div className="flex shrink-0 items-center gap-3 text-sm">
             <button

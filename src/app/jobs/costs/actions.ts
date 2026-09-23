@@ -21,7 +21,7 @@ export async function updateReseneInvoiceLineAction(
   if (!input.description.trim()) return { error: "Description is required." };
 
   const { data: existing } = await supabase
-    .from("resene_invoice_lines")
+    .from("supplier_invoice_lines")
     .select("status, item_code")
     .eq("id", lineId)
     .single();
@@ -38,7 +38,7 @@ export async function updateReseneInvoiceLineAction(
   }
 
   const { error } = await supabase
-    .from("resene_invoice_lines")
+    .from("supplier_invoice_lines")
     .update({
       category_id: categoryId,
       description: input.description.trim(),
@@ -69,7 +69,7 @@ export async function approveReseneInvoiceLineAction(lineId: string, jobId: stri
   } = await supabase.auth.getUser();
 
   const { data: line, error: fetchError } = await supabase
-    .from("resene_invoice_lines")
+    .from("supplier_invoice_lines")
     .select("category_id, description, subtotal, status")
     .eq("id", lineId)
     .single();
@@ -90,7 +90,7 @@ export async function approveReseneInvoiceLineAction(lineId: string, jobId: stri
   if (actualError) return { error: actualError.message };
 
   const { error: updateError } = await supabase
-    .from("resene_invoice_lines")
+    .from("supplier_invoice_lines")
     .update({ status: "approved", approved_at: new Date().toISOString(), approved_by: user?.id })
     .eq("id", lineId);
 
@@ -233,7 +233,7 @@ export async function moveActualCostToJobAction(costId: string, fromJobId: strin
   if (existing.resene_invoice_line_id) {
     return {
       error:
-        "This cost came from a Resene invoice — move the invoice to the other job from the Resene invoices page instead.",
+        "This cost came from a supplier invoice — move or split the invoice from the Supplier invoices page instead.",
     };
   }
 
@@ -268,7 +268,7 @@ export async function deleteActualCostAction(costId: string, jobId: string) {
 
   if (existing?.resene_invoice_line_id) {
     await supabase
-      .from("resene_invoice_lines")
+      .from("supplier_invoice_lines")
       .update({ status: "pending", approved_at: null, approved_by: null })
       .eq("id", existing.resene_invoice_line_id);
   }

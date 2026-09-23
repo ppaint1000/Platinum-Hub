@@ -1,7 +1,9 @@
-// Resene invoices — upload a PDF, it's parsed and matched to a job by PO
-// number (see src/lib/resene/parseInvoice.ts and the upload route).
-// Unmatched invoices are listed here for manual linking; approving
-// individual lines into actual costs happens on the job's own page.
+// Supplier invoices — Resene invoices are parsed straight from an uploaded
+// PDF and matched to a job by PO number (see src/lib/resene/parseInvoice.ts
+// and the upload route); any other supplier is entered by hand (no parser
+// exists for their layout yet - see createManualInvoiceAction). Unmatched
+// invoices are listed here for manual linking; approving individual lines
+// into actual costs happens on the job's own page.
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
@@ -18,6 +20,7 @@ type InvoiceRow = {
   invoice_date: string | null;
   total: number | null;
   split: boolean;
+  supplier: { name: string } | null;
   job: { id: string; name: string; job_number: string | null } | null;
 };
 
@@ -37,15 +40,15 @@ function fmtMoney(n: number) {
   }).format(n);
 }
 
-export default async function ReseneInvoicesPage() {
+export default async function SupplierInvoicesPage() {
   const supabase = await requireAppAccess("jobs");
 
-  const [{ data: invoices }, { data: jobs }, { data: orders }, { data: sites }, { data: entries }] =
+  const [{ data: invoices }, { data: jobs }, { data: suppliers }, { data: orders }, { data: sites }, { data: entries }] =
     await Promise.all([
       supabase
-        .from("resene_invoices")
+        .from("supplier_invoices")
         .select(
-          "id, invoice_number, customer_po_number, invoice_date, total, split, job:jobs(id, name, job_number)"
+          "id, invoice_number, customer_po_number, invoice_date, total, split, supplier:suppliers(name), job:jobs(id, name, job_number)"
         )
         .order("created_at", { ascending: false })
         .limit(200)
@@ -54,6 +57,11 @@ export default async function ReseneInvoicesPage() {
         .from("jobs")
         .select("id, name, job_number")
         .returns<{ id: string; name: string; job_number: string | null }[]>(),
+      supabase
+        .from("suppliers")
+        .select("id, name")
+        .order("name")
+        .returns<{ id: string; name: string }[]>(),
       // Which job an order belongs to, and when — one of the two "latest
       // activity" signals below.
       supabase
@@ -113,7 +121,7 @@ export default async function ReseneInvoicesPage() {
   const { data: lineRows } =
     linesNeededFor.length > 0
       ? await supabase
-          .from("resene_invoice_lines")
+          .from("supplier_invoice_lines")
           .select("id, invoice_id, description, subtotal, job_id")
           .in("invoice_id", linesNeededFor)
           .order("line_no")
@@ -136,9 +144,9 @@ export default async function ReseneInvoicesPage() {
         Back to Jobs
       </Link>
 
-      <h1 className="mb-6 text-3xl font-bold text-ink">Resene Invoices</h1>
+      <h1 className="mb-6 text-3xl font-bold text-ink">Supplier Invoices</h1>
 
-      <InvoiceUploadForm />
+      <InvoiceUploadForm suppliers={suppliers ?? []} />
 
       {unmatched.length > 0 && (
         <Panel className="mb-6 p-4">
@@ -151,6 +159,7 @@ export default async function ReseneInvoicesPage() {
                 key={inv.id}
                 invoiceId={inv.id}
                 invoiceNumber={inv.invoice_number}
+                supplierName={inv.supplier?.name ?? null}
                 customerPoNumber={inv.customer_po_number}
                 jobs={jobsForPicker}
                 lines={(linesByInvoice.get(inv.id) ?? []).map((l) => ({
@@ -175,6 +184,7 @@ export default async function ReseneInvoicesPage() {
                 key={inv.id}
                 invoiceId={inv.id}
                 invoiceNumber={inv.invoice_number}
+                supplierName={inv.supplier?.name ?? null}
                 jobs={jobsForPicker}
                 lines={(linesByInvoice.get(inv.id) ?? []).map((l) => ({
                   id: l.id,
@@ -201,6 +211,7 @@ export default async function ReseneInvoicesPage() {
                 key={inv.id}
                 invoiceId={inv.id}
                 invoiceNumber={inv.invoice_number}
+                supplierName={inv.supplier?.name ?? null}
                 total={inv.total != null ? fmtMoney(inv.total) : null}
                 job={inv.job!}
                 jobs={jobsForPicker}

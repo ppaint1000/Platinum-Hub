@@ -150,7 +150,7 @@ export default async function JobsPage() {
             href="/jobs/invoices"
             className="text-sm font-medium text-accent hover:text-accent-hover"
           >
-            Resene invoices
+            Supplier invoices
           </Link>
         </div>
       </div>

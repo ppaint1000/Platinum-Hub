@@ -20,12 +20,14 @@ function fmtMoney(n: number) {
 export function AssignInvoiceJobRow({
   invoiceId,
   invoiceNumber,
+  supplierName,
   customerPoNumber,
   jobs,
   lines,
 }: {
   invoiceId: string;
   invoiceNumber: string | null;
+  supplierName: string | null;
   customerPoNumber: string | null;
   jobs: JobOption[];
   lines: LineOption[];
@@ -86,7 +88,8 @@ export function AssignInvoiceJobRow({
     <div className="rounded border border-line p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="text-sm text-ink">
-          Invoice {invoiceNumber ?? "—"}
+          {supplierName && <span className="font-medium">{supplierName}</span>} Invoice{" "}
+          {invoiceNumber ?? "—"}
           {customerPoNumber && <span className="text-ink-faint"> — PO {customerPoNumber}</span>}
         </div>
         {!confirmingDelete && (

@@ -159,13 +159,27 @@ export async function updatePriceManually(
   if (!data || data.length === 0) throw new Error("That product isn't in the price list.");
 }
 
-/** Builds the whole list from every invoice already stored, oldest first so the newest price wins. */
+/**
+ * Builds the whole list from every Resene invoice already stored, oldest
+ * first so the newest price wins. Invoices now cover any supplier
+ * (suppliers, supplier_invoices) - this list stays Resene-only, so it's
+ * scoped to Resene's supplier id rather than every invoice line in the
+ * table.
+ */
 export async function rebuildPricesFromInvoices(supabase: SupabaseClient) {
+  const { data: resene } = await supabase
+    .from("suppliers")
+    .select("id")
+    .ilike("name", "Resene")
+    .maybeSingle<{ id: string }>();
+  if (!resene) return 0;
+
   const { data, error } = await supabase
-    .from("resene_invoice_lines")
+    .from("supplier_invoice_lines")
     .select(
-      "item_code, description, quantity, unit_price, subtotal, discount, invoice:resene_invoices(invoice_number, invoice_date)"
+      "item_code, description, quantity, unit_price, subtotal, discount, invoice:supplier_invoices!inner(invoice_number, invoice_date, supplier_id)"
     )
+    .eq("invoice.supplier_id", resene.id)
     .returns<
       (InvoiceLineForPricing & {
         invoice: { invoice_number: string | null; invoice_date: string | null } | null;

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { extractText, getDocumentProxy } from "unpdf";
 import { parseReseneInvoice } from "@/lib/resene/parseInvoice";
 import { buildPriceRows, recordPrices } from "@/lib/resene/priceList";
+import { findOrCreateSupplierId } from "@/lib/jobs/findOrCreateSupplier";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -54,11 +55,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // This route only ever handles Resene PDFs (any other supplier is
+  // manually entered instead - see createManualInvoiceAction) - resolved
+  // once here rather than trusting a value the client could send.
+  const supplier = await findOrCreateSupplierId(supabase, "Resene");
+  if ("error" in supplier) {
+    return NextResponse.json({ error: supplier.error }, { status: 500 });
+  }
+
   // Checked before touching storage, so a repeat upload doesn't leave an
-  // orphaned PDF behind.
+  // orphaned PDF behind. Scoped to this supplier - two different suppliers
+  // each numbering their own invoices "1001" isn't a duplicate.
   const { data: existing } = await supabase
-    .from("resene_invoices")
+    .from("supplier_invoices")
     .select("id")
+    .eq("supplier_id", supplier.id)
     .eq("invoice_number", parsed.invoiceNumber)
     .maybeSingle();
   if (existing) {
@@ -91,8 +102,10 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: invoice, error: invoiceError } = await supabase
-    .from("resene_invoices")
+    .from("supplier_invoices")
     .insert({
+      supplier_id: supplier.id,
+      source: "parsed",
       invoice_number: parsed.invoiceNumber,
       customer_po_number: parsed.customerPoNumber,
       invoice_date: parsed.invoiceDate,
@@ -143,7 +156,7 @@ export async function POST(request: NextRequest) {
     job_id: jobId,
   }));
 
-  const { error: linesError } = await supabase.from("resene_invoice_lines").insert(lineRows);
+  const { error: linesError } = await supabase.from("supplier_invoice_lines").insert(lineRows);
   if (linesError) {
     return NextResponse.json({ error: linesError.message }, { status: 500 });
   }
