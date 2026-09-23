@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
@@ -9,6 +9,7 @@ import { createManualInvoiceAction } from "@/app/jobs/invoices/actions";
 type SupplierOption = { id: string; name: string };
 
 const RESENE = "Resene";
+const OTHER = "__other__";
 
 // Suppliers with a working PDF parser (src/lib/<name>/parseInvoice.ts) —
 // keep in sync with the PARSERS map in the upload route. Anything else
@@ -19,15 +20,21 @@ type CreatedInvoice = { invoiceNumber: string; matchedJobId: string | null; line
 
 export function InvoiceUploadForm({ suppliers }: { suppliers: SupplierOption[] }) {
   const router = useRouter();
-  const datalistId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // A typed-in name that isn't in `suppliers` yet is still a valid choice —
-  // it's created the moment an invoice is actually saved against it (same
-  // "type a new one" pattern as job categories), not before.
-  const [supplierName, setSupplierName] = useState(
-    suppliers.find((s) => s.name.toLowerCase() === RESENE.toLowerCase())?.name ?? RESENE
-  );
+  const reseneName = suppliers.find((s) => s.name.toLowerCase() === RESENE.toLowerCase())?.name ?? RESENE;
+
+  // A real <select> rather than a text input + datalist — a datalist's
+  // suggestions are filtered by whatever's already typed in the box, so
+  // with the field pre-filled ("Resene") every other supplier was hidden
+  // until that text was cleared. "Type a new supplier" is its own option
+  // that reveals a text field; a typed name that isn't in `suppliers` yet
+  // is still a valid choice — it's created the moment an invoice is
+  // actually saved against it (same "type a new one" pattern as job
+  // categories), not before.
+  const [selected, setSelected] = useState(reseneName);
+  const [customName, setCustomName] = useState("");
+  const supplierName = selected === OTHER ? customName : selected;
   const hasParser = PARSED_SUPPLIERS.includes(supplierName.trim().toLowerCase());
 
   const [uploading, setUploading] = useState(false);
@@ -79,27 +86,47 @@ export function InvoiceUploadForm({ suppliers }: { suppliers: SupplierOption[] }
 
   return (
     <div className="mb-6">
-      <label className="mb-2 flex items-center gap-2 text-sm text-ink-soft">
-        Supplier
-        <input
-          list={datalistId}
-          value={supplierName}
-          onChange={(e) => {
-            setSupplierName(e.target.value);
-            setSuccess(null);
-            setError(null);
-          }}
-          placeholder="Pick one, or type a new supplier"
-          className="w-56 rounded border border-line px-2 py-1.5 text-sm"
-        />
-        <datalist id={datalistId}>
-          {suppliers.map((s) => (
-            <option key={s.id} value={s.name} />
-          ))}
-        </datalist>
-      </label>
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
+        <label className="flex items-center gap-2">
+          Supplier
+          <select
+            value={selected}
+            onChange={(e) => {
+              setSelected(e.target.value);
+              setSuccess(null);
+              setError(null);
+            }}
+            className="rounded border border-line px-2 py-1.5 text-sm"
+          >
+            {suppliers.map((s) => (
+              <option key={s.id} value={s.name}>
+                {s.name}
+              </option>
+            ))}
+            {!suppliers.some((s) => s.name.toLowerCase() === RESENE.toLowerCase()) && (
+              <option value={RESENE}>{RESENE}</option>
+            )}
+            <option value={OTHER}>Type a new supplier…</option>
+          </select>
+        </label>
+        {selected === OTHER && (
+          <input
+            autoFocus
+            value={customName}
+            onChange={(e) => {
+              setCustomName(e.target.value);
+              setSuccess(null);
+              setError(null);
+            }}
+            placeholder="Supplier name"
+            className="w-48 rounded border border-line px-2 py-1.5 text-sm"
+          />
+        )}
+      </div>
 
-      {hasParser ? (
+      {selected === OTHER && !customName.trim() ? (
+        <p className="text-sm text-ink-faint">Enter the supplier&apos;s name above to continue.</p>
+      ) : hasParser ? (
         <>
           <input
             ref={fileInputRef}
@@ -110,12 +137,12 @@ export function InvoiceUploadForm({ suppliers }: { suppliers: SupplierOption[] }
             className="hidden"
           />
           <Button onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-            {uploading ? "Uploading…" : `Upload ${supplierName.trim() || RESENE} invoice (PDF)`}
+            {uploading ? "Uploading…" : `Upload ${supplierName.trim()} invoice (PDF)`}
           </Button>
         </>
       ) : (
         <ManualInvoiceForm
-          supplierName={supplierName.trim() || RESENE}
+          supplierName={supplierName.trim()}
           onDone={(message) => {
             setSuccess(message);
             router.refresh();
