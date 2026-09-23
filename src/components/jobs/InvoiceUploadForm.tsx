@@ -10,6 +10,13 @@ type SupplierOption = { id: string; name: string };
 
 const RESENE = "Resene";
 
+// Suppliers with a working PDF parser (src/lib/<name>/parseInvoice.ts) —
+// keep in sync with the PARSERS map in the upload route. Anything else
+// typed into the dropdown falls back to manual entry.
+const PARSED_SUPPLIERS = ["resene", "aalto", "superloo"];
+
+type CreatedInvoice = { invoiceNumber: string; matchedJobId: string | null; lineCount: number };
+
 export function InvoiceUploadForm({ suppliers }: { suppliers: SupplierOption[] }) {
   const router = useRouter();
   const datalistId = useId();
@@ -21,11 +28,25 @@ export function InvoiceUploadForm({ suppliers }: { suppliers: SupplierOption[] }
   const [supplierName, setSupplierName] = useState(
     suppliers.find((s) => s.name.toLowerCase() === RESENE.toLowerCase())?.name ?? RESENE
   );
-  const isResene = supplierName.trim().toLowerCase() === RESENE.toLowerCase();
+  const hasParser = PARSED_SUPPLIERS.includes(supplierName.trim().toLowerCase());
 
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  function describeUpload(supplier: string, invoices: CreatedInvoice[], skippedDuplicates: number) {
+    const parts =
+      invoices.length === 1
+        ? `Invoice ${invoices[0].invoiceNumber} uploaded — ${invoices[0].lineCount} line${
+            invoices[0].lineCount === 1 ? "" : "s"
+          }${invoices[0].matchedJobId ? ", matched to a job." : ", no matching order — assign a job below."}`
+        : `${invoices.length} ${supplier} invoices uploaded from this file (${invoices
+            .map((i) => i.invoiceNumber)
+            .join(", ")}) — assign each to a job below.`;
+    return skippedDuplicates > 0
+      ? `${parts} (${skippedDuplicates} already uploaded, skipped.)`
+      : parts;
+  }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -38,17 +59,14 @@ export function InvoiceUploadForm({ suppliers }: { suppliers: SupplierOption[] }
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("supplier", supplierName.trim());
       const res = await fetch("/api/jobs/invoices/upload", { method: "POST", body: formData });
       const result = await res.json();
 
       if (!res.ok) {
         setError(result.error ?? "Couldn't upload that invoice.");
       } else {
-        setSuccess(
-          `Invoice ${result.invoiceNumber} uploaded — ${result.lineCount} line${
-            result.lineCount === 1 ? "" : "s"
-          }${result.matchedJobId ? ", matched to a job." : ", no matching order — assign a job below."}`
-        );
+        setSuccess(describeUpload(supplierName.trim(), result.invoices, result.skippedDuplicates ?? 0));
         router.refresh();
       }
     } catch {
@@ -81,7 +99,7 @@ export function InvoiceUploadForm({ suppliers }: { suppliers: SupplierOption[] }
         </datalist>
       </label>
 
-      {isResene ? (
+      {hasParser ? (
         <>
           <input
             ref={fileInputRef}
@@ -92,7 +110,7 @@ export function InvoiceUploadForm({ suppliers }: { suppliers: SupplierOption[] }
             className="hidden"
           />
           <Button onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-            {uploading ? "Uploading…" : "Upload Resene invoice (PDF)"}
+            {uploading ? "Uploading…" : `Upload ${supplierName.trim() || RESENE} invoice (PDF)`}
           </Button>
         </>
       ) : (
@@ -118,10 +136,10 @@ export function InvoiceUploadForm({ suppliers }: { suppliers: SupplierOption[] }
 type ManualLine = { description: string; amount: string };
 const EMPTY_LINE: ManualLine = { description: "", amount: "" };
 
-// For a supplier with no PDF parser yet — Aalto and Superloo, until a
-// sample invoice lets one be built (see parseReseneInvoice for what that
-// looks like). Same job-costing flow from here: the invoice lands in
-// "Needs a job" same as a parsed one.
+// For a supplier with no PDF parser — anything beyond Resene, Aalto and
+// Superloo, until a sample invoice lets one be built (see
+// parseReseneInvoice for what that looks like). Same job-costing flow
+// from here: the invoice lands in "Needs a job" same as a parsed one.
 function ManualInvoiceForm({
   supplierName,
   onDone,
