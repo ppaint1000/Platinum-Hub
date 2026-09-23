@@ -154,23 +154,35 @@ export async function renameJobCategoryAction(jobId: string, categoryId: string,
 export async function deleteJobAction(jobId: string) {
   const supabase = await requireAdmin();
 
-  const [{ data: invoices, error: invoiceError }, { count: siteCount, error: siteError }] =
+  const [{ data: invoices, error: invoiceError }, { data: splitLines, error: splitError }, { count: siteCount, error: siteError }] =
     await Promise.all([
       supabase
         .from("resene_invoices")
         .select("invoice_number")
         .eq("job_id", jobId)
         .returns<{ invoice_number: string | null }[]>(),
+      // A split invoice has no job_id of its own - some of its individual
+      // lines can still point at this job even though the invoice row
+      // wouldn't show up in the query above.
+      supabase
+        .from("resene_invoice_lines")
+        .select("invoice:resene_invoices(invoice_number)")
+        .eq("job_id", jobId)
+        .returns<{ invoice: { invoice_number: string | null } | null }[]>(),
       supabase.from("sites").select("id", { count: "exact", head: true }).eq("job_id", jobId),
     ]);
   if (invoiceError) return { error: invoiceError.message };
+  if (splitError) return { error: splitError.message };
   if (siteError) return { error: siteError.message };
 
-  const invoiceCount = invoices?.length ?? 0;
-  if (invoiceCount > 0) {
-    const numbers = (invoices ?? []).map((i) => i.invoice_number ?? "no number").join(", ");
+  const numbers = new Set([
+    ...(invoices ?? []).map((i) => i.invoice_number ?? "no number"),
+    ...(splitLines ?? []).map((l) => l.invoice?.invoice_number ?? "no number"),
+  ]);
+  if (numbers.size > 0) {
+    const invoiceCount = numbers.size;
     return {
-      error: `${invoiceCount} Resene invoice${invoiceCount === 1 ? " is" : "s are"} assigned to this job (${numbers}) — move or unlink ${invoiceCount === 1 ? "it" : "them"} on the Resene invoices page first.`,
+      error: `${invoiceCount} Resene invoice${invoiceCount === 1 ? " is" : "s are"} assigned to this job (${[...numbers].join(", ")}) — move, unlink or re-split ${invoiceCount === 1 ? "it" : "them"} on the Resene invoices page first.`,
     };
   }
   if ((siteCount ?? 0) > 0) {

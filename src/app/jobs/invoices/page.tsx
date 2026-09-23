@@ -9,6 +9,7 @@ import { Panel } from "@/components/ui";
 import { InvoiceUploadForm } from "@/components/jobs/InvoiceUploadForm";
 import { AssignInvoiceJobRow } from "@/components/jobs/AssignInvoiceJobRow";
 import { MatchedInvoiceRow } from "@/components/jobs/MatchedInvoiceRow";
+import { SplitInvoiceRow } from "@/components/jobs/SplitInvoiceRow";
 
 type InvoiceRow = {
   id: string;
@@ -16,7 +17,16 @@ type InvoiceRow = {
   customer_po_number: string | null;
   invoice_date: string | null;
   total: number | null;
+  split: boolean;
   job: { id: string; name: string; job_number: string | null } | null;
+};
+
+type InvoiceLineRow = {
+  id: string;
+  invoice_id: string;
+  description: string;
+  subtotal: number;
+  job_id: string | null;
 };
 
 function fmtMoney(n: number) {
@@ -35,7 +45,7 @@ export default async function ReseneInvoicesPage() {
       supabase
         .from("resene_invoices")
         .select(
-          "id, invoice_number, customer_po_number, invoice_date, total, job:jobs(id, name, job_number)"
+          "id, invoice_number, customer_po_number, invoice_date, total, split, job:jobs(id, name, job_number)"
         )
         .order("created_at", { ascending: false })
         .limit(200)
@@ -89,10 +99,32 @@ export default async function ReseneInvoicesPage() {
     if (lb) return 1;
     return a.name.localeCompare(b.name);
   });
+  const jobById = new Map(jobsForPicker.map((j) => [j.id, j]));
 
   const rows = invoices ?? [];
-  const unmatched = rows.filter((r) => !r.job);
+  const unmatched = rows.filter((r) => !r.job && !r.split);
+  const splitInvoices = rows.filter((r) => r.split);
   const matched = rows.filter((r) => r.job);
+
+  // Lines are only needed for invoices that offer per-line job assignment
+  // (unmatched, to tick "split across jobs") or already show one (split) —
+  // a plain matched invoice doesn't need its lines fetched at all here.
+  const linesNeededFor = [...unmatched, ...splitInvoices].map((r) => r.id);
+  const { data: lineRows } =
+    linesNeededFor.length > 0
+      ? await supabase
+          .from("resene_invoice_lines")
+          .select("id, invoice_id, description, subtotal, job_id")
+          .in("invoice_id", linesNeededFor)
+          .order("line_no")
+          .returns<InvoiceLineRow[]>()
+      : { data: [] as InvoiceLineRow[] };
+  const linesByInvoice = new Map<string, InvoiceLineRow[]>();
+  for (const l of lineRows ?? []) {
+    const list = linesByInvoice.get(l.invoice_id) ?? [];
+    list.push(l);
+    linesByInvoice.set(l.invoice_id, list);
+  }
 
   return (
     <div className="mx-auto w-full max-w-3xl p-8">
@@ -121,6 +153,35 @@ export default async function ReseneInvoicesPage() {
                 invoiceNumber={inv.invoice_number}
                 customerPoNumber={inv.customer_po_number}
                 jobs={jobsForPicker}
+                lines={(linesByInvoice.get(inv.id) ?? []).map((l) => ({
+                  id: l.id,
+                  description: l.description,
+                  subtotal: l.subtotal,
+                }))}
+              />
+            ))}
+          </div>
+        </Panel>
+      )}
+
+      {splitInvoices.length > 0 && (
+        <Panel className="mb-6 p-4">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">
+            Split across jobs ({splitInvoices.length})
+          </h2>
+          <div className="space-y-3">
+            {splitInvoices.map((inv) => (
+              <SplitInvoiceRow
+                key={inv.id}
+                invoiceId={inv.id}
+                invoiceNumber={inv.invoice_number}
+                jobs={jobsForPicker}
+                lines={(linesByInvoice.get(inv.id) ?? []).map((l) => ({
+                  id: l.id,
+                  description: l.description,
+                  subtotal: l.subtotal,
+                  job: l.job_id ? jobById.get(l.job_id) ?? null : null,
+                }))}
               />
             ))}
           </div>

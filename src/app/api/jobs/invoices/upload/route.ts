@@ -54,6 +54,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Checked before touching storage, so a repeat upload doesn't leave an
+  // orphaned PDF behind.
+  const { data: existing } = await supabase
+    .from("resene_invoices")
+    .select("id")
+    .eq("invoice_number", parsed.invoiceNumber)
+    .maybeSingle();
+  if (existing) {
+    return NextResponse.json(
+      { error: `Invoice ${parsed.invoiceNumber} has already been uploaded.` },
+      { status: 409 }
+    );
+  }
+
   const pdfPath = `${parsed.invoiceNumber}-${Date.now()}.pdf`;
   const { error: uploadError } = await supabase.storage
     .from("resene-invoices")
@@ -91,9 +105,19 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (invoiceError || !invoice) {
+    // Backstop for the check above (23505 = unique_violation) - two
+    // uploads of the same invoice landing at the same instant. The PDF was
+    // already stored under a path unique to this attempt, so clean it up
+    // rather than leaving it orphaned.
+    await supabase.storage.from("resene-invoices").remove([pdfPath]);
+    const duplicate = invoiceError?.code === "23505";
     return NextResponse.json(
-      { error: invoiceError?.message ?? "Couldn't save the invoice." },
-      { status: 500 }
+      {
+        error: duplicate
+          ? `Invoice ${parsed.invoiceNumber} has already been uploaded.`
+          : invoiceError?.message ?? "Couldn't save the invoice.",
+      },
+      { status: duplicate ? 409 : 500 }
     );
   }
 
@@ -112,6 +136,11 @@ export async function POST(request: NextRequest) {
     unit_price: line.unitPrice,
     subtotal: line.subtotal,
     category_id: categoryByCode.get(line.itemCode) ?? null,
+    // Kept in sync with the invoice's own job_id by assignInvoiceJobAction /
+    // moveInvoiceToJobAction - this is what a job's pending-approvals list
+    // actually filters on, so a split invoice (splitInvoiceLinesAction) can
+    // point individual lines at different jobs later.
+    job_id: jobId,
   }));
 
   const { error: linesError } = await supabase.from("resene_invoice_lines").insert(lineRows);

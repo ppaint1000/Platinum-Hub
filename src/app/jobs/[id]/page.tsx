@@ -126,10 +126,8 @@ export default async function JobDetailPage({
       .returns<{ id: string; full_name: string }[]>(),
     supabase
       .from("resene_invoice_lines")
-      .select(
-        "id, category_id, description, subtotal, status, invoice:resene_invoices!inner(invoice_number, job_id)"
-      )
-      .eq("invoice.job_id", id)
+      .select("id, category_id, description, subtotal, status, invoice:resene_invoices(invoice_number)")
+      .eq("job_id", id)
       .returns<ReseneInvoiceLineRow[]>(),
     supabase
       .from("orders")
