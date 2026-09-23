@@ -19,12 +19,39 @@ type JobRow = {
   status: JobStatus;
   quoted_sell_total: number | null;
   quoted_hours: number | null;
+  created_at: string;
+  updated_at: string | null;
+  quoted_at: string | null;
+  won_at: string | null;
   completed_at: string | null;
   lost_at: string | null;
   lost_to: string | null;
   client: { name: string } | null;
   lead: { full_name: string } | null;
 };
+
+// "Most recent" means most recently at its current stage, not most
+// recently created or edited - a job quoted weeks ago and won yesterday
+// belongs at the top of Won, not buried under jobs quoted more recently
+// that haven't moved yet.
+function jobSortDate(job: JobRow): string {
+  switch (job.status) {
+    case "quoted":
+      return job.quoted_at ?? job.created_at;
+    case "won":
+      return job.won_at ?? job.created_at;
+    case "in_progress":
+      // No dedicated "started" timestamp - updated_at is bumped the moment
+      // it's marked in progress, so it's the closest available signal.
+      return job.updated_at ?? job.won_at ?? job.created_at;
+    case "complete":
+      return job.completed_at ?? job.won_at ?? job.created_at;
+    case "lost":
+      return job.lost_at ?? job.created_at;
+    default:
+      return job.created_at;
+  }
+}
 
 type TotalsRow = {
   job_id: string;
@@ -49,10 +76,8 @@ export default async function JobsPage() {
       supabase
         .from("jobs")
         .select(
-          "id, job_number, name, status, quoted_sell_total, quoted_hours, completed_at, lost_at, lost_to, client:clients(name), lead:profiles!lead_by_user_id(full_name)"
+          "id, job_number, name, status, quoted_sell_total, quoted_hours, created_at, updated_at, quoted_at, won_at, completed_at, lost_at, lost_to, client:clients(name), lead:profiles!lead_by_user_id(full_name)"
         )
-        .order("updated_at", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false })
         .returns<JobRow[]>(),
       supabase
         .from("job_totals")
@@ -66,7 +91,7 @@ export default async function JobsPage() {
       fetchSalesTeam(supabase),
     ]);
 
-  const rows = jobs ?? [];
+  const rows = [...(jobs ?? [])].sort((a, b) => jobSortDate(b).localeCompare(jobSortDate(a)));
   const totalsByJob = new Map((totals ?? []).map((t) => [t.job_id, t]));
 
   const counts = {
