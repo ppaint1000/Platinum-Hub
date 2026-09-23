@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { updateEntry, deleteEntry } from '@/lib/timesheets/actions/entries'
@@ -14,12 +15,21 @@ function toLocalInputValue(iso: string | null): string {
 
 export default async function EditEntryPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ returnTo?: string }>
 }) {
   await requireAdmin()
 
   const { id } = await params
+  const { returnTo: returnToParam } = await searchParams
+  // Only ever a path within this app - a query param is user-controllable,
+  // so never redirect wherever it happens to say.
+  const returnTo =
+    returnToParam && returnToParam.startsWith('/timesheets/')
+      ? returnToParam
+      : '/timesheets/admin/reports'
   const supabase = await createClient()
 
   const [{ data: entry }, { data: sites }] = await Promise.all([
@@ -40,10 +50,14 @@ export default async function EditEntryPage({
 
   return (
     <div className="max-w-lg space-y-4">
+      <Link href={returnTo} className="text-sm underline">
+        &larr; Back
+      </Link>
       <h1 className="text-2xl font-semibold">Edit entry</h1>
       <p className="text-sm text-black/60">Staff: {crewName ?? 'Unknown'}</p>
 
       <form action={updateEntry.bind(null, entry.id)} className="space-y-3">
+        <input type="hidden" name="return_to" value={returnTo} />
         <div className="space-y-1">
           <label htmlFor="site_id" className="text-sm font-medium">
             Site
@@ -122,6 +136,7 @@ export default async function EditEntryPage({
       </form>
 
       <form action={deleteEntry.bind(null, entry.id)}>
+        <input type="hidden" name="return_to" value={returnTo} />
         <button type="submit" className="text-sm text-red-600 underline">
           Delete entry
         </button>

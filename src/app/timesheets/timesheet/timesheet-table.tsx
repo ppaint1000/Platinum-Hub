@@ -1,8 +1,18 @@
 import { Fragment } from 'react'
+import Link from 'next/link'
 import { formatNZDateTime, mondayOf, nzDateKey, nzTodayDateString } from '@/lib/timesheets/formatNZ'
 import type { ReportEntry } from '@/lib/timesheets/reports'
 
-export function TimesheetTable({ entries }: { entries: ReportEntry[] }) {
+export function TimesheetTable({
+  entries,
+  // Pass the page's own path (e.g. from the admin Staff > Timesheet view) to
+  // show an Edit link per row and land back here after saving. Left unset
+  // on a painter's own /timesheets/timesheet, which stays read-only.
+  editReturnTo,
+}: {
+  entries: ReportEntry[]
+  editReturnTo?: string
+}) {
   const totalHours = entries.reduce((sum, e) => sum + (e.hours ?? 0), 0)
 
   // Entries are sorted newest first, so the current week (if present) is a
@@ -30,6 +40,7 @@ export function TimesheetTable({ entries }: { entries: ReportEntry[] }) {
               <th className="p-3">Break</th>
               <th className="p-3">Hours</th>
               <th className="p-3">Notes</th>
+              {editReturnTo && <th className="p-3" />}
             </tr>
           </thead>
           <tbody className="divide-y divide-black/10">
@@ -44,17 +55,27 @@ export function TimesheetTable({ entries }: { entries: ReportEntry[] }) {
                   <td className="p-3">{e.break_minutes > 0 ? `${e.break_minutes}m` : '—'}</td>
                   <td className="p-3">{e.hours ?? '—'}</td>
                   <td className="max-w-xs truncate p-3">{e.notes ?? ''}</td>
+                  {editReturnTo && (
+                    <td className="p-3">
+                      <Link
+                        href={`/timesheets/admin/reports/${e.id}/edit?returnTo=${encodeURIComponent(editReturnTo)}`}
+                        className="text-sm text-blue-600 underline"
+                      >
+                        Edit
+                      </Link>
+                    </td>
+                  )}
                 </tr>
                 {showDivider && i === lastCurrentWeekIndex && (
                   <tr aria-hidden="true">
-                    <td colSpan={6} className="border-t-4 border-black/30 p-0" />
+                    <td colSpan={editReturnTo ? 7 : 6} className="border-t-4 border-black/30 p-0" />
                   </tr>
                 )}
               </Fragment>
             ))}
             {entries.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-black/60">
+                <td colSpan={editReturnTo ? 7 : 6} className="p-6 text-center text-black/60">
                   No shifts recorded yet.
                 </td>
               </tr>

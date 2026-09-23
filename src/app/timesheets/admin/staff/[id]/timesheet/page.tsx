@@ -37,7 +37,7 @@ export default async function StaffTimesheetPage({
           Exactly what {person.full_name} sees on their own Timesheet tab.
         </p>
       </div>
-      <TimesheetTable entries={entries} />
+      <TimesheetTable entries={entries} editReturnTo={`/timesheets/admin/staff/${id}/timesheet`} />
     </div>
   )
 }
