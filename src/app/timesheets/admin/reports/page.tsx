@@ -41,6 +41,10 @@ export default async function ReportsPage({
   if (userId) exportParams.set('userId', userId)
   if (siteId) exportParams.set('siteId', siteId)
 
+  // So editing an entry from here comes back to this same filtered view
+  // instead of resetting to the unfiltered list.
+  const returnTo = `/timesheets/admin/reports${exportParams.toString() ? `?${exportParams.toString()}` : ''}`
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -274,7 +278,10 @@ export default async function ReportsPage({
                 </td>
                 <td className="max-w-xs truncate p-3">{e.notes ?? ''}</td>
                 <td className="p-3">
-                  <Link href={`/timesheets/admin/reports/${e.id}/edit`} className="underline">
+                  <Link
+                    href={`/timesheets/admin/reports/${e.id}/edit?returnTo=${encodeURIComponent(returnTo)}`}
+                    className="underline"
+                  >
                     Edit
                   </Link>
                 </td>

@@ -62,8 +62,14 @@ export async function groupByStaff(
   return groupStaffEntries(entries)
 }
 
+export type PayrollStaffGroup = StaffGroup & {
+  // The unrounded total (what groupByStaff would have shown), kept
+  // alongside the rounded netHours so the report can show both.
+  rawNetHours: number
+}
+
 export type PayrollStaffReport = {
-  staffGroups: StaffGroup[]
+  staffGroups: PayrollStaffGroup[]
   // "UserName (DD Mon)" for each day rounding changed because of a
   // multi-site hand-off - see applyPayRounding's needsCheck.
   flaggedDates: string[]
@@ -86,10 +92,16 @@ export async function groupByStaffForPayroll(
   for (const d of dayTotals) {
     netHoursByUser.set(d.userName, round2((netHoursByUser.get(d.userName) ?? 0) + d.hours))
   }
+  const rawNetByUser = new Map(groupStaffEntries(entries).map((g) => [g.userName, g.netHours]))
 
   const staffGroups = groupStaffEntries(rounded).map((group) => {
     const netHours = netHoursByUser.get(group.userName) ?? group.netHours
-    return { ...group, netHours, grossHours: round2(netHours + group.breakMinutes / 60) }
+    return {
+      ...group,
+      netHours,
+      grossHours: round2(netHours + group.breakMinutes / 60),
+      rawNetHours: rawNetByUser.get(group.userName) ?? group.netHours,
+    }
   })
 
   const flaggedDates = dayTotals
@@ -138,7 +150,7 @@ function groupByDay<T extends { date: string; hours: number }>(
   }
 
   return Array.from(byKey.values()).sort((a, b) => {
-    if (a.date !== b.date) return a.date.localeCompare(b.date)
+    if (a.date !== b.date) return b.date.localeCompare(a.date)
     return String(a[labelKey]).localeCompare(String(b[labelKey]))
   })
 }

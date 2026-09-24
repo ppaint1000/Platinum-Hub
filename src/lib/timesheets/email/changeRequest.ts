@@ -3,6 +3,11 @@ import { formatNZDateTime } from '@/lib/timesheets/formatNZ'
 
 const FROM_NAME = 'Platinum Painters Timesheets'
 
+// This app's own URL (not siteUrl.ts's SITE_URL, which deliberately still
+// points at the separate standalone Timesheets app for auth-token
+// exchange only - see its own comment).
+const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? 'https://platinum-painters-hub.vercel.app'
+
 // Fires when a painter files a change request — a heads-up only, the
 // request itself is what admins act on from
 // /timesheets/admin/change-requests, so a failed send here doesn't block
@@ -30,7 +35,7 @@ export async function sendChangeRequestEmail(options: {
   if (options.requestedFinish) lines.push(`Requested finish: ${formatNZDateTime(options.requestedFinish)}`)
   if (options.requestedSiteName) lines.push(`Requested site/job: ${options.requestedSiteName}`)
   if (options.note.trim()) lines.push('', `Note: ${options.note.trim()}`)
-  lines.push('', 'Review and action this under Timesheets → Change Requests in the Hub.')
+  lines.push('', `Review and action this: ${HUB_URL}/timesheets/admin/change-requests`)
 
   return sendEmail({
     to: recipient,

@@ -36,6 +36,14 @@ const styles = StyleSheet.create({
   checkNote: { backgroundColor: '#fff3cd', padding: 6, marginBottom: 8 },
   checkNoteText: { fontSize: 9, color: '#856404' },
   watermark: { position: 'absolute', top: '35%', left: '12%', width: '76%', opacity: 0.11 },
+  summaryTitle: { fontSize: 10, fontWeight: 'bold', marginTop: 8, marginBottom: 4 },
+  summaryHeaderRow: {
+    flexDirection: 'row',
+    borderBottom: '1 solid #999999',
+    paddingBottom: 2,
+    marginBottom: 2,
+  },
+  summaryRow: { flexDirection: 'row', borderBottom: '0.5 solid #dddddd', paddingVertical: 2 },
 })
 
 const COLS = {
@@ -69,7 +77,7 @@ export function TimesheetReportPdf({
   basic = false,
   flaggedDates = [],
 }: {
-  staffGroups: StaffGroup[]
+  staffGroups: (StaffGroup & { rawNetHours?: number })[]
   dateRangeLabel: string
   logoSrc: { data: Buffer; format: 'png' }
   basic?: boolean
@@ -78,6 +86,11 @@ export function TimesheetReportPdf({
   // stay payable, so it's worth a human double-checking that day.
   flaggedDates?: string[]
 }) {
+  // Only the weekly report passes rawNetHours (the payroll-rounding rules
+  // don't apply to a single person's own confirmation email) - shown as a
+  // quick raw-vs-rounded summary before the per-staff detail below, which
+  // itself already reflects the rounded figures.
+  const showRawComparison = staffGroups.some((g) => g.rawNetHours !== undefined)
   const cols = basic ? BASIC_COLS : COLS
   return (
     <Document>
@@ -101,6 +114,24 @@ export function TimesheetReportPdf({
           </View>
         )}
 
+        {showRawComparison && staffGroups.length > 0 && (
+          <View wrap={false}>
+            <Text style={styles.summaryTitle}>Raw vs rounded (payroll rounding applied below)</Text>
+            <View style={styles.summaryHeaderRow}>
+              <Text style={[styles.headerCell, { width: '50%' }]}>Staff</Text>
+              <Text style={[styles.headerCell, { width: '25%' }]}>Raw net</Text>
+              <Text style={[styles.headerCell, { width: '25%' }]}>Rounded net</Text>
+            </View>
+            {staffGroups.map((group) => (
+              <View key={group.userName} style={styles.summaryRow}>
+                <Text style={[styles.cell, { width: '50%' }]}>{group.userName}</Text>
+                <Text style={[styles.cell, { width: '25%' }]}>{(group.rawNetHours ?? group.netHours).toFixed(2)}h</Text>
+                <Text style={[styles.cell, { width: '25%' }]}>{group.netHours.toFixed(2)}h</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         {staffGroups.length === 0 && <Text>No entries match these filters.</Text>}
 
         {staffGroups.map((group) => (
@@ -108,7 +139,8 @@ export function TimesheetReportPdf({
             <View style={styles.groupHeader}>
               <Text style={styles.groupName}>{group.userName}</Text>
               <Text style={styles.groupTotals}>
-                Gross {group.grossHours.toFixed(2)}h · Break {group.breakMinutes}m · Net{' '}
+                Gross {group.grossHours.toFixed(2)}h · Break {group.breakMinutes}m · Net
+                {showRawComparison ? ' (rounded) ' : ' '}
                 {group.netHours.toFixed(2)}h
               </Text>
             </View>
