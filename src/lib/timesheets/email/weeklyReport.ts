@@ -5,7 +5,7 @@ import type { ReactElement } from 'react'
 import { renderToBuffer, type DocumentProps } from '@react-pdf/renderer'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email/mailer'
-import { groupByStaff } from '@/lib/timesheets/reportGroups'
+import { groupByStaffForPayroll } from '@/lib/timesheets/reportGroups'
 import { TimesheetReportPdf } from '@/lib/timesheets/pdf/timesheet-report-pdf'
 
 const FROM_NAME = 'Platinum Painters Timesheets'
@@ -53,13 +53,14 @@ export async function sendWeeklyReportEmail(options?: {
 
   const supabase = createAdminClient()
   const { from, to } = getPreviousWeekRange()
-  const staffGroups = await groupByStaff({ from, to }, supabase)
+  const { staffGroups, flaggedDates } = await groupByStaffForPayroll({ from, to }, supabase)
 
   const logoBuffer = await readFile(path.join(process.cwd(), 'public', 'logo.png'))
   const document = createElement(TimesheetReportPdf, {
     staffGroups,
     dateRangeLabel: `${from} to ${to}`,
     logoSrc: { data: logoBuffer, format: 'png' as const },
+    flaggedDates,
   }) as ReactElement<DocumentProps>
   const pdfBuffer = await renderToBuffer(document)
 

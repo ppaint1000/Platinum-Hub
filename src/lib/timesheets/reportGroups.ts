@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getReportEntries, type ReportEntry, type ReportFilters } from '@/lib/timesheets/reports'
 import { applyPayRounding } from '@/lib/timesheets/payroll'
+import { formatDateKeyShort } from '@/lib/timesheets/formatNZ'
 
 type SupabaseClientLike = Awaited<ReturnType<typeof createClient>>
 
@@ -59,6 +60,43 @@ export async function groupByStaff(
 ): Promise<StaffGroup[]> {
   const entries = await getReportEntries(filters, client)
   return groupStaffEntries(entries)
+}
+
+export type PayrollStaffReport = {
+  staffGroups: StaffGroup[]
+  // "UserName (DD Mon)" for each day rounding changed because of a
+  // multi-site hand-off - see applyPayRounding's needsCheck.
+  flaggedDates: string[]
+}
+
+// Same grouping as groupByStaff, but with the business's payroll rounding
+// rules applied first (lib/payroll.ts): each day's first clock-in/last
+// clock-out rounds to the nearest half hour in the business's favour, and a
+// staff member's Net total for a day is that rounded day total rather than
+// the sum of raw punch gaps. Used for the weekly report so it reflects
+// payable hours for every staff member, not just raw punches.
+export async function groupByStaffForPayroll(
+  filters: ReportFilters,
+  client?: SupabaseClientLike
+): Promise<PayrollStaffReport> {
+  const entries = await getReportEntries(filters, client)
+  const { entries: rounded, dayTotals } = applyPayRounding(entries)
+
+  const netHoursByUser = new Map<string, number>()
+  for (const d of dayTotals) {
+    netHoursByUser.set(d.userName, round2((netHoursByUser.get(d.userName) ?? 0) + d.hours))
+  }
+
+  const staffGroups = groupStaffEntries(rounded).map((group) => {
+    const netHours = netHoursByUser.get(group.userName) ?? group.netHours
+    return { ...group, netHours, grossHours: round2(netHours + group.breakMinutes / 60) }
+  })
+
+  const flaggedDates = dayTotals
+    .filter((d) => d.needsCheck)
+    .map((d) => `${d.userName} (${formatDateKeyShort(d.date)})`)
+
+  return { staffGroups, flaggedDates }
 }
 
 export type DayStaffTotal = {

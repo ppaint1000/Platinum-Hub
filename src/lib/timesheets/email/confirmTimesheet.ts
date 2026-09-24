@@ -5,6 +5,7 @@ import type { ReactElement } from 'react'
 import { renderToBuffer, type DocumentProps } from '@react-pdf/renderer'
 import { sendEmail } from '@/lib/email/mailer'
 import { applyPayRounding } from '@/lib/timesheets/payroll'
+import { formatDateKeyShort } from '@/lib/timesheets/formatNZ'
 import { TimesheetReportPdf } from '@/lib/timesheets/pdf/timesheet-report-pdf'
 import type { ReportEntry } from '@/lib/timesheets/reports'
 
@@ -16,12 +17,6 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100
 }
 
-// date is a YYYY-MM-DD NZ date key (see nzDateKey).
-function formatDateLabel(date: string): string {
-  const [y, m, d] = date.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('en-NZ', { day: '2-digit', month: 'short' })
-}
-
 export async function sendTimesheetConfirmationEmail(options: {
   userName: string
   from: string
@@ -31,7 +26,7 @@ export async function sendTimesheetConfirmationEmail(options: {
   const { entries: roundedEntries, dayTotals } = applyPayRounding(options.entries)
   const netHours = dayTotals.reduce((sum, d) => sum + d.hours, 0)
   const breakMinutes = roundedEntries.reduce((sum, e) => sum + e.break_minutes, 0)
-  const flaggedDates = dayTotals.filter((d) => d.needsCheck).map((d) => formatDateLabel(d.date))
+  const flaggedDates = dayTotals.filter((d) => d.needsCheck).map((d) => formatDateKeyShort(d.date))
 
   const logoBuffer = await readFile(path.join(process.cwd(), 'public', 'logo.png'))
   const document = createElement(TimesheetReportPdf, {

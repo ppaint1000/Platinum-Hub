@@ -80,6 +80,13 @@ export function nzTimeString(iso: string): string {
   })
 }
 
+// "2026-09-16" -> "16 Sep" - for a YYYY-MM-DD NZ date key (see nzDateKey),
+// not an ISO timestamp with a time component.
+export function formatDateKeyShort(dateKey: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('en-NZ', { day: '2-digit', month: 'short' })
+}
+
 // For contexts (like the PDF) that want a month name instead of dd/mm/yyyy.
 export function formatNZDateTimeLong(iso: string): string {
   return new Date(iso).toLocaleString('en-NZ', {
