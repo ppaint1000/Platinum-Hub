@@ -86,6 +86,24 @@ export async function updateJobCoreDetailsAction(
   return {};
 }
 
+// Quick-assign from the "needs a sales person" banner on a job brought
+// across into the Hub - just the one field, so it doesn't have to
+// round-trip every other core detail through updateJobCoreDetailsAction.
+export async function assignSalesPersonAction(jobId: string, leadByUserId: string) {
+  const supabase = await requireAppAccess("jobs");
+
+  if (!leadByUserId) return { error: "Choose a sales person." };
+
+  const { error } = await supabase.from("jobs").update({ lead_by_user_id: leadByUserId }).eq("id", jobId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath("/jobs");
+  revalidatePath("/sales");
+  return {};
+}
+
 function slugify(label: string) {
   return label
     .trim()

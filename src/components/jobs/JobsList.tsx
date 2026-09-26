@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { AlertTriangle, Search } from "lucide-react";
 import { Panel, StatusRow, StatusLabel, Money } from "@/components/ui";
 import { jobStatusLabel } from "@/design/tailwind.tokens";
 
@@ -25,6 +25,9 @@ export type JobListRow = {
   completedAt: string | null;
   lostAt: string | null;
   lostTo: string | null;
+  // Brought across into the Hub with no sales person yet - not
+  // counted on the Sales page until someone is assigned.
+  needsSalesPerson: boolean;
 };
 
 // Fixed order the user actually asked for; "draft" only shows up as a tab
@@ -46,7 +49,7 @@ function matches(job: JobListRow, query: string) {
   );
 }
 
-type Tab = JobStatus | "salesperson";
+type Tab = JobStatus | "salesperson" | "needs_sales_person";
 
 function JobRowItem({ job }: { job: JobListRow }) {
   return (
@@ -55,7 +58,14 @@ function JobRowItem({ job }: { job: JobListRow }) {
         <div className="flex items-center gap-4">
           <span className="w-24 font-mono text-sm text-ink-faint">{job.jobNumber ?? "—"}</span>
           <div>
-            <div className="font-medium text-ink">{job.name}</div>
+            <div className="flex items-center gap-2 font-medium text-ink">
+              {job.name}
+              {job.needsSalesPerson && (
+                <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">
+                  Needs sales person
+                </span>
+              )}
+            </div>
             <div className="text-sm text-ink-soft">
               {job.clientName ?? "No client set"}
               {job.status === "complete" && job.completedAt && ` — completed ${fmtDate(job.completedAt)}`}
@@ -89,10 +99,18 @@ function JobRowItem({ job }: { job: JobListRow }) {
 export function JobsList({ jobs }: { jobs: JobListRow[] }) {
   const [query, setQuery] = useState("");
   const hasDraft = jobs.some((j) => j.status === "draft");
-  const tabs: Tab[] = [...STAGE_TABS.slice(0, 1), ...(hasDraft ? (["draft"] as Tab[]) : []), ...STAGE_TABS.slice(1), "salesperson"];
+  const needsSalesPersonCount = jobs.filter((j) => j.needsSalesPerson).length;
+  const tabs: Tab[] = [
+    ...(needsSalesPersonCount > 0 ? (["needs_sales_person"] as Tab[]) : []),
+    ...STAGE_TABS.slice(0, 1),
+    ...(hasDraft ? (["draft"] as Tab[]) : []),
+    ...STAGE_TABS.slice(1),
+    "salesperson",
+  ];
   const [tab, setTab] = useState<Tab>("quoted");
 
   const filtered = useMemo(() => jobs.filter((j) => matches(j, query)), [jobs, query]);
+  const filteredNeedsSalesPerson = filtered.filter((j) => j.needsSalesPerson);
 
   const countByStatus = useMemo(() => {
     const counts = new Map<JobStatus, number>();
@@ -114,6 +132,8 @@ export function JobsList({ jobs }: { jobs: JobListRow[] }) {
   const groups: { key: string; label: string; jobs: JobListRow[] }[] =
     tab === "salesperson"
       ? salespersonGroups
+      : tab === "needs_sales_person"
+      ? [{ key: tab, label: "Needs sales person", jobs: filteredNeedsSalesPerson }]
       : [
           {
             key: tab,
@@ -124,6 +144,24 @@ export function JobsList({ jobs }: { jobs: JobListRow[] }) {
 
   return (
     <div>
+      {needsSalesPersonCount > 0 && tab !== "needs_sales_person" && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+            {needsSalesPersonCount} {needsSalesPersonCount === 1 ? "job" : "jobs"} brought across into the Hub{" "}
+            {needsSalesPersonCount === 1 ? "needs" : "need"} a sales person before{" "}
+            {needsSalesPersonCount === 1 ? "it shows" : "they show"} on the Sales page.
+          </span>
+          <button
+            type="button"
+            onClick={() => setTab("needs_sales_person")}
+            className="font-medium text-amber-900 underline hover:no-underline"
+          >
+            Show them
+          </button>
+        </div>
+      )}
+
       <div className="mb-4 flex flex-wrap gap-1 border-b border-line">
         {tabs.map((t) => (
           <button
@@ -134,10 +172,13 @@ export function JobsList({ jobs }: { jobs: JobListRow[] }) {
               tab === t
                 ? "border-accent text-ink"
                 : "border-transparent text-ink-soft hover:text-ink"
-            }`}
+            } ${t === "needs_sales_person" ? "text-amber-800" : ""}`}
           >
-            {t === "salesperson" ? "By salesperson" : jobStatusLabel[t] ?? t}
-            {t !== "salesperson" && ` · ${countByStatus.get(t) ?? 0}`}
+            {t === "salesperson"
+              ? "By salesperson"
+              : t === "needs_sales_person"
+              ? `Needs sales person · ${filteredNeedsSalesPerson.length}`
+              : `${jobStatusLabel[t] ?? t} · ${countByStatus.get(t) ?? 0}`}
           </button>
         ))}
       </div>

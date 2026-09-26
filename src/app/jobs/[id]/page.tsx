@@ -20,7 +20,8 @@ import {
 } from "@/components/jobs/ReseneInvoiceCostsSection";
 import { CostLinesSection, type CostLineRow } from "@/components/jobs/CostLinesSection";
 import { JobBudgetTable, type CategoryBudgetRow } from "@/components/jobs/JobBudgetTable";
-import { fetchSalesTeam } from "@/lib/jobs/salesTeam";
+import { fetchSalesTeam, needsSalesPerson } from "@/lib/jobs/salesTeam";
+import { AssignSalesPersonBanner } from "@/components/jobs/AssignSalesPersonBanner";
 import { jobMargin } from "@/lib/jobs/margin";
 
 type JobRow = {
@@ -303,6 +304,8 @@ export default async function JobDetailPage({
           <DeleteJobButton jobId={job.id} jobName={job.name} costLineCount={costLines.length} />
         </div>
       </div>
+
+      {needsSalesPerson(job) && <AssignSalesPersonBanner jobId={job.id} salesTeam={salesTeam} />}
 
       <div className="mb-4 flex border-b border-line pb-6">
         <SummaryStat label="Quoted" value={job.quoted_sell_total != null ? fmtMoney(job.quoted_sell_total) : "—"} />

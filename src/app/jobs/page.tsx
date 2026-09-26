@@ -7,7 +7,7 @@ import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { Panel, SummaryStat } from "@/components/ui";
 import { JobsList, type JobListRow } from "@/components/jobs/JobsList";
 import { AddJobButton } from "@/components/jobs/AddJobButton";
-import { fetchSalesTeam } from "@/lib/jobs/salesTeam";
+import { fetchSalesTeam, needsSalesPerson } from "@/lib/jobs/salesTeam";
 import { jobMargin } from "@/lib/jobs/margin";
 
 type JobStatus = "draft" | "quoted" | "won" | "in_progress" | "complete" | "lost";
@@ -26,6 +26,7 @@ type JobRow = {
   completed_at: string | null;
   lost_at: string | null;
   lost_to: string | null;
+  lead_by_user_id: string | null;
   client: { name: string } | null;
   lead: { full_name: string } | null;
 };
@@ -76,7 +77,7 @@ export default async function JobsPage() {
       supabase
         .from("jobs")
         .select(
-          "id, job_number, name, status, quoted_sell_total, quoted_hours, created_at, updated_at, quoted_at, won_at, completed_at, lost_at, lost_to, client:clients(name), lead:profiles!lead_by_user_id(full_name)"
+          "id, job_number, name, status, quoted_sell_total, quoted_hours, created_at, updated_at, quoted_at, won_at, completed_at, lost_at, lost_to, lead_by_user_id, client:clients(name), lead:profiles!lead_by_user_id(full_name)"
         )
         .returns<JobRow[]>(),
       supabase
@@ -126,6 +127,7 @@ export default async function JobsPage() {
       completedAt: job.completed_at,
       lostAt: job.lost_at,
       lostTo: job.lost_to,
+      needsSalesPerson: needsSalesPerson(job),
     };
   });
 

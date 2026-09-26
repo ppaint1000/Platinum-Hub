@@ -23,3 +23,14 @@ export async function fetchSalesTeam(supabase: Supabase): Promise<SalesTeamMembe
 
   return (data ?? []).map((p) => ({ id: p.id, name: p.full_name }));
 }
+
+// Jobs brought across into the Hub - via the Platinum Quotes webhook or a
+// bulk import - arrive without a sales person, so they can't be credited on
+// the Sales page until someone picks one. Jobs added by hand already require
+// one (createJobAction), so "no sales person" is the whole test; not keyed
+// on source_quote_id since bulk-imported jobs don't carry one. Derived
+// rather than stored, so every brought-across job - past and future - is
+// caught the moment it lands and clears itself once someone is assigned.
+export function needsSalesPerson(job: { lead_by_user_id: string | null }) {
+  return !job.lead_by_user_id;
+}
