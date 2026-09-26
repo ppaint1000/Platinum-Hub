@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   Users,
   ArrowLeft,
+  Plus,
 } from "lucide-react";
 import { SignOutButton } from "@/components/SignOutButton";
 import { NavLink } from "@/components/fleet/NavLink";
@@ -58,6 +59,15 @@ export default async function FleetAdminLayout({
         </Link>
 
         <div className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible">
+          {/* The driver entry form (/fleet/log) lives outside this admin
+              layout, so nothing else in the Hub links to it. */}
+          <Link
+            href="/fleet/log"
+            className="flex flex-none items-center gap-2.5 rounded-lg bg-ink px-2.5 py-2 text-sm font-semibold text-white transition hover:bg-black md:mb-2 md:flex-auto"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="whitespace-nowrap">Log fuel</span>
+          </Link>
           {NAV.map((item) => (
             <NavLink key={item.href} href={item.href}>
               <item.icon className="h-4 w-4" />

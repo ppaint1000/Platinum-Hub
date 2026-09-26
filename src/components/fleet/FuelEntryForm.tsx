@@ -1,18 +1,47 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, Check, Loader2, MapPin, MapPinOff } from "lucide-react";
+import { Camera, Check, Loader2, MapPin, MapPinOff, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { readReceipt } from "@/lib/fleet/readReceipt";
+import { alertIncompleteFuelEntryAction } from "@/app/fleet/actions";
 
 type Vehicle = { id: string; plate: string; make: string; model: string };
+type JobOption = { id: string; label: string };
 
 type GpsState =
   | { status: "locating" }
   | { status: "ok"; lat: number; lng: number; accuracy: number }
   | { status: "denied" | "unavailable" };
 
-export function FuelEntryForm({ vehicles }: { vehicles: Vehicle[] }) {
-  const [vehicleId, setVehicleId] = useState(vehicles[0]?.id ?? "");
+// Picker value for the waterblaster - not a vehicle, so it has no odometer
+// and is charged to a job instead (see fleet_waterblaster_fuel.sql, whose
+// trigger turns the entry into a cost line on that job).
+const WATERBLASTER = "waterblaster";
+
+// Today as YYYY-MM-DD in the phone's own timezone - toISOString() would
+// give the UTC date, which is yesterday for most of a NZ morning.
+function todayLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function FuelEntryForm({
+  vehicles,
+  defaultVehicleId,
+  jobs,
+}: {
+  vehicles: Vehicle[];
+  defaultVehicleId: string;
+  jobs: JobOption[];
+}) {
+  const [vehicleId, setVehicleId] = useState(defaultVehicleId);
+  const [jobId, setJobId] = useState("");
+  const isWaterblaster = vehicleId === WATERBLASTER;
+  const [fuelledOn, setFuelledOn] = useState(todayLocal);
+  // True once the driver picks a date themselves - the receipt reader then
+  // leaves it alone, same as it does for boxes they've typed into.
+  const dateTouchedRef = useRef(false);
   const [odometer, setOdometer] = useState("");
   const [litres, setLitres] = useState("");
   const [cost, setCost] = useState("");
@@ -24,6 +53,8 @@ export function FuelEntryForm({ vehicles }: { vehicles: Vehicle[] }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [scan, setScan] = useState<"idle" | "reading" | "filled" | "failed">("idle");
+  const scanIdRef = useRef(0);
 
   const receiptInputRef = useRef<HTMLInputElement>(null);
   const odometerInputRef = useRef<HTMLInputElement>(null);
@@ -62,17 +93,52 @@ return;
     setPreview(URL.createObjectURL(file));
   }
 
+  // Pre-fills odometer/litres/cost from the receipt photo. Only fills
+  // boxes that are still empty, so it never overwrites what the driver has
+  // typed; a newer photo supersedes a read still in progress.
+  async function scanReceipt(file: File | undefined) {
+    if (!file) return;
+    const scanId = ++scanIdRef.current;
+    setScan("reading");
+    try {
+      const reading = await readReceipt(file);
+      if (scanId !== scanIdRef.current) return;
+      const found = [reading.date, reading.odometerKm, reading.litres, reading.cost].filter((v) => v !== null).length;
+      if (reading.date !== null && !dateTouchedRef.current) setFuelledOn(reading.date);
+      if (reading.odometerKm !== null) setOdometer((prev) => prev || String(reading.odometerKm));
+      if (reading.litres !== null) setLitres((prev) => prev || String(reading.litres));
+      if (reading.cost !== null) setCost((prev) => prev || reading.cost!.toFixed(2));
+      setScan(found > 0 ? "filled" : "failed");
+    } catch {
+      if (scanId === scanIdRef.current) setScan("failed");
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
     if (!vehicleId) return setError("Choose a vehicle.");
+    if (!fuelledOn) return setError("Enter the date you filled up.");
+    if (fuelledOn > todayLocal()) return setError("The date can't be in the future.");
+    if (isWaterblaster && !jobId) return setError("Choose the job the waterblaster fuel is for.");
     if (!receiptPhoto) return setError("Photograph the fuel receipt.");
-    if (!odometerPhoto) return setError("Photograph the odometer.");
-    if (!odometer || Number(odometer) <= 0)
-      return setError("Enter the odometer reading.");
-    if (!litres || Number(litres) <= 0) return setError("Enter the litres.");
-    if (!cost || Number(cost) <= 0) return setError("Enter the total cost.");
+    // The numbers are optional (an unreadable receipt shouldn't block the
+    // driver) - but anything entered has to be a real value.
+    if (!isWaterblaster && odometer && Number(odometer) <= 0) return setError("Check the odometer reading.");
+    if (litres && Number(litres) <= 0) return setError("Check the litres.");
+    if (cost && Number(cost) <= 0) return setError("Check the total cost.");
+
+    const missing = [
+      ...(!isWaterblaster && !odometer ? ["mileage"] : []),
+      ...(!litres ? ["litres"] : []),
+      ...(!cost ? ["cost"] : []),
+    ];
+    if (
+      missing.length > 0 &&
+      !confirm(`The ${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} empty. Save anyway? The office will be asked to fill ${missing.length === 1 ? "it" : "them"} in from your receipt photo.`)
+    )
+      return;
 
     setSubmitting(true);
     const supabase = createClient();
@@ -89,13 +155,14 @@ return;
 
     const stamp = Date.now();
     const receiptPath = `${user.id}/${stamp}-receipt.jpg`;
-    const odometerPath = `${user.id}/${stamp}-odometer.jpg`;
+    // Optional - the receipt already carries the mileage.
+    const odometerPath = !isWaterblaster && odometerPhoto ? `${user.id}/${stamp}-odometer.jpg` : null;
 
     const [receiptUpload, odometerUpload] = await Promise.all([
       supabase.storage.from("fleet-photos").upload(receiptPath, receiptPhoto),
-      supabase.storage
-        .from("fleet-photos")
-        .upload(odometerPath, odometerPhoto),
+      odometerPath && odometerPhoto
+        ? supabase.storage.from("fleet-photos").upload(odometerPath, odometerPhoto)
+        : Promise.resolve({ error: null }),
     ]);
 
     if (receiptUpload.error || odometerUpload.error) {
@@ -104,18 +171,21 @@ return;
       return;
     }
 
-    const { error: insertError } = await supabase.from("fuel_entries").insert({
+    const { data: saved, error: insertError } = await supabase.from("fuel_entries").insert({
       driver_id: user.id,
-      vehicle_id: vehicleId,
-      odometer_km: Number(odometer),
-      litres: Number(litres),
-      cost_total: Number(cost),
+      vehicle_id: isWaterblaster ? null : vehicleId,
+      equipment: isWaterblaster ? WATERBLASTER : null,
+      job_id: isWaterblaster ? jobId : null,
+      fuelled_on: fuelledOn,
+      odometer_km: isWaterblaster || !odometer ? null : Number(odometer),
+      litres: litres ? Number(litres) : null,
+      cost_total: cost ? Number(cost) : null,
       receipt_photo_path: receiptPath,
       odometer_photo_path: odometerPath,
       gps_lat: gps.status === "ok" ? gps.lat : null,
       gps_lng: gps.status === "ok" ? gps.lng : null,
       gps_accuracy_m: gps.status === "ok" ? gps.accuracy : null,
-    });
+    }).select("id").single();
 
     if (insertError) {
       setError("Couldn't save the entry. Try again.");
@@ -123,11 +193,22 @@ return;
       return;
     }
 
+    // Emails the admins. The entry is saved and flagged in the Fuel Log
+    // regardless, so a failure here isn't shown to the driver.
+    if (missing.length > 0 && saved) {
+      await alertIncompleteFuelEntryAction(saved.id).catch(() => {});
+    }
+
     setSubmitting(false);
     setDone(true);
   }
 
   function resetForNext() {
+    scanIdRef.current++;
+    setScan("idle");
+    setJobId("");
+    setFuelledOn(todayLocal());
+    dateTouchedRef.current = false;
     setOdometer("");
     setLitres("");
     setCost("");
@@ -177,36 +258,96 @@ return;
               {v.make} {v.model} — {v.plate}
             </option>
           ))}
+          <option value={WATERBLASTER}>Waterblaster</option>
         </select>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      {isWaterblaster && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-foreground">Job</label>
+          <select
+            value={jobId}
+            onChange={(e) => setJobId(e.target.value)}
+            className="rounded-lg border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
+          >
+            <option value="">Choose the job…</option>
+            {jobs.map((j) => (
+              <option key={j.id} value={j.id}>
+                {j.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted">The fuel cost is added to this job once you save.</p>
+        </div>
+      )}
+
+      <div className={`grid gap-3 ${isWaterblaster ? "grid-cols-1" : "grid-cols-2"}`}>
         <PhotoCapture
           label="Receipt photo"
           inputRef={receiptInputRef}
           preview={receiptPreview}
-          onChange={(f) => pickPhoto(f, setReceiptPhoto, setReceiptPreview)}
+          onChange={(f) => {
+            pickPhoto(f, setReceiptPhoto, setReceiptPreview);
+            scanReceipt(f);
+          }}
         />
-        <PhotoCapture
-          label="Odometer photo"
-          inputRef={odometerInputRef}
-          preview={odometerPreview}
-          onChange={(f) => pickPhoto(f, setOdometerPhoto, setOdometerPreview)}
-        />
+        {!isWaterblaster && (
+          <PhotoCapture
+            label="Odometer photo (optional)"
+            inputRef={odometerInputRef}
+            preview={odometerPreview}
+            onChange={(f) => pickPhoto(f, setOdometerPhoto, setOdometerPreview)}
+          />
+        )}
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-foreground">
-          Odometer reading (km)
-        </label>
-        <input
-          type="number"
-          inputMode="numeric"
-          value={odometer}
-          onChange={(e) => setOdometer(e.target.value)}
-          placeholder="e.g. 45410"
-          className="rounded-lg border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
-        />
+      {scan === "reading" && (
+        <div className="-mt-2 flex items-center gap-2 rounded-lg bg-border/40 px-3 py-2 text-xs text-muted">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Reading the receipt… (the first time takes a little longer)
+        </div>
+      )}
+      {scan === "filled" && (
+        <div className="-mt-2 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700">
+          <Check className="h-3.5 w-3.5" />
+          Filled in from the receipt — check the numbers match before saving.
+        </div>
+      )}
+      {scan === "failed" && (
+        <div className="-mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          Couldn&apos;t read the receipt — type the numbers in below.
+        </div>
+      )}
+
+      <div className={`grid gap-3 ${isWaterblaster ? "grid-cols-1" : "grid-cols-2"}`}>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-foreground">Date</label>
+          <input
+            type="date"
+            value={fuelledOn}
+            max={todayLocal()}
+            onChange={(e) => {
+              dateTouchedRef.current = true;
+              setFuelledOn(e.target.value);
+            }}
+            className="min-w-0 rounded-lg border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
+          />
+        </div>
+        {!isWaterblaster && (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Odometer reading (km)
+            </label>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={odometer}
+              onChange={(e) => setOdometer(e.target.value)}
+              placeholder="e.g. 45410"
+              className="min-w-0 rounded-lg border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
+            />
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -298,6 +439,8 @@ function PhotoCapture({
   preview: string | null;
   onChange: (file: File | undefined) => void;
 }) {
+  const uploadRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-sm font-medium text-foreground">{label}</label>
@@ -322,6 +465,28 @@ function PhotoCapture({
         accept="image/*"
         capture="environment"
         onChange={(e) => onChange(e.target.files?.[0])}
+        className="hidden"
+      />
+      {/* Same field, but without capture= so the phone offers its photo
+          library / files instead of jumping straight to the camera - for
+          a receipt or odometer shot that was taken earlier. */}
+      <button
+        type="button"
+        onClick={() => uploadRef.current?.click()}
+        className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-surface py-1.5 text-xs font-medium text-muted transition hover:border-brand-red/40 hover:text-ink"
+      >
+        <Upload className="h-3.5 w-3.5" />
+        Upload photo
+      </button>
+      <input
+        ref={uploadRef}
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+          onChange(e.target.files?.[0]);
+          // Cleared so picking the same file again still fires onChange.
+          e.target.value = "";
+        }}
         className="hidden"
       />
     </div>

@@ -1,6 +1,7 @@
 import { Fuel, Wrench, Gauge, Truck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { daysUntil, fmtDate, fmtMoney } from "@/lib/fleet/format";
+import { missingFuelNumbers } from "@/lib/fleet/missingNumbers";
 
 type Vehicle = {
   id: string;
@@ -13,11 +14,13 @@ type Vehicle = {
 
 type FuelEntry = {
   id: string;
-  vehicle_id: string;
-  litres: number;
-  cost_total: number;
-  odometer_km: number;
+  vehicle_id: string | null;
+  equipment: string | null;
+  litres: number | null;
+  cost_total: number | null;
+  odometer_km: number | null;
   created_at: string;
+  fuelled_on: string;
   vehicle: { plate: string; make: string; model: string } | null;
 };
 
@@ -44,7 +47,7 @@ export default async function FleetDashboardPage() {
       supabase
         .from("fuel_entries")
         .select(
-          "id, vehicle_id, litres, cost_total, odometer_km, created_at, vehicle:vehicles(plate, make, model)"
+          "id, vehicle_id, equipment, litres, cost_total, odometer_km, created_at, fuelled_on, vehicle:vehicles(plate, make, model)"
         )
         .order("created_at", { ascending: false })
         .returns<FuelEntry[]>(),
@@ -63,7 +66,8 @@ export default async function FleetDashboardPage() {
 const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isArray(r.vehicle) ? r.vehicle[0] ?? null : r.vehicle, }));
 
   const thisMonth = new Date().toISOString().slice(0, 7);
-  const monthEntries = fList.filter((f) => f.created_at.slice(0, 7) === thisMonth);
+  // By the fill-up date, not when it was logged.
+  const monthEntries = fList.filter((f) => f.fuelled_on.slice(0, 7) === thisMonth);
   const monthSpend = monthEntries.reduce((s, f) => s + Number(f.cost_total), 0);
 
   type Alert = { severity: "warn" | "critical"; title: string; sub: string; days: number };
@@ -106,21 +110,38 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
       });
     }
   }
+  // Entries a driver saved without their numbers (unreadable receipt) -
+  // shown first, since they're waiting on the office rather than a date.
+  for (const f of fList) {
+    const missing = missingFuelNumbers(f);
+    if (missing.length === 0) continue;
+    const v = f.vehicle;
+    alerts.push({
+      severity: "warn",
+      title: `${v ? `${v.make} ${v.model} — ${v.plate}` : "Waterblaster"} — Fuel entry missing ${missing.join(", ")}`,
+      sub: `Filled up ${fmtDate(f.fuelled_on)} · fill in from the receipt under Fuel Log`,
+      days: -Infinity,
+    });
+  }
+
   alerts.sort((a, b) => a.days - b.days);
 
   // Fleet-wide average economy: pool consecutive-fill deltas per vehicle.
   const byVehicle = new Map<string, FuelEntry[]>();
   for (const f of fList) {
+    // Waterblaster fill-ups have no vehicle or odometer - nothing to
+    // measure economy against.
+    if (!f.vehicle_id || f.odometer_km == null || f.litres == null) continue;
     if (!byVehicle.has(f.vehicle_id)) byVehicle.set(f.vehicle_id, []);
     byVehicle.get(f.vehicle_id)!.push(f);
   }
   const economies: number[] = [];
   for (const logs of byVehicle.values()) {
-    const sorted = [...logs].sort((a, b) => a.odometer_km - b.odometer_km);
+    const sorted = [...logs].sort((a, b) => a.odometer_km! - b.odometer_km!);
     let totalKm = 0;
     let totalL = 0;
     for (let i = 1; i < sorted.length; i++) {
-      const km = sorted[i].odometer_km - sorted[i - 1].odometer_km;
+      const km = sorted[i].odometer_km! - sorted[i - 1].odometer_km!;
       if (km > 0) {
         totalKm += km;
         totalL += Number(sorted[i].litres);
@@ -167,7 +188,7 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
         </div>
         {alerts.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-muted">
-            Nothing due in the next 30 days.
+            Nothing needs attention right now.
           </p>
         ) : (
           <div>
@@ -203,7 +224,11 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
           <div>
             {activity.map((a) => {
               const v = a.rec.vehicle;
-              const vName = v ? `${v.make} ${v.model} — ${v.plate}` : "Unknown vehicle";
+              const vName = v
+                ? `${v.make} ${v.model} — ${v.plate}`
+                : a.type === "fuel"
+                ? "Waterblaster"
+                : "Unknown vehicle";
               return (
                 <div
                   key={`${a.type}-${a.rec.id}`}
@@ -220,8 +245,9 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
                     {a.type === "fuel" ? (
                       <p>
                         <span className="font-medium text-ink">{vName}</span> refuelled —{" "}
-                        {Number((a.rec as FuelEntry).litres).toFixed(1)} L for{" "}
-                        {fmtMoney((a.rec as FuelEntry).cost_total)}
+                        {(a.rec as FuelEntry).litres != null && (a.rec as FuelEntry).cost_total != null
+                          ? `${Number((a.rec as FuelEntry).litres).toFixed(1)} L for ${fmtMoney((a.rec as FuelEntry).cost_total)}`
+                          : "numbers still to be filled in"}
                       </p>
                     ) : (
                       <p>
