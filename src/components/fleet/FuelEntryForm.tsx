@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Camera, Check, Loader2, MapPin, MapPinOff, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { readReceipt } from "@/lib/fleet/readReceipt";
@@ -30,10 +31,13 @@ export function FuelEntryForm({
   vehicles,
   defaultVehicleId,
   jobs,
+  backLink,
 }: {
   vehicles: Vehicle[];
   defaultVehicleId: string;
   jobs: JobOption[];
+  // Shown on "Entry saved" - Timesheets for painters, Hub for admins/supervisors.
+  backLink: { href: string; label: string } | null;
 }) {
   const [vehicleId, setVehicleId] = useState(defaultVehicleId);
   const [jobId, setJobId] = useState("");
@@ -231,12 +235,26 @@ return;
         <p className="mt-1 text-sm text-muted">
           Your fuel entry has been recorded.
         </p>
-        <button
-          onClick={resetForNext}
-          className="mt-6 rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-black"
-        >
-          Log another entry
-        </button>
+        <div className="mt-6 flex w-full flex-col gap-2">
+          {backLink && (
+            <Link
+              href={backLink.href}
+              className="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-black"
+            >
+              {backLink.label}
+            </Link>
+          )}
+          <button
+            onClick={resetForNext}
+            className={
+              backLink
+                ? "rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-background"
+                : "rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-black"
+            }
+          >
+            Log another entry
+          </button>
+        </div>
       </div>
     );
   }

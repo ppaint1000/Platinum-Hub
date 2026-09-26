@@ -1,4 +1,6 @@
 import Image from "next/image";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SignOutButton } from "@/components/SignOutButton";
@@ -10,11 +12,20 @@ export default async function DriverFuelLogPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user?.id ?? "")
-    .single();
+  const [{ data: profile }, { data: access }] = await Promise.all([
+    supabase.from("profiles").select("full_name, role").eq("id", user?.id ?? "").single(),
+    supabase.from("user_app_access").select("timesheets").eq("user_id", user?.id ?? "").maybeSingle(),
+  ]);
+
+  // Where the back link (top of the form and on "Entry saved") goes:
+  // admins/supervisors back to the Hub; painters live in Timesheets
+  // (/timesheets routes them to their clock), so straight back there.
+  const isHubUser = profile?.role === "admin" || profile?.role === "supervisor";
+  const backLink = isHubUser
+    ? { href: "/hub", label: "Back to Hub" }
+    : access?.timesheets
+    ? { href: "/timesheets", label: "Back to Timesheets" }
+    : null;
 
   const { data: vehicles } = await supabase
     .from("vehicles")
@@ -52,6 +63,16 @@ export default async function DriverFuelLogPage() {
         <SignOutButton className="text-sm font-medium text-muted transition hover:text-ink" />
       </header>
 
+      {backLink && (
+        <Link
+          href={backLink.href}
+          className="mt-4 flex items-center gap-1 text-sm font-medium text-muted transition hover:text-ink"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          {backLink.label}
+        </Link>
+      )}
+
       <div className="mt-6">
         <h1 className="text-xl font-semibold text-ink">
           Fuel &amp; mileage
@@ -65,6 +86,7 @@ export default async function DriverFuelLogPage() {
       <FuelEntryForm
         vehicles={vehicles ?? []}
         defaultVehicleId={defaultVehicleId}
+        backLink={backLink}
         jobs={(jobs ?? []).map((j) => ({
           id: j.id,
           label: [j.job_number, j.name, j.client?.name].filter(Boolean).join(" — "),
