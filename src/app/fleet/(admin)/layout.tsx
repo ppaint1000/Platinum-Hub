@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   LayoutDashboard,
   Truck,
@@ -28,7 +29,22 @@ export default async function FleetAdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireAppAccess("fleet");
+  const supabase = await requireAppAccess("fleet");
+
+  // The Fleet admin area is for admins (full control) and supervisors
+  // (view-only - see canEditFleet). Anyone else with Fleet access, e.g. a
+  // painter, only logs fuel, so they go straight to the fuel form.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user?.id ?? "")
+    .single();
+  if (profile?.role !== "admin" && profile?.role !== "supervisor") {
+    redirect("/fleet/log");
+  }
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">

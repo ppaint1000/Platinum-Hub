@@ -59,6 +59,9 @@ export function ServicingClient({
   const router = useRouter();
   const role = useUserRole();
   const canDelete = role === "admin";
+  // Supervisors can view Fleet but only log fuel - adding and editing is
+  // admin-only too (also enforced by RLS, see fleet_supervisor_view_only.sql).
+  const canEdit = role === "admin";
   const [editing, setEditing] = useState<ServiceRecord | null>(null);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm(vehicles[0]?.id ?? ""));
@@ -138,14 +141,16 @@ export function ServicingClient({
             {initialRecords.length} record{initialRecords.length === 1 ? "" : "s"} on file
           </p>
         </div>
-        <button
-          onClick={openAdd}
-          disabled={vehicles.length === 0}
-          className="flex items-center gap-1.5 rounded-lg bg-ink px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-50"
-        >
-          <Plus className="h-4 w-4" />
-          Add record
-        </button>
+        {canEdit && (
+          <button
+            onClick={openAdd}
+            disabled={vehicles.length === 0}
+            className="flex items-center gap-1.5 rounded-lg bg-ink px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" />
+            Add record
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-sm">
@@ -188,13 +193,15 @@ export function ServicingClient({
                     <td className="whitespace-nowrap px-5 py-3">{nextDue}</td>
                     <td className="whitespace-nowrap px-5 py-3">
                       <div className="flex justify-end gap-1">
-                        <button
-                          onClick={() => openEdit(r)}
-                          aria-label="Edit"
-                          className="rounded-md p-1.5 text-muted transition hover:bg-background hover:text-ink"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
+                        {canEdit && (
+                          <button
+                            onClick={() => openEdit(r)}
+                            aria-label="Edit"
+                            className="rounded-md p-1.5 text-muted transition hover:bg-background hover:text-ink"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
                         {canDelete && (
                           <button
                             onClick={() => remove(r)}

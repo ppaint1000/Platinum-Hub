@@ -58,6 +58,9 @@ export function VehiclesClient({
   const router = useRouter();
   const role = useUserRole();
   const canDelete = role === "admin";
+  // Supervisors can view Fleet but only log fuel - adding and editing is
+  // admin-only too (also enforced by RLS, see fleet_supervisor_view_only.sql).
+  const canEdit = role === "admin";
   const [editing, setEditing] = useState<Vehicle | null>(null);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
@@ -142,13 +145,15 @@ export function VehiclesClient({
             {initialVehicles.length} vehicle{initialVehicles.length === 1 ? "" : "s"} in the fleet
           </p>
         </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-1.5 rounded-lg bg-ink px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-black"
-        >
-          <Plus className="h-4 w-4" />
-          Add vehicle
-        </button>
+        {canEdit && (
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-1.5 rounded-lg bg-ink px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-black"
+          >
+            <Plus className="h-4 w-4" />
+            Add vehicle
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-sm">
@@ -187,13 +192,15 @@ export function VehiclesClient({
                   </td>
                   <td className="whitespace-nowrap px-5 py-3">
                     <div className="flex justify-end gap-1">
-                      <button
-                        onClick={() => openEdit(v)}
-                        aria-label="Edit"
-                        className="rounded-md p-1.5 text-muted transition hover:bg-background hover:text-ink"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
+                      {canEdit && (
+                        <button
+                          onClick={() => openEdit(v)}
+                          aria-label="Edit"
+                          className="rounded-md p-1.5 text-muted transition hover:bg-background hover:text-ink"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      )}
                       {canDelete && (
                         <button
                           onClick={() => remove(v)}
