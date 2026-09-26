@@ -1,4 +1,5 @@
-import { Fuel, Wrench, Gauge, Truck } from "lucide-react";
+import Link from "next/link";
+import { BarChart3, Fuel, Wrench, Gauge, Truck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { daysUntil, fmtDate, fmtMoney } from "@/lib/fleet/format";
 import { missingFuelNumbers } from "@/lib/fleet/missingNumbers";
@@ -161,9 +162,18 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-ink">Dashboard</h1>
-        <p className="mt-1 text-sm text-muted">Overview of the fleet, at a glance</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-ink">Dashboard</h1>
+          <p className="mt-1 text-sm text-muted">Overview of the fleet, at a glance</p>
+        </div>
+        <Link
+          href="/fleet/fuel-report"
+          className="flex flex-none items-center gap-1.5 rounded-lg border border-border bg-surface px-3.5 py-2 text-sm font-semibold text-ink transition hover:bg-background"
+        >
+          <BarChart3 className="h-4 w-4" />
+          Fuel report
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
