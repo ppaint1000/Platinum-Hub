@@ -6,6 +6,7 @@ import { Loader2, Pencil, Plus, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Modal, Field, inputClass } from "@/components/fleet/Modal";
 import { readReceipt } from "@/lib/fleet/readReceipt";
+import { checkFuelEconomyAction } from "@/app/fleet/actions";
 
 type Vehicle = { id: string; plate: string; make: string; model: string; assigned_driver_id: string | null };
 type Option = { id: string; label: string };
@@ -186,12 +187,25 @@ function FuelEntryModalButton({
       receipt_photo_path: receiptPath ?? entry?.receipt_photo_path ?? null,
     };
 
-    const { error: saveError } = entry
-      ? await supabase.from("fuel_entries").update(payload).eq("id", entry.id)
-      : await supabase.from("fuel_entries").insert({ ...payload, odometer_photo_path: null });
+    const { data: saved, error: saveError } = entry
+      ? await supabase.from("fuel_entries").update(payload).eq("id", entry.id).select("id").single()
+      : await supabase
+          .from("fuel_entries")
+          .insert({ ...payload, odometer_photo_path: null })
+          .select("id")
+          .single();
 
+    if (saveError) {
+      setSaving(false);
+      return setError("Couldn't save — " + saveError.message);
+    }
+
+    // Filling in or correcting the numbers can complete a fill-up - emails
+    // the admins if its cost per km is more than 10% off the usual.
+    if (saved && !isWaterblaster) {
+      await checkFuelEconomyAction(saved.id).catch(() => {});
+    }
     setSaving(false);
-    if (saveError) return setError("Couldn't save — " + saveError.message);
 
     setOpen(false);
     router.refresh();

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Camera, Check, Loader2, MapPin, MapPinOff, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { readReceipt } from "@/lib/fleet/readReceipt";
-import { alertIncompleteFuelEntryAction } from "@/app/fleet/actions";
+import { alertIncompleteFuelEntryAction, checkFuelEconomyAction } from "@/app/fleet/actions";
 
 type Vehicle = { id: string; plate: string; make: string; model: string };
 type JobOption = { id: string; label: string };
@@ -201,6 +201,11 @@ return;
     // regardless, so a failure here isn't shown to the driver.
     if (missing.length > 0 && saved) {
       await alertIncompleteFuelEntryAction(saved.id).catch(() => {});
+    }
+    // Emails the admins if this fill-up's cost per km is more than 10% off
+    // the vehicle's usual. Same deal - never shown to the driver.
+    if (saved && !isWaterblaster) {
+      await checkFuelEconomyAction(saved.id).catch(() => {});
     }
 
     setSubmitting(false);
