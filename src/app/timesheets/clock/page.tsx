@@ -47,6 +47,15 @@ export default async function ClockPage() {
   // resolve which sites are clockable, never to expose job financials.
   const admin = createAdminClient()
 
+  // Painters land here, not the Hub, so anyone with Fleet access gets a
+  // direct "Log fuel" button rather than having to find it via Hub -> Fleet.
+  const { data: appAccess } = await supabase
+    .from('user_app_access')
+    .select('fleet')
+    .eq('user_id', profile.id)
+    .maybeSingle<{ fleet: boolean }>()
+  const canLogFuel = profile.role === 'admin' || !!appAccess?.fleet
+
   const [{ data: siteRows }, { data: openEntryRow }, { data: acknowledgements }, { data: extraDocRows }] =
     await Promise.all([
       admin
@@ -139,6 +148,11 @@ export default async function ClockPage() {
         <Link href="/timesheets/timesheet/requests" className={pillClass}>
           Request a Change
         </Link>
+        {canLogFuel && (
+          <Link href="/fleet/log" className={pillClass}>
+            Log fuel
+          </Link>
+        )}
         <Link href="/hub" className={pillClass}>
           Hub
         </Link>
