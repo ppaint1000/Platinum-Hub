@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Users,
   ArrowLeft,
+  BarChart3,
   Plus,
 } from "lucide-react";
 import { SignOutButton } from "@/components/SignOutButton";
@@ -19,6 +20,7 @@ const NAV = [
   { href: "/fleet", label: "Dashboard", icon: LayoutDashboard },
   { href: "/fleet/vehicles", label: "Vehicles", icon: Truck },
   { href: "/fleet/fuel", label: "Fuel Log", icon: Fuel },
+  { href: "/fleet/fuel-report", label: "Fuel Report", icon: BarChart3 },
   { href: "/fleet/servicing", label: "Servicing", icon: Wrench },
   { href: "/fleet/compliance", label: "WOF & Rego", icon: ShieldCheck },
   { href: "/fleet/drivers", label: "Drivers", icon: Users },

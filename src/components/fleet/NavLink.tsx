@@ -11,7 +11,9 @@ export function NavLink({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const active = href === "/fleet" ? pathname === "/fleet" : pathname.startsWith(href);
+  // Exact page or one of its sub-pages - a bare prefix would light up
+  // "Fuel Log" (/fleet/fuel) on "Fuel Report" (/fleet/fuel-report) too.
+  const active = href === "/fleet" ? pathname === "/fleet" : pathname === href || pathname.startsWith(href + "/");
 
   return (
     <Link
