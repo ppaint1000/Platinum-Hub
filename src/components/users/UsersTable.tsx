@@ -78,6 +78,14 @@ function effectiveRate(r: PayRate): number {
   return (r.hourlyRate * paidHoursPerYear) / workedHoursPerYear;
 }
 
+// Same default the server used to pick on its own: today for a change to
+// an existing rate, or far enough back to cover someone's whole
+// timesheet history for their first-ever rate. Now just a starting
+// point — admin can override it in the date field.
+function defaultEffectiveFrom(hasExistingRate: boolean): string {
+  return hasExistingRate ? new Date().toISOString().slice(0, 10) : "2020-01-01";
+}
+
 export function UsersTable({ users }: { users: UserRow[] }) {
   const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
 
@@ -124,6 +132,7 @@ function UserRowItem({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
   const [rate, setRate] = useState<PayRate>(user.payRate ?? DEFAULT_PAY_RATE);
+  const [effectiveFrom, setEffectiveFrom] = useState(() => defaultEffectiveFrom(!!user.payRate));
   const [rateError, setRateError] = useState<string | null>(null);
   const access = user.user_app_access;
   const isAdmin = user.role === "admin";
@@ -185,6 +194,7 @@ function UserRowItem({
         annualLeaveWeeks: Number(rate.annualLeaveWeeks),
         sickLeaveDays: Number(rate.sickLeaveDays),
         publicHolidays: Number(rate.publicHolidays),
+        effectiveFrom,
       });
       if (result?.error) {
         setRateError(result.error);
@@ -274,6 +284,7 @@ function UserRowItem({
             type="button"
             onClick={() => {
               setRate(user.payRate ?? DEFAULT_PAY_RATE);
+              setEffectiveFrom(defaultEffectiveFrom(!!user.payRate));
               setRateError(null);
               setRateOpen((v) => !v);
             }}
@@ -307,9 +318,14 @@ function UserRowItem({
       {rateOpen && (
         <tr>
           <td colSpan={12} className="bg-background p-4">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">
               Pay rate — admin only, never shown outside this page
             </div>
+            <p className="mb-2 text-xs text-ink-soft">
+              This doesn&rsquo;t overwrite their current rate — it&rsquo;s saved as a new one
+              starting from &ldquo;Effective from,&rdquo; pre-filled to today (or their full
+              history, if they&rsquo;ve never had a rate). Change the date to backdate it.
+            </p>
             <div className="flex flex-wrap items-end gap-3">
               <label className="flex flex-col gap-1 text-sm">
                 Type
@@ -333,6 +349,15 @@ function UserRowItem({
                   value={rate.hourlyRate}
                   onChange={(e) => setRate({ ...rate, hourlyRate: Number(e.target.value) })}
                   className="w-28 rounded border border-line px-2 py-1.5"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                Effective from
+                <input
+                  type="date"
+                  value={effectiveFrom}
+                  onChange={(e) => setEffectiveFrom(e.target.value)}
+                  className="rounded border border-line px-2 py-1.5"
                 />
               </label>
               {rate.employmentType === "employee" && (

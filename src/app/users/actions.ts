@@ -200,11 +200,11 @@ export async function resetPasswordAction(userId: string) {
 // Every save inserts a new dated row rather than overwriting the
 // existing one, so a rate change never rewrites the cost of work already
 // logged under the old rate (see job_labour_actual — it matches each
-// shift to whichever rate was in effect on that shift's date). The first
-// rate ever entered for someone is backdated so it covers whatever
-// timesheet history already exists for them; every rate after that is
-// effective from today, i.e. a pay rise only affects work logged from
-// now on.
+// shift to whichever rate was in effect on that shift's date). The UI
+// pre-fills effectiveFrom with a sensible default (today for a change,
+// far enough back to cover existing history for someone's first-ever
+// rate) but it's an admin-editable override, e.g. to backdate a rise to
+// when it was actually agreed, or correct an earlier entry.
 export async function updateHourlyRateAction(
   userId: string,
   input: {
@@ -214,6 +214,7 @@ export async function updateHourlyRateAction(
     annualLeaveWeeks: number;
     sickLeaveDays: number;
     publicHolidays: number;
+    effectiveFrom: string;
   }
 ) {
   const supabase = await requireAdmin();
@@ -233,24 +234,19 @@ export async function updateHourlyRateAction(
       return { error: `Enter a valid number for ${label}.` };
     }
   }
-
-  const { count: existingCount } = await supabase
-    .from("staff_hourly_rates")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId);
-
-  const effectiveFrom =
-    (existingCount ?? 0) > 0 ? new Date().toISOString().slice(0, 10) : "2020-01-01";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.effectiveFrom)) {
+    return { error: "Enter a valid effective-from date." };
+  }
 
   const { error } = await supabase.from("staff_hourly_rates").insert({
     user_id: userId,
+    effective_from: input.effectiveFrom,
     employment_type: input.employmentType,
     hourly_rate: input.hourlyRate,
     hours_per_week: input.hoursPerWeek,
     annual_leave_weeks: input.annualLeaveWeeks,
     sick_leave_days: input.sickLeaveDays,
     public_holidays: input.publicHolidays,
-    effective_from: effectiveFrom,
   });
 
   if (error) return { error: error.message };
