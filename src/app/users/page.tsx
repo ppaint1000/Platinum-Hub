@@ -58,7 +58,10 @@ export default async function UsersPage() {
   const rows = (profiles ?? []).map((p) => ({ ...p, payRate: rateByUser.get(p.id) ?? null }));
 
   return (
-    <div className="mx-auto w-full max-w-5xl p-8">
+    // Wider than the other admin pages - the table has a dozen columns. On
+    // screens narrower than that it scrolls sideways inside the Panel
+    // rather than spilling past its border.
+    <div className="mx-auto w-full max-w-7xl p-8">
       <Link
         href="/hub"
         className="mb-4 flex items-center gap-1.5 text-sm font-medium text-ink-soft transition hover:text-ink"
@@ -77,7 +80,7 @@ export default async function UsersPage() {
         <NewUserForm />
       </div>
 
-      <Panel className="p-4">
+      <Panel className="overflow-x-auto p-4">
         <UsersTable users={rows} />
       </Panel>
     </div>
