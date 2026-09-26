@@ -69,6 +69,41 @@ const DEFAULT_PAY_RATE: PayRate = {
   publicHolidays: 12,
 };
 
+// The pay-rate boxes hold what's typed, as text - so an emptied box stays
+// empty instead of snapping back to 0, and a 0 is never shown. Converted
+// to numbers only when saving / previewing (blank counts as 0).
+type RateForm = {
+  employmentType: PayRate["employmentType"];
+  hourlyRate: string;
+  hoursPerWeek: string;
+  annualLeaveWeeks: string;
+  sickLeaveDays: string;
+  publicHolidays: string;
+};
+
+function toRateForm(r: PayRate): RateForm {
+  const show = (n: number) => (n ? String(n) : "");
+  return {
+    employmentType: r.employmentType,
+    hourlyRate: show(r.hourlyRate),
+    hoursPerWeek: show(r.hoursPerWeek),
+    annualLeaveWeeks: show(r.annualLeaveWeeks),
+    sickLeaveDays: show(r.sickLeaveDays),
+    publicHolidays: show(r.publicHolidays),
+  };
+}
+
+function fromRateForm(f: RateForm): PayRate {
+  return {
+    employmentType: f.employmentType,
+    hourlyRate: Number(f.hourlyRate) || 0,
+    hoursPerWeek: Number(f.hoursPerWeek) || 0,
+    annualLeaveWeeks: Number(f.annualLeaveWeeks) || 0,
+    sickLeaveDays: Number(f.sickLeaveDays) || 0,
+    publicHolidays: Number(f.publicHolidays) || 0,
+  };
+}
+
 function effectiveRate(r: PayRate): number {
   if (r.employmentType === "contractor") return r.hourlyRate;
   const paidHoursPerYear = r.hoursPerWeek * 52;
@@ -131,7 +166,7 @@ function UserRowItem({
   const [isPending, startTransition] = useTransition();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
-  const [rate, setRate] = useState<PayRate>(user.payRate ?? DEFAULT_PAY_RATE);
+  const [rate, setRate] = useState<RateForm>(() => toRateForm(user.payRate ?? DEFAULT_PAY_RATE));
   const [effectiveFrom, setEffectiveFrom] = useState(() => defaultEffectiveFrom(!!user.payRate));
   const [rateError, setRateError] = useState<string | null>(null);
   const access = user.user_app_access;
@@ -186,16 +221,12 @@ function UserRowItem({
 
   function saveRate() {
     setRateError(null);
+    const values = fromRateForm(rate);
+    if (values.hourlyRate <= 0) return setRateError("Enter the hourly rate.");
+    if (values.employmentType === "employee" && values.hoursPerWeek <= 0)
+      return setRateError("Enter the hours per week.");
     startTransition(async () => {
-      const result = await updateHourlyRateAction(user.id, {
-        employmentType: rate.employmentType,
-        hourlyRate: Number(rate.hourlyRate),
-        hoursPerWeek: Number(rate.hoursPerWeek),
-        annualLeaveWeeks: Number(rate.annualLeaveWeeks),
-        sickLeaveDays: Number(rate.sickLeaveDays),
-        publicHolidays: Number(rate.publicHolidays),
-        effectiveFrom,
-      });
+      const result = await updateHourlyRateAction(user.id, { ...values, effectiveFrom });
       if (result?.error) {
         setRateError(result.error);
         return;
@@ -283,7 +314,7 @@ function UserRowItem({
           <button
             type="button"
             onClick={() => {
-              setRate(user.payRate ?? DEFAULT_PAY_RATE);
+              setRate(toRateForm(user.payRate ?? DEFAULT_PAY_RATE));
               setEffectiveFrom(defaultEffectiveFrom(!!user.payRate));
               setRateError(null);
               setRateOpen((v) => !v);
@@ -332,7 +363,7 @@ function UserRowItem({
                 <select
                   value={rate.employmentType}
                   onChange={(e) =>
-                    setRate({ ...rate, employmentType: e.target.value as PayRate["employmentType"] })
+                    setRate({ ...rate, employmentType: e.target.value as RateForm["employmentType"] })
                   }
                   className="rounded border border-line bg-paper-raised px-2 py-1.5"
                 >
@@ -347,8 +378,9 @@ function UserRowItem({
                   min={0}
                   step="0.01"
                   value={rate.hourlyRate}
-                  onChange={(e) => setRate({ ...rate, hourlyRate: Number(e.target.value) })}
-                  className="w-28 rounded border border-line px-2 py-1.5"
+                  onChange={(e) => setRate({ ...rate, hourlyRate: e.target.value })}
+                  inputMode="decimal"
+                  className="no-spinner w-28 rounded border border-line px-2 py-1.5"
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm">
@@ -369,8 +401,9 @@ function UserRowItem({
                       min={1}
                       step="0.5"
                       value={rate.hoursPerWeek}
-                      onChange={(e) => setRate({ ...rate, hoursPerWeek: Number(e.target.value) })}
-                      className="w-24 rounded border border-line px-2 py-1.5"
+                      onChange={(e) => setRate({ ...rate, hoursPerWeek: e.target.value })}
+                      inputMode="decimal"
+                      className="no-spinner w-24 rounded border border-line px-2 py-1.5"
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-sm">
@@ -380,8 +413,9 @@ function UserRowItem({
                       min={0}
                       step="0.5"
                       value={rate.annualLeaveWeeks}
-                      onChange={(e) => setRate({ ...rate, annualLeaveWeeks: Number(e.target.value) })}
-                      className="w-24 rounded border border-line px-2 py-1.5"
+                      onChange={(e) => setRate({ ...rate, annualLeaveWeeks: e.target.value })}
+                      inputMode="decimal"
+                      className="no-spinner w-24 rounded border border-line px-2 py-1.5"
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-sm">
@@ -391,8 +425,9 @@ function UserRowItem({
                       min={0}
                       step="0.5"
                       value={rate.sickLeaveDays}
-                      onChange={(e) => setRate({ ...rate, sickLeaveDays: Number(e.target.value) })}
-                      className="w-24 rounded border border-line px-2 py-1.5"
+                      onChange={(e) => setRate({ ...rate, sickLeaveDays: e.target.value })}
+                      inputMode="decimal"
+                      className="no-spinner w-24 rounded border border-line px-2 py-1.5"
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-sm">
@@ -402,8 +437,9 @@ function UserRowItem({
                       min={0}
                       step="0.5"
                       value={rate.publicHolidays}
-                      onChange={(e) => setRate({ ...rate, publicHolidays: Number(e.target.value) })}
-                      className="w-24 rounded border border-line px-2 py-1.5"
+                      onChange={(e) => setRate({ ...rate, publicHolidays: e.target.value })}
+                      inputMode="decimal"
+                      className="no-spinner w-24 rounded border border-line px-2 py-1.5"
                     />
                   </label>
                 </>
@@ -411,7 +447,7 @@ function UserRowItem({
               <div className="flex flex-col gap-1 text-sm">
                 <span className="text-ink-faint">Effective cost / hr worked</span>
                 <span className="py-1.5 font-medium text-ink">
-                  ${effectiveRate(rate).toFixed(2)}
+                  ${effectiveRate(fromRateForm(rate)).toFixed(2)}
                 </span>
               </div>
               <button
