@@ -2,10 +2,12 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   Briefcase,
+  Calculator,
   Clock,
   LayoutDashboard,
   LayoutGrid,
   Menu,
+  Ruler,
   ShoppingCart,
   TrendingUp,
   Truck,
@@ -14,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { SignOutButton } from "@/components/SignOutButton";
+import { MEASURES_URL } from "@/lib/measuresUrl";
 import {
   MARGIN_TARGET,
   STANDARD_WEEK_HOURS,
@@ -28,12 +31,16 @@ import {
 const BLUE = "#1F4E8C";
 const RED = "#B91C1C";
 
-const NAV: { href: string; label: string; icon: LucideIcon }[] = [
+// Costing and Measures live in the separate Measures app, so they open in a
+// new tab, the same as their Hub tiles.
+const NAV: { href: string; label: string; icon: LucideIcon; external?: boolean }[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/timesheets/admin", label: "Timesheets", icon: Clock },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/sales", label: "Sales", icon: TrendingUp },
+  { href: `${MEASURES_URL}/costing`, label: "Costing", icon: Calculator, external: true },
+  { href: `${MEASURES_URL}/site-measures`, label: "Measures", icon: Ruler, external: true },
   { href: "/orders", label: "Orders", icon: ShoppingCart },
   { href: "/fleet", label: "Fleet", icon: Truck },
   { href: "/users", label: "Users", icon: UserCog },
@@ -193,7 +200,9 @@ function NavRow() {
             <Link
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={`flex items-center border-b-[3px] px-3 pt-[3px] text-sm font-medium whitespace-nowrap transition xl:px-4 ${
+              target={item.external ? "_blank" : undefined}
+              rel={item.external ? "noopener noreferrer" : undefined}
+              className={`flex items-center border-b-[3px] px-3 pt-[3px] text-sm font-medium whitespace-nowrap transition ${
                 active
                   ? "border-white text-white"
                   : "border-transparent text-[#C9D1DC] hover:bg-white/10 hover:text-white"
@@ -220,6 +229,8 @@ function NavList() {
             <Link
               href={item.href}
               aria-current={active ? "page" : undefined}
+              target={item.external ? "_blank" : undefined}
+              rel={item.external ? "noopener noreferrer" : undefined}
               className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition ${
                 active ? "bg-white/15 font-semibold text-white" : "text-[#C9D1DC] hover:bg-white/10 hover:text-white"
               }`}
@@ -253,7 +264,7 @@ function TopBar() {
   return (
     <header className="sticky top-0 z-20 text-white shadow-sm" style={{ background: NAVY }}>
       {/* Desktop */}
-      <div className="hidden px-8 lg:block">
+      <div className="hidden px-8 xl:block">
         <div className="mx-auto flex h-16 max-w-6xl items-stretch gap-6">
           <div className="flex items-center">
             <Logo className="w-28" />
@@ -268,7 +279,7 @@ function TopBar() {
       </div>
 
       {/* Phone and tablet */}
-      <details className="group px-4 py-2.5 lg:hidden">
+      <details className="group px-4 py-2.5 xl:hidden">
         <summary className="flex list-none items-center justify-between [&::-webkit-details-marker]:hidden">
           <Logo className="w-24" />
           <span className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border border-[#2A3748] group-open:bg-white/10">
