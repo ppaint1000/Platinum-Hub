@@ -1,11 +1,14 @@
 // Sales — each salesperson's monthly quoted/won $ against separate quoted
-// and won budget targets. A plain sales-role user sees only their own row;
-// admins and anyone with the "authority" flag see everyone's (enforced by
-// RLS on jobs/profiles/sales_targets, not just this page's own logic — see
-// sales_schema.sql). Admins additionally get a totals row across everyone.
+// and won budget targets. Admins and anyone with the "authority" flag see
+// everyone's (enforced by RLS on jobs/profiles/sales_targets, not just this
+// page's own logic — see sales_schema.sql), plus a totals row, and admins
+// edit the budgets here. Plain sales staff get their own sales dashboard
+// (/sales/dashboard) instead.
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
+import { fiscalMonths, fiscalYearLabel, fiscalYearStart } from "@/lib/sales/fiscal";
 import { SalesPersonCard, type MonthlyFigures } from "@/components/sales/SalesPersonCard";
 
 type JobRow = {
@@ -21,23 +24,6 @@ function emptyMonths(): number[] {
 
 function emptyFigures(): MonthlyFigures {
   return { budgetQuoted: emptyMonths(), quoted: emptyMonths(), budgetWon: emptyMonths(), won: emptyMonths() };
-}
-
-// Sales year runs Apr-Mar (NZ tax year), not Jan-Dec. "Start year" is the
-// calendar year April falls in - e.g. start year 2026 covers Apr 2026
-// through Mar 2027. sales_targets/jobs are still keyed by plain calendar
-// year+month, so this just windows 12 specific (year, month) pairs over
-// that storage rather than changing it.
-function fiscalYearStart(today = new Date()): number {
-  return today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
-}
-
-function fiscalMonths(startYear: number): { year: number; month: number }[] {
-  return Array.from({ length: 12 }, (_, i) => {
-    const month = ((3 + i) % 12) + 1; // i=0 -> 4 (Apr) ... i=11 -> 3 (Mar)
-    const year = month >= 4 ? startYear : startYear + 1;
-    return { year, month };
-  });
 }
 
 export default async function SalesPage() {
@@ -60,6 +46,8 @@ export default async function SalesPage() {
 
   const isAdmin = profile?.role === "admin";
   const canSeeAll = isAdmin || !!access?.sales_authority;
+  if (!canSeeAll) redirect("/sales/dashboard");
+
   const startYear = fiscalYearStart();
   const months = fiscalMonths(startYear);
   const monthIndex = new Map(months.map((m, i) => [`${m.year}-${m.month}`, i]));
@@ -72,23 +60,14 @@ export default async function SalesPage() {
   // (toggle their own Sales checkbox on /users) without changing their
   // role, since admins already see everything regardless of role.
   let salesPeople: { id: string; full_name: string }[] = [];
-  if (canSeeAll) {
-    const { data: salesAccess } = await supabase.from("user_app_access").select("user_id").eq("sales", true);
-    const ids = (salesAccess ?? []).map((a) => a.user_id);
-    if (ids.length > 0) {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", ids)
-        .order("full_name")
-        .returns<{ id: string; full_name: string }[]>();
-      salesPeople = data ?? [];
-    }
-  } else {
+  const { data: salesAccess } = await supabase.from("user_app_access").select("user_id").eq("sales", true);
+  const ids = (salesAccess ?? []).map((a) => a.user_id);
+  if (ids.length > 0) {
     const { data } = await supabase
       .from("profiles")
       .select("id, full_name")
-      .eq("id", user?.id ?? "")
+      .in("id", ids)
+      .order("full_name")
       .returns<{ id: string; full_name: string }[]>();
     salesPeople = data ?? [];
   }
@@ -142,7 +121,7 @@ export default async function SalesPage() {
     }
   }
 
-  const label = `${startYear}/${String(startYear + 1).slice(-2)}`;
+  const label = fiscalYearLabel(startYear);
 
   return (
     <div className="mx-auto w-full max-w-5xl p-8">
@@ -170,19 +149,18 @@ export default async function SalesPage() {
               currentMonthIndex={currentMonthIndex}
               figures={(byPerson.get(p.id) as MonthlyFigures) ?? emptyFigures()}
               canEditBudget={isAdmin}
+              dashboardHref={`/sales/dashboard/${p.id}`}
             />
           ))}
-          {canSeeAll && (
-            <SalesPersonCard
-              name="Total — all sales staff"
-              userId=""
-              label={label}
-              months={months}
-              currentMonthIndex={currentMonthIndex}
-              figures={totals}
-              canEditBudget={false}
-            />
-          )}
+          <SalesPersonCard
+            name="Total — all sales staff"
+            userId=""
+            label={label}
+            months={months}
+            currentMonthIndex={currentMonthIndex}
+            figures={totals}
+            canEditBudget={false}
+          />
         </>
       )}
     </div>

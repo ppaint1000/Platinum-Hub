@@ -1,24 +1,4 @@
-import { Fragment } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import {
-  Briefcase,
-  Calculator,
-  ChevronDown,
-  Clock,
-  LayoutDashboard,
-  LayoutGrid,
-  Menu,
-  Ruler,
-  ShoppingCart,
-  TrendingUp,
-  Truck,
-  UserCog,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
-import { SignOutButton } from "@/components/SignOutButton";
-import { MEASURES_URL } from "@/lib/measuresUrl";
 import {
   MARGIN_TARGET,
   STANDARD_WEEK_HOURS,
@@ -27,49 +7,24 @@ import {
   type DashboardVehicle,
   type Level,
 } from "@/lib/dashboard/data";
+import {
+  BLUE,
+  QUOTED_FILL,
+  Bar,
+  Card,
+  DashboardShell,
+  Empty,
+  Headline,
+  Pill,
+  SectionHeading,
+  fmtDate,
+  money,
+  moneyK,
+  pct,
+} from "./parts";
+import { ADMIN_NAV, TopBar } from "./TopBar";
 
-// Colours from the Dashboard brief. Warnings are always solid red with white
-// text; "due soon" is light blue.
-const BLUE = "#1F4E8C";
-const RED = "#B91C1C";
-
-// Costing and Measures live in the separate Measures app, so they open in a
-// new tab, the same as their Hub tiles.
-const NAV: { href: string; label: string; icon: LucideIcon; external?: boolean }[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/jobs", label: "Jobs", icon: Briefcase },
-  { href: "/timesheets/admin", label: "Timesheets", icon: Clock },
-  { href: "/clients", label: "Clients", icon: Users },
-  { href: "/sales", label: "Sales", icon: TrendingUp },
-  { href: `${MEASURES_URL}/costing`, label: "Costing", icon: Calculator, external: true },
-  { href: `${MEASURES_URL}/site-measures`, label: "Measures", icon: Ruler, external: true },
-  { href: "/orders", label: "Orders", icon: ShoppingCart },
-  { href: "/fleet", label: "Fleet", icon: Truck },
-  { href: "/users", label: "Users", icon: UserCog },
-  { href: "/hub", label: "All apps", icon: LayoutGrid },
-];
-
-const NAVY = "#16202E";
-
-const display = "[font-family:var(--font-display)]";
-
-// ── Formatting ─────────────────────────────────────────────────────────
-
-const money = (n: number) =>
-  (n < 0 ? "−$" : "$") + Math.round(Math.abs(n)).toLocaleString("en-NZ");
-const moneyK = (n: number) => (n >= 1000 ? `$${Math.round(n / 1000)}k` : money(n));
-const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
 const hrs = (n: number) => (Math.round(n * 10) / 10).toLocaleString("en-NZ");
-
-function fmtDate(key: string | null) {
-  if (!key) return "—";
-  return new Date(`${key}T00:00:00Z`).toLocaleDateString("en-NZ", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
 
 function inDays(days: number) {
   if (days === 0) return "Today";
@@ -77,287 +32,28 @@ function inDays(days: number) {
   return `In ${days} day${days === 1 ? "" : "s"}`;
 }
 
-// ── Small pieces ───────────────────────────────────────────────────────
-
-const PILL: Record<Level, string> = {
-  alert: "bg-[#B91C1C] text-white",
-  soon: "bg-[#E3ECF8] text-[#163A69]",
-  ok: "bg-[#ECEAE3] text-[#3F4753]",
-};
-
-function Pill({ level, children }: { level: Level; children: React.ReactNode }) {
-  return (
-    <span
-      className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${PILL[level]}`}
-    >
-      {children}
-    </span>
-  );
-}
-
-function Bar({ value, max, alert, label }: { value: number; max: number; alert: boolean; label: string }) {
-  const width = max > 0 ? Math.min(value / max, 1) * 100 : 0;
-  return (
-    <div
-      role="img"
-      aria-label={label}
-      className="h-2.5 w-full overflow-hidden rounded-full bg-[#ECEAE3]"
-    >
-      <div
-        className="h-full rounded-full"
-        style={{ width: `${width}%`, background: alert ? RED : BLUE }}
-      />
-    </div>
-  );
-}
-
-function SectionHeading({
-  title,
-  count,
-  href,
-  linkLabel,
-}: {
-  title: string;
-  count?: number;
-  href?: string;
-  linkLabel?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2">
-        <h2 className={`${display} text-lg font-bold md:text-xl`}>{title}</h2>
-        {count ? (
-          <span className="rounded-full bg-[#B91C1C] px-2 py-0.5 text-xs font-semibold text-white">
-            {count}
-          </span>
-        ) : null}
-      </div>
-      {href && (
-        <Link
-          href={href}
-          className="py-2.5 text-sm font-semibold text-[#1F4E8C] hover:text-[#163A69] hover:underline"
-        >
-          {linkLabel} →
-        </Link>
-      )}
-    </div>
-  );
-}
-
-function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-xl border border-[#E3E1DA] bg-white ${className}`}>{children}</div>
-  );
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="px-4 py-6 text-sm text-[#5B6472]">{children}</p>;
-}
-
 // ── Page ───────────────────────────────────────────────────────────────
 
 export function Dashboard({ data, fontClass }: { data: DashboardData; fontClass: string }) {
-  const todayLabel = new Date(`${data.todayKey}T00:00:00Z`).toLocaleDateString("en-NZ", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-
   return (
-    <div
-      className={`${fontClass} flex min-h-screen flex-col bg-[#F5F4F0] text-[#16202E] [font-family:var(--font-body)] [font-variant-numeric:tabular-nums]`}
+    <DashboardShell
+      fontClass={fontClass}
+      topBar={<TopBar items={ADMIN_NAV} activeHref="/dashboard" />}
+      todayKey={data.todayKey}
+      title="Dashboard"
     >
-      <TopBar />
-
-      <main className="min-w-0 flex-1 px-4 pb-10 pt-5 md:px-8 md:pt-8">
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 md:gap-8">
-          <div>
-            <p className="text-[13px] text-[#5B6472] md:text-sm">{todayLabel}</p>
-            <h1 className={`${display} text-[28px] font-bold leading-tight md:text-3xl`}>Dashboard</h1>
-          </div>
-
-          <Headlines data={data} />
-          <JobsSection jobs={data.jobs} />
-          <div className="grid gap-6 md:gap-8 lg:grid-cols-2">
-            <SalesSection data={data} />
-            <PainterSection data={data} />
-          </div>
-          <FleetSection vehicles={data.vehicles} />
-        </div>
-      </main>
-    </div>
-  );
-}
-
-const tabClass =
-  "flex items-center border-b-[3px] px-3 pt-[3px] text-sm font-medium whitespace-nowrap transition";
-const tabIdle = "border-transparent text-[#C9D1DC] hover:bg-white/10 hover:text-white";
-
-// Desktop: one row of links across the top bar, Xero style. Costing and
-// Measures (the separate Measures app) sit together in a drop-down tab,
-// listed the same way as the phone menu.
-function NavRow() {
-  const inRow = NAV.filter((item) => !item.external);
-  const measures = NAV.filter((item) => item.external);
-  const dropdownAfter = NAV.findIndex((item) => item.external) - 1;
-
-  return (
-    <ul className="flex h-full items-stretch">
-      {inRow.map((item) => {
-        const active = item.href === "/dashboard";
-        return (
-          <Fragment key={item.href}>
-            <li className="flex">
-              <Link
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={`${tabClass} ${active ? "border-white text-white" : tabIdle}`}
-              >
-                {item.label}
-              </Link>
-            </li>
-            {item === NAV[dropdownAfter] && <MeasuresDropdown items={measures} />}
-          </Fragment>
-        );
-      })}
-    </ul>
-  );
-}
-
-function MeasuresDropdown({ items }: { items: typeof NAV }) {
-  return (
-    <li className="relative flex">
-      <details className="group flex">
-        <summary className={`${tabClass} ${tabIdle} cursor-pointer list-none gap-1 group-open:bg-white/10 group-open:text-white [&::-webkit-details-marker]:hidden`}>
-          Costing &amp; Measures
-          <ChevronDown className="h-4 w-4 transition group-open:rotate-180" aria-hidden />
-        </summary>
-        <ul
-          className="absolute left-0 top-full z-30 flex min-w-52 flex-col gap-0.5 rounded-b-lg p-2 shadow-lg"
-          style={{ background: NAVY }}
-        >
-          {items.map((item) => {
-            const Icon = item.icon;
-            return (
-              <li key={item.href}>
-                <a
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#C9D1DC] transition hover:bg-white/10 hover:text-white"
-                >
-                  <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden />
-                  {item.label}
-                </a>
-              </li>
-            );
-          })}
-        </ul>
-      </details>
-    </li>
-  );
-}
-
-// Phone and tablet: the same links in a drop-down list.
-function NavList() {
-  return (
-    <ul className="flex flex-col gap-0.5">
-      {NAV.map((item) => {
-        const active = item.href === "/dashboard";
-        const Icon = item.icon;
-        return (
-          <li key={item.href}>
-            <Link
-              href={item.href}
-              aria-current={active ? "page" : undefined}
-              target={item.external ? "_blank" : undefined}
-              rel={item.external ? "noopener noreferrer" : undefined}
-              className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition ${
-                active ? "bg-white/15 font-semibold text-white" : "text-[#C9D1DC] hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden />
-              {item.label}
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-function Logo({ className }: { className: string }) {
-  return (
-    <Link href="/dashboard" className="block">
-      <Image
-        src="/platinum-painters-logo.png"
-        alt="Platinum Painters"
-        width={1983}
-        height={793}
-        priority
-        className={`h-auto ${className}`}
-      />
-    </Link>
-  );
-}
-
-function TopBar() {
-  return (
-    <header className="sticky top-0 z-20 text-white shadow-sm" style={{ background: NAVY }}>
-      {/* Desktop */}
-      <div className="hidden px-8 xl:block">
-        <div className="mx-auto flex h-16 max-w-6xl items-stretch gap-6">
-          <div className="flex items-center">
-            <Logo className="w-28" />
-          </div>
-          <nav aria-label="Main" className="flex-1">
-            <NavRow />
-          </nav>
-          <div className="flex items-center">
-            <SignOutButton className="min-h-10 whitespace-nowrap rounded-lg px-3 text-sm font-medium text-[#C9D1DC] hover:bg-white/10 hover:text-white" />
-          </div>
-        </div>
+      <Headlines data={data} />
+      <JobsSection jobs={data.jobs} />
+      <div className="grid gap-6 md:gap-8 lg:grid-cols-2">
+        <SalesSection data={data} />
+        <PainterSection data={data} />
       </div>
-
-      {/* Phone and tablet */}
-      <details className="group px-4 py-2.5 xl:hidden">
-        <summary className="flex list-none items-center justify-between [&::-webkit-details-marker]:hidden">
-          <Logo className="w-24" />
-          <span className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border border-[#2A3748] group-open:bg-white/10">
-            <Menu className="h-5 w-5" aria-hidden />
-            <span className="sr-only">Menu</span>
-          </span>
-        </summary>
-        <nav aria-label="Main" className="mt-3 border-t border-[#2A3748] pb-2 pt-3">
-          <NavList />
-          <SignOutButton className="mt-1 min-h-11 w-full rounded-lg px-3 text-left text-sm font-medium text-[#C9D1DC] hover:bg-white/10 hover:text-white" />
-        </nav>
-      </details>
-    </header>
+      <FleetSection vehicles={data.vehicles} />
+    </DashboardShell>
   );
 }
 
 // ── 1. Headline figures ────────────────────────────────────────────────
-
-function Headline({
-  label,
-  value,
-  children,
-}: {
-  label: string;
-  value: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card className="flex flex-col gap-1 p-3.5 md:p-5">
-      <span className="text-xs font-semibold text-[#5B6472] md:text-sm">{label}</span>
-      <span className={`${display} text-2xl font-bold md:text-[32px] md:leading-tight`}>{value}</span>
-      <div className="text-xs text-[#5B6472] md:text-sm">{children}</div>
-    </Card>
-  );
-}
 
 function Headlines({ data }: { data: DashboardData }) {
   const margin = data.forecastMargin;
@@ -522,7 +218,6 @@ function JobsSection({ jobs }: { jobs: DashboardJob[] }) {
 
 // ── 3. Sales, quoted vs won ────────────────────────────────────────────
 
-const QUOTED_FILL = "#9DB6D9";
 
 function SalesSection({ data }: { data: DashboardData }) {
   const { months, won6, winRate6, awaitingCount, awaitingValue } = data.sales;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Panel, Money } from "@/components/ui";
 import { updateSalesTargetAction } from "@/app/sales/actions";
@@ -38,6 +39,7 @@ export function SalesPersonCard({
   currentMonthIndex,
   figures,
   canEditBudget,
+  dashboardHref,
 }: {
   name: string;
   userId: string;
@@ -46,6 +48,7 @@ export function SalesPersonCard({
   currentMonthIndex: number;
   figures: MonthlyFigures;
   canEditBudget: boolean;
+  dashboardHref?: string;
 }) {
   const annualBudgetQuoted = sum(figures.budgetQuoted);
   const annualQuoted = sum(figures.quoted);
@@ -77,7 +80,14 @@ export function SalesPersonCard({
   return (
     <Panel className="mb-6 p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-ink">{name}</h2>
+        <div className="flex flex-col">
+          <h2 className="text-lg font-semibold text-ink">{name}</h2>
+          {dashboardHref && (
+            <Link href={dashboardHref} className="text-sm font-medium text-accent hover:text-accent-hover">
+              View dashboard →
+            </Link>
+          )}
+        </div>
         <table className="text-sm">
           <thead>
             <tr className="text-xs font-semibold uppercase tracking-wide text-ink-faint">

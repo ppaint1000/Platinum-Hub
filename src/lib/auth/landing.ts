@@ -1,6 +1,7 @@
 // Where a signed-in user lands: after sign-in, and on a bare visit to "/".
 //
-// Admins land on the Dashboard. Everyone else keeps their own default app
+// Admins land on the Dashboard, and sales staff on their own sales
+// dashboard. Everyone else keeps their own default app
 // (user_app_access.default_app, set on the Users page), falling back to
 // Timesheets. Painters never land on the Hub, even if their default_app says
 // "hub" - they only use the apps they've been given (Timesheets, fuel entry).
@@ -15,6 +16,7 @@ type LandingAccess = {
 
 export function landingPath(role: string, access: LandingAccess): string {
   if (role === "admin") return "/dashboard";
+  if (role === "sales" && access?.sales) return "/sales/dashboard";
 
   const defaultApp = access?.default_app ?? "timesheets";
 
