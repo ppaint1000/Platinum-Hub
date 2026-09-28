@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 
 export default function RootPage() {
-  // Proxy already routes unauthenticated users to /sign-in and non-admins
-  // to /fleet/log, so anyone reaching here is a signed-in admin.
-  redirect("/hub");
+  // The proxy already redirects "/" to each user's landing page (see
+  // src/lib/auth/landing.ts), so this only runs if that's bypassed. The
+  // Dashboard page itself sends non-admins on to the Hub.
+  redirect("/dashboard");
 }

@@ -11,6 +11,7 @@ import {
   Calculator,
   Contact,
   TrendingUp,
+  LayoutDashboard,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/SignOutButton";
@@ -81,6 +82,14 @@ export default async function HubPage() {
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {isAdmin && (
+          <AppTile
+            href="/dashboard"
+            icon={<LayoutDashboard className="h-5 w-5" />}
+            title="Dashboard"
+            description="Sales, job margins, hours and fleet at a glance."
+          />
+        )}
         {(isAdmin || access?.timesheets) && (
           <AppTile
             href="/timesheets"

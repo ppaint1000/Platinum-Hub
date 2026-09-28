@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { landingPath } from "@/lib/auth/landing";
 
 type Profile = { role: string; is_active: boolean | null };
 type AppAccess = {
@@ -131,29 +132,17 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    if (isAuthRoute) {
-      const isAdmin = profile.role === "admin";
-      const defaultApp = access?.default_app ?? "timesheets";
-      const url = request.nextUrl.clone();
+    // Sign-in sends everyone to "/", so "/" needs the same landing as
+    // /sign-in. Painters are also kept off the Hub itself, and the
+    // Dashboard is admin-only (the page checks this again server-side).
+    const isPainterOnHub = profile.role === "painter" && path === "/hub";
+    const isNonAdminOnDashboard =
+      profile.role !== "admin" && (path === "/dashboard" || path.startsWith("/dashboard/"));
 
-      if (defaultApp === "hub") {
-        url.pathname = "/hub";
-      } else if (defaultApp === "fleet" && (isAdmin || access?.fleet)) {
-        url.pathname = "/fleet";
-      } else if (defaultApp === "orders" && (isAdmin || access?.orders)) {
-        url.pathname = "/orders";
-      } else if (defaultApp === "jobs" && (isAdmin || access?.jobs)) {
-        url.pathname = "/jobs";
-      } else if (defaultApp === "sales" && (isAdmin || access?.sales)) {
-        url.pathname = "/sales";
-      } else {
-        // default_app === "timesheets", or pointed at an app the user no
-        // longer has (flag revoked after being set as default) — same
-        // role-based landing the old standalone Timesheets app's own root
-        // page used (admin/supervisor -> admin dashboard, painter -> clock).
-        url.pathname =
-          isAdmin || profile.role === "supervisor" ? "/timesheets/admin" : "/timesheets/clock";
-      }
+    if (isAuthRoute || path === "/" || isPainterOnHub || isNonAdminOnDashboard) {
+      const url = request.nextUrl.clone();
+      url.pathname = landingPath(profile.role, access);
+      url.search = "";
       return NextResponse.redirect(url);
     }
   }
