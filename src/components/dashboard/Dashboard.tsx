@@ -34,7 +34,15 @@ function inDays(days: number) {
 
 // ── Page ───────────────────────────────────────────────────────────────
 
-export function Dashboard({ data, fontClass }: { data: DashboardData; fontClass: string }) {
+export function Dashboard({
+  data,
+  fontClass,
+  pendingAbsences = 0,
+}: {
+  data: DashboardData;
+  fontClass: string;
+  pendingAbsences?: number;
+}) {
   return (
     <DashboardShell
       fontClass={fontClass}
@@ -42,6 +50,18 @@ export function Dashboard({ data, fontClass }: { data: DashboardData; fontClass:
       todayKey={data.todayKey}
       title="Dashboard"
     >
+      {pendingAbsences > 0 && (
+        <Link
+          href="/absences"
+          className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-[#B91C1C] px-4 py-3 text-sm font-semibold text-white hover:bg-[#991B1B]"
+        >
+          <span>
+            {pendingAbsences} absence{pendingAbsences === 1 ? "" : "s"} still need{pendingAbsences === 1 ? "s" : ""} a
+            reason recorded
+          </span>
+          <span aria-hidden>→</span>
+        </Link>
+      )}
       <Headlines data={data} />
       <JobsSection jobs={data.jobs} />
       <div className="grid gap-6 md:gap-8 lg:grid-cols-2">

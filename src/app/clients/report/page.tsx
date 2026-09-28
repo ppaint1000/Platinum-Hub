@@ -5,25 +5,20 @@ import { ArrowLeft } from "lucide-react";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { Panel, LedgerTable, SummaryStat } from "@/components/ui";
 import { PrintButton } from "@/components/clients/PrintButton";
+import { ClientsViewToggle } from "@/components/clients/ClientsViewToggle";
+import { inPeriod, isWon, parsePeriod, periodStart, type JobStatus } from "@/lib/clients/winRate";
 
 type Period = "month" | "quarter" | "year";
 
 type JobRow = {
   client_id: string | null;
-  status: "draft" | "quoted" | "won" | "in_progress" | "complete" | "lost";
+  status: JobStatus;
   quoted_sell_total: number | null;
   quoted_at: string | null;
   won_at: string | null;
   lost_at: string | null;
   client: { name: string } | null;
 };
-
-function periodStart(period: Period): Date {
-  const now = new Date();
-  if (period === "month") return new Date(now.getFullYear(), now.getMonth(), 1);
-  if (period === "quarter") return new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
-  return new Date(now.getFullYear(), 0, 1);
-}
 
 function money(n: number) {
   return new Intl.NumberFormat("en-NZ", {
@@ -39,10 +34,7 @@ export default async function ClientsReportPage({
   searchParams: Promise<{ period?: string }>;
 }) {
   const { period: periodParam } = await searchParams;
-  const period: Period =
-    periodParam === "month" || periodParam === "quarter" || periodParam === "year"
-      ? periodParam
-      : "year";
+  const period: Period = parsePeriod(periodParam);
 
   const supabase = await requireAppAccess("jobs");
   const start = periodStart(period);
@@ -53,10 +45,7 @@ export default async function ClientsReportPage({
     .not("client_id", "is", null)
     .returns<JobRow[]>();
 
-  const rows = (jobs ?? []).filter((j) => {
-    const anchor = j.won_at ?? j.lost_at ?? j.quoted_at;
-    return anchor != null && new Date(anchor) >= start;
-  });
+  const rows = (jobs ?? []).filter((j) => inPeriod(j, start));
 
   type ClientStats = {
     name: string;
@@ -83,7 +72,7 @@ export default async function ClientsReportPage({
     const value = j.quoted_sell_total ?? 0;
     stats.quotedCount += 1;
     stats.quotedValue += value;
-    if (j.status === "won" || j.status === "in_progress" || j.status === "complete") {
+    if (isWon(j.status)) {
       stats.wonCount += 1;
       stats.wonValue += value;
     } else if (j.status === "lost") {
@@ -120,7 +109,8 @@ export default async function ClientsReportPage({
           <ArrowLeft className="h-3.5 w-3.5" />
           Back to Clients
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <ClientsViewToggle active="report" period={period} />
           <div className="flex gap-1">
             {(["month", "quarter", "year"] as Period[]).map((p) => (
               <Link

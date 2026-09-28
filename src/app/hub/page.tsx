@@ -12,6 +12,7 @@ import {
   Contact,
   TrendingUp,
   LayoutDashboard,
+  CalendarX,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/SignOutButton";
@@ -81,6 +82,14 @@ export default async function HubPage() {
             icon={<LayoutDashboard className="h-5 w-5" />}
             title="Dashboard"
             description="Sales, job margins, hours and fleet at a glance."
+          />
+        )}
+        {isAdmin && (
+          <AppTile
+            href="/absences"
+            icon={<CalendarX className="h-5 w-5" />}
+            title="Absences"
+            description="Who's been away and why - sick days, leave and patterns."
           />
         )}
         {(isAdmin || access?.timesheets) && (

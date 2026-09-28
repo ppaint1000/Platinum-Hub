@@ -10,7 +10,11 @@ export const metadata: Metadata = { title: "Dashboard · Platinum Hub" };
 // requireAdmin checks again here so the page never renders for anyone else.
 export default async function DashboardPage() {
   const supabase = await requireAdmin();
-  const data = await loadDashboard(supabase);
+  const [data, { count: pendingAbsences }] = await Promise.all([
+    loadDashboard(supabase),
+    // Staff flagged by the 9am check who still need a reason recorded.
+    supabase.from("absences").select("id", { count: "exact", head: true }).is("absence_type", null),
+  ]);
 
-  return <Dashboard data={data} fontClass={dashboardFontClass} />;
+  return <Dashboard data={data} fontClass={dashboardFontClass} pendingAbsences={pendingAbsences ?? 0} />;
 }
