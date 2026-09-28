@@ -1,8 +1,10 @@
+import { Fragment } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
   Briefcase,
   Calculator,
+  ChevronDown,
   Clock,
   LayoutDashboard,
   LayoutGrid,
@@ -189,31 +191,72 @@ export function Dashboard({ data, fontClass }: { data: DashboardData; fontClass:
   );
 }
 
-// Desktop: one row of links across the top bar, Xero style.
+const tabClass =
+  "flex items-center border-b-[3px] px-3 pt-[3px] text-sm font-medium whitespace-nowrap transition";
+const tabIdle = "border-transparent text-[#C9D1DC] hover:bg-white/10 hover:text-white";
+
+// Desktop: one row of links across the top bar, Xero style. Costing and
+// Measures (the separate Measures app) sit together in a drop-down tab,
+// listed the same way as the phone menu.
 function NavRow() {
+  const inRow = NAV.filter((item) => !item.external);
+  const measures = NAV.filter((item) => item.external);
+  const dropdownAfter = NAV.findIndex((item) => item.external) - 1;
+
   return (
     <ul className="flex h-full items-stretch">
-      {NAV.map((item) => {
+      {inRow.map((item) => {
         const active = item.href === "/dashboard";
         return (
-          <li key={item.href} className="flex">
-            <Link
-              href={item.href}
-              aria-current={active ? "page" : undefined}
-              target={item.external ? "_blank" : undefined}
-              rel={item.external ? "noopener noreferrer" : undefined}
-              className={`flex items-center border-b-[3px] px-3 pt-[3px] text-sm font-medium whitespace-nowrap transition ${
-                active
-                  ? "border-white text-white"
-                  : "border-transparent text-[#C9D1DC] hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              {item.label}
-            </Link>
-          </li>
+          <Fragment key={item.href}>
+            <li className="flex">
+              <Link
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={`${tabClass} ${active ? "border-white text-white" : tabIdle}`}
+              >
+                {item.label}
+              </Link>
+            </li>
+            {item === NAV[dropdownAfter] && <MeasuresDropdown items={measures} />}
+          </Fragment>
         );
       })}
     </ul>
+  );
+}
+
+function MeasuresDropdown({ items }: { items: typeof NAV }) {
+  return (
+    <li className="relative flex">
+      <details className="group flex">
+        <summary className={`${tabClass} ${tabIdle} cursor-pointer list-none gap-1 group-open:bg-white/10 group-open:text-white [&::-webkit-details-marker]:hidden`}>
+          Costing &amp; Measures
+          <ChevronDown className="h-4 w-4 transition group-open:rotate-180" aria-hidden />
+        </summary>
+        <ul
+          className="absolute left-0 top-full z-30 flex min-w-52 flex-col gap-0.5 rounded-b-lg p-2 shadow-lg"
+          style={{ background: NAVY }}
+        >
+          {items.map((item) => {
+            const Icon = item.icon;
+            return (
+              <li key={item.href}>
+                <a
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#C9D1DC] transition hover:bg-white/10 hover:text-white"
+                >
+                  <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden />
+                  {item.label}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </details>
+    </li>
   );
 }
 

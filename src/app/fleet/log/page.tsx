@@ -18,13 +18,13 @@ export default async function DriverFuelLogPage() {
   ]);
 
   // Where the back link (top of the form and on "Entry saved") goes:
-  // admins/supervisors back to the Hub; painters live in Timesheets
-  // (/timesheets routes them to their clock), so straight back there.
+  // admins/supervisors back to the Hub; painters land on the clock-in page
+  // and use it most, so straight back there.
   const isHubUser = profile?.role === "admin" || profile?.role === "supervisor";
   const backLink = isHubUser
     ? { href: "/hub", label: "Back to Hub" }
     : access?.timesheets
-    ? { href: "/timesheets", label: "Back to Timesheets" }
+    ? { href: "/timesheets/clock", label: "Back to clock in" }
     : null;
 
   const { data: vehicles } = await supabase

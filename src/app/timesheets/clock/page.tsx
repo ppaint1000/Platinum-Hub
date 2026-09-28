@@ -153,9 +153,12 @@ export default async function ClockPage() {
             Log fuel
           </Link>
         )}
-        <Link href="/hub" className={pillClass}>
-          Hub
-        </Link>
+        {/* Painters are kept off the Hub (the proxy sends them back here). */}
+        {profile.role !== 'painter' && (
+          <Link href="/hub" className={pillClass}>
+            Hub
+          </Link>
+        )}
         <SignOutButton className={pillClass} />
       </div>
     </main>
