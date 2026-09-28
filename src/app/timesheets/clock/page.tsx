@@ -49,12 +49,14 @@ export default async function ClockPage() {
 
   // Painters land here, not the Hub, so anyone with Fleet access gets a
   // direct "Log fuel" button rather than having to find it via Hub -> Fleet.
+  // Sales staff land on their own sales dashboard, so they get a way back.
   const { data: appAccess } = await supabase
     .from('user_app_access')
-    .select('fleet')
+    .select('fleet, sales')
     .eq('user_id', profile.id)
-    .maybeSingle<{ fleet: boolean }>()
+    .maybeSingle<{ fleet: boolean; sales: boolean }>()
   const canLogFuel = profile.role === 'admin' || !!appAccess?.fleet
+  const isSalesStaff = profile.role === 'sales' && !!appAccess?.sales
 
   const [{ data: siteRows }, { data: openEntryRow }, { data: acknowledgements }, { data: extraDocRows }] =
     await Promise.all([
@@ -134,6 +136,11 @@ export default async function ClockPage() {
       </div>
       <ClockWidget sites={sites} openEntry={openEntry} />
       <div className="flex flex-wrap items-center justify-center gap-2">
+        {isSalesStaff && (
+          <Link href="/sales/dashboard" className={pillClass}>
+            My sales
+          </Link>
+        )}
         {(profile.role === 'admin' || profile.role === 'supervisor') && (
           <Link href="/timesheets/admin" className={pillClass}>
             Dashboard

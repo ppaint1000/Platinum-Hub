@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { FOLLOW_UP_DAYS, type SalesDashboardData, type SalesQuote } from "@/lib/sales/dashboard";
+import {
+  FOLLOW_UP_DAYS,
+  type SalesDashboardData,
+  type SalesPersonSummary,
+  type SalesQuote,
+} from "@/lib/sales/dashboard";
 import {
   BLUE,
   QUOTED_FILL,
@@ -29,7 +34,8 @@ export function SalesDashboard({
   activeHref,
   title,
   canOpenJobs,
-  backLink,
+  tabs,
+  overall = false,
 }: {
   data: SalesDashboardData;
   fontClass: string;
@@ -37,7 +43,10 @@ export function SalesDashboard({
   activeHref: string;
   title: string;
   canOpenJobs: boolean;
-  backLink?: { href: string; label: string };
+  tabs?: React.ReactNode;
+  // The whole team added together: adds the "By salesperson" table and
+  // shows whose each quote and win is.
+  overall?: boolean;
 }) {
   const { thisMonth, yearToDate, monthLabel } = data;
   return (
@@ -47,14 +56,7 @@ export function SalesDashboard({
       todayKey={data.todayKey}
       title={title}
     >
-      {backLink && (
-        <Link
-          href={backLink.href}
-          className="-mt-3 self-start text-sm font-semibold text-[#1F4E8C] hover:text-[#163A69] hover:underline md:-mt-5"
-        >
-          ← {backLink.label}
-        </Link>
-      )}
+      {tabs}
 
       <section aria-label="Key figures" className="grid grid-cols-2 gap-2.5 md:gap-4 lg:grid-cols-4">
         <Headline label={`Won · ${monthLabel}`} value={money(thisMonth.won)}>
@@ -74,11 +76,13 @@ export function SalesDashboard({
         </Headline>
       </section>
 
+      {overall && <PeopleSection people={data.people} monthLabel={monthLabel} />}
+
       <MonthlyChart data={data} />
 
       <div className="grid gap-6 md:gap-8 lg:grid-cols-2">
-        <AwaitingSection data={data} canOpenJobs={canOpenJobs} />
-        <WinsSection wins={data.recentWins} canOpenJobs={canOpenJobs} />
+        <AwaitingSection data={data} canOpenJobs={canOpenJobs} showPerson={overall} />
+        <WinsSection wins={data.recentWins} canOpenJobs={canOpenJobs} showPerson={overall} />
       </div>
     </DashboardShell>
   );
@@ -206,12 +210,27 @@ function QuoteName({ quote, canOpenJobs }: { quote: SalesQuote; canOpenJobs: boo
   );
 }
 
+// Client, and on the Overall view whose quote it is.
+function Who({ quote, showPerson }: { quote: SalesQuote; showPerson: boolean }) {
+  const parts = [quote.client, showPerson ? quote.person : null].filter(Boolean);
+  if (parts.length === 0) return null;
+  return <span className="text-[13px] text-[#5B6472]">{parts.join(" · ")}</span>;
+}
+
 function daysAgo(days: number) {
   if (days <= 0) return "today";
   return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
-function AwaitingSection({ data, canOpenJobs }: { data: SalesDashboardData; canOpenJobs: boolean }) {
+function AwaitingSection({
+  data,
+  canOpenJobs,
+  showPerson,
+}: {
+  data: SalesDashboardData;
+  canOpenJobs: boolean;
+  showPerson: boolean;
+}) {
   const followUps = data.awaiting.filter((q) => q.days >= FOLLOW_UP_DAYS).length;
   return (
     <section aria-label="Quotes awaiting reply">
@@ -225,7 +244,7 @@ function AwaitingSection({ data, canOpenJobs }: { data: SalesDashboardData; canO
               <li key={q.id} className="flex items-start justify-between gap-3 py-3 first:pt-0">
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <QuoteName quote={q} canOpenJobs={canOpenJobs} />
-                  {q.client && <span className="text-[13px] text-[#5B6472]">{q.client}</span>}
+                  <Who quote={q} showPerson={showPerson} />
                   <span className="text-[13px] text-[#5B6472]">
                     Quoted {fmtDate(q.date)} · {daysAgo(q.days)}
                   </span>
@@ -249,7 +268,15 @@ function AwaitingSection({ data, canOpenJobs }: { data: SalesDashboardData; canO
   );
 }
 
-function WinsSection({ wins, canOpenJobs }: { wins: SalesQuote[]; canOpenJobs: boolean }) {
+function WinsSection({
+  wins,
+  canOpenJobs,
+  showPerson,
+}: {
+  wins: SalesQuote[];
+  canOpenJobs: boolean;
+  showPerson: boolean;
+}) {
   return (
     <section aria-label="Recent wins">
       <Card className="flex h-full flex-col gap-4 p-4 md:p-5">
@@ -262,7 +289,7 @@ function WinsSection({ wins, canOpenJobs }: { wins: SalesQuote[]; canOpenJobs: b
               <li key={w.id} className="flex items-start justify-between gap-3 py-3 first:pt-0">
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <QuoteName quote={w} canOpenJobs={canOpenJobs} />
-                  {w.client && <span className="text-[13px] text-[#5B6472]">{w.client}</span>}
+                  <Who quote={w} showPerson={showPerson} />
                   <span className="text-[13px] text-[#5B6472]">Won {fmtDate(w.date)}</span>
                 </div>
                 <span className="shrink-0 text-[15px] font-bold">{money(w.value)}</span>
@@ -271,6 +298,112 @@ function WinsSection({ wins, canOpenJobs }: { wins: SalesQuote[]; canOpenJobs: b
           </ul>
         )}
       </Card>
+    </section>
+  );
+}
+
+// ── Overall view: how each salesperson is tracking ─────────────────────
+
+function PercentOf({ actual, budget }: { actual: number; budget: number }) {
+  if (budget <= 0) return <span className="text-[#5B6472]">No budget</span>;
+  const share = actual / budget;
+  return share < 1 ? <Pill level="alert">{wholePct(share)}</Pill> : <span className="font-semibold">{wholePct(share)}</span>;
+}
+
+const winRate = (p: SalesPersonSummary) => (p.ytdQuoted > 0 ? wholePct(p.ytdWon / p.ytdQuoted) : "—");
+
+function PeopleSection({ people, monthLabel }: { people: SalesPersonSummary[]; monthLabel: string }) {
+  const th = "px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-[#5B6472]";
+  const thNum = th.replace("text-left", "text-right");
+  const td = "px-3 py-3 text-right";
+  const dt = "text-[11px] font-semibold uppercase tracking-wide text-[#5B6472]";
+  return (
+    <section aria-label="By salesperson" className="flex flex-col gap-3">
+      <SectionHeading title="By salesperson" />
+      {people.length === 0 ? (
+        <Card>
+          <Empty>No sales people set up yet. Tick Sales for someone on the Users page.</Empty>
+        </Card>
+      ) : (
+        <>
+          {/* Wide screens: one row per person */}
+          <Card className="hidden overflow-x-auto lg:block">
+            <table className="w-full border-collapse text-sm">
+              <thead className="border-b border-[#E3E1DA]">
+                <tr>
+                  <th className={th}>Salesperson</th>
+                  <th className={thNum}>Won · {monthLabel}</th>
+                  <th className={thNum}>Of budget</th>
+                  <th className={thNum}>Won · year to date</th>
+                  <th className={thNum}>Of budget</th>
+                  <th className={thNum}>Win rate</th>
+                  <th className={thNum}>Awaiting reply</th>
+                </tr>
+              </thead>
+              <tbody>
+                {people.map((p) => (
+                  <tr key={p.id} className="border-b border-[#EFEDE7] last:border-0">
+                    <td className="px-3 py-3 font-semibold">
+                      <Link href={"/sales/dashboard/" + p.id} className="text-[#1F4E8C] hover:underline">
+                        {p.name}
+                      </Link>
+                    </td>
+                    <td className={td}>{money(p.monthWon)}</td>
+                    <td className={td}>
+                      <PercentOf actual={p.monthWon} budget={p.monthBudgetWon} />
+                    </td>
+                    <td className={td}>{money(p.ytdWon)}</td>
+                    <td className={td}>
+                      <PercentOf actual={p.ytdWon} budget={p.ytdBudgetWon} />
+                    </td>
+                    <td className={td}>{winRate(p)}</td>
+                    <td className={td}>
+                      {p.awaitingCount} · {money(p.awaitingValue)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+
+          {/* Phone and tablet: one card per person */}
+          <ul className="grid gap-2.5 md:grid-cols-2 lg:hidden">
+            {people.map((p) => (
+              <li key={p.id}>
+                <Card className="flex flex-col gap-3 p-3.5">
+                  <Link href={"/sales/dashboard/" + p.id} className="text-[15px] font-bold text-[#1F4E8C] hover:underline">
+                    {p.name}
+                  </Link>
+                  <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                    <div className="flex flex-col items-start gap-0.5">
+                      <dt className={dt}>Won · {monthLabel}</dt>
+                      <dd className="flex flex-wrap items-center gap-1.5">
+                        {money(p.monthWon)} <PercentOf actual={p.monthWon} budget={p.monthBudgetWon} />
+                      </dd>
+                    </div>
+                    <div className="flex flex-col items-start gap-0.5">
+                      <dt className={dt}>Won · year to date</dt>
+                      <dd className="flex flex-wrap items-center gap-1.5">
+                        {money(p.ytdWon)} <PercentOf actual={p.ytdWon} budget={p.ytdBudgetWon} />
+                      </dd>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <dt className={dt}>Win rate</dt>
+                      <dd>{winRate(p)}</dd>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <dt className={dt}>Awaiting reply</dt>
+                      <dd>
+                        {p.awaitingCount} · {money(p.awaitingValue)}
+                      </dd>
+                    </div>
+                  </dl>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </section>
   );
 }

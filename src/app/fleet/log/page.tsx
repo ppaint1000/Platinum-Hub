@@ -14,15 +14,18 @@ export default async function DriverFuelLogPage() {
 
   const [{ data: profile }, { data: access }] = await Promise.all([
     supabase.from("profiles").select("full_name, role").eq("id", user?.id ?? "").single(),
-    supabase.from("user_app_access").select("timesheets").eq("user_id", user?.id ?? "").maybeSingle(),
+    supabase.from("user_app_access").select("timesheets, sales").eq("user_id", user?.id ?? "").maybeSingle(),
   ]);
 
   // Where the back link (top of the form and on "Entry saved") goes:
-  // admins/supervisors back to the Hub; painters land on the clock-in page
-  // and use it most, so straight back there.
+  // admins/supervisors back to the Hub; sales staff back to their sales
+  // dashboard (where they land); painters land on the clock-in page and use
+  // it most, so straight back there.
   const isHubUser = profile?.role === "admin" || profile?.role === "supervisor";
   const backLink = isHubUser
     ? { href: "/hub", label: "Back to Hub" }
+    : profile?.role === "sales" && access?.sales
+    ? { href: "/sales/dashboard", label: "Back to My sales" }
     : access?.timesheets
     ? { href: "/timesheets/clock", label: "Back to clock in" }
     : null;

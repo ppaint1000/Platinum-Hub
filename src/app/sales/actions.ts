@@ -20,6 +20,8 @@ export async function updateSalesTargetAction(
 
   if (error) return { error: error.message };
 
-  revalidatePath("/sales");
+  // Budgets feed the Overall view and every sales dashboard, not just the
+  // Budgets tab.
+  revalidatePath("/sales", "layout");
   return {};
 }

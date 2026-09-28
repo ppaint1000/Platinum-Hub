@@ -1,6 +1,7 @@
-// Everything one salesperson's dashboard shows, for the current sales year
-// (Apr-Mar). Built from the same sources as the Sales page tables - jobs
-// credited to them (lead_by_user_id) and their sales_targets budgets - so
+// Everything a sales dashboard shows, for the current sales year (Apr-Mar):
+// one salesperson's, or the whole team's added together (the admin
+// "Overall" view). Built from the same sources as the Budgets tables - jobs
+// credited to each person (lead_by_user_id) and their sales_targets - so
 // the two always agree. Dates are NZ calendar dates.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -27,7 +28,10 @@ type JobRow = {
   quoted_at: string | null;
   won_at: string | null;
   client_id: string | null;
+  lead_by_user_id: string;
 };
+
+export type SalesPerson = { id: string; name: string };
 
 export type SalesMonth = {
   key: string;
@@ -42,9 +46,21 @@ export type SalesQuote = {
   id: string;
   name: string;
   client: string | null;
+  person: string; // the salesperson it's credited to
   value: number;
   date: string; // YYYY-MM-DD: quoted date for awaiting quotes, won date for wins
   days: number; // days since that date
+};
+
+// One row of the Overall view's "By salesperson" table.
+export type SalesPersonSummary = SalesPerson & {
+  monthWon: number;
+  monthBudgetWon: number;
+  ytdWon: number;
+  ytdBudgetWon: number;
+  ytdQuoted: number;
+  awaitingCount: number;
+  awaitingValue: number;
 };
 
 export type SalesDashboardData = {
@@ -57,13 +73,38 @@ export type SalesDashboardData = {
   awaiting: SalesQuote[];
   awaitingValue: number;
   recentWins: SalesQuote[];
+  people: SalesPersonSummary[];
 };
+
+type MonthField = "quoted" | "won" | "budgetQuoted" | "budgetWon";
 
 function daysBetween(fromKey: string, toKey: string): number {
   return Math.round((Date.parse(`${toKey}T00:00:00Z`) - Date.parse(`${fromKey}T00:00:00Z`)) / 86_400_000);
 }
 
-export async function loadSalesDashboard(supabase: SupabaseClient, userId: string): Promise<SalesDashboardData> {
+function emptyMonths(fiscal: { year: number; month: number }[]): SalesMonth[] {
+  return fiscal.map((m) => ({
+    key: `${m.year}-${String(m.month).padStart(2, "0")}`,
+    label: MONTH_SHORT[m.month - 1],
+    quoted: 0,
+    won: 0,
+    budgetQuoted: 0,
+    budgetWon: 0,
+  }));
+}
+
+// Total of one field from April up to and including month `upTo`.
+function sumTo(months: SalesMonth[], field: MonthField, upTo: number): number {
+  return months.slice(0, upTo + 1).reduce((s, m) => s + m[field], 0);
+}
+
+export async function loadSalesDashboard(
+  supabase: SupabaseClient,
+  people: SalesPerson[]
+): Promise<SalesDashboardData> {
+  const ids = people.map((p) => p.id);
+  const nameOf = new Map(people.map((p) => [p.id, p.name]));
+
   const todayKey = nzTodayDateString();
   const [ty, tm] = todayKey.split("-").map(Number);
   const startYear = fiscalYearStart(new Date(Date.UTC(ty, tm - 1, 15)));
@@ -73,25 +114,28 @@ export async function loadSalesDashboard(supabase: SupabaseClient, userId: strin
 
   // Read with the viewer's own session, so RLS decides whose jobs and
   // budgets they can see (their own, or everyone's for admins and sales
-  // authority), exactly as on the Sales page.
-  const [{ data: jobRows }, { data: targets }] = await Promise.all([
-    supabase
-      .from("jobs")
-      .select("id, job_number, name, status, quoted_sell_total, quoted_at, won_at, client_id")
-      .eq("lead_by_user_id", userId)
-      .returns<JobRow[]>(),
-    supabase
-      .from("sales_targets")
-      .select("year, month, budget_quoted, budget_won")
-      .eq("user_id", userId)
-      .in("year", [startYear, startYear + 1])
-      .returns<{ year: number; month: number; budget_quoted: number; budget_won: number }[]>(),
-  ]);
+  // authority), exactly as on the Budgets page.
+  const [{ data: jobRows }, { data: targets }] =
+    ids.length === 0
+      ? [{ data: [] as JobRow[] }, { data: [] }]
+      : await Promise.all([
+          supabase
+            .from("jobs")
+            .select("id, job_number, name, status, quoted_sell_total, quoted_at, won_at, client_id, lead_by_user_id")
+            .in("lead_by_user_id", ids)
+            .returns<JobRow[]>(),
+          supabase
+            .from("sales_targets")
+            .select("user_id, year, month, budget_quoted, budget_won")
+            .in("user_id", ids)
+            .in("year", [startYear, startYear + 1])
+            .returns<{ user_id: string; year: number; month: number; budget_quoted: number; budget_won: number }[]>(),
+        ]);
   const jobs = jobRows ?? [];
 
   // Client names only. Sales staff have no RLS access to clients, so these
-  // are read with the service role - limited to the clients on their own
-  // jobs, and nothing but the name.
+  // are read with the service role - limited to the clients on the jobs
+  // already read above, and nothing but the name.
   const clientIds = [...new Set(jobs.map((j) => j.client_id).filter((id): id is string => !!id))];
   const clientNames = new Map<string, string>();
   if (clientIds.length > 0) {
@@ -103,59 +147,86 @@ export async function loadSalesDashboard(supabase: SupabaseClient, userId: strin
     for (const c of clients ?? []) clientNames.set(c.id, c.name);
   }
 
-  const months: SalesMonth[] = fiscal.map((m) => ({
-    key: `${m.year}-${String(m.month).padStart(2, "0")}`,
-    label: MONTH_SHORT[m.month - 1],
-    quoted: 0,
-    won: 0,
-    budgetQuoted: 0,
-    budgetWon: 0,
-  }));
+  // Month figures per person, then added together for the page.
+  const byPerson = new Map(ids.map((id) => [id, emptyMonths(fiscal)]));
 
   for (const t of targets ?? []) {
     const i = monthIndex.get(`${t.year}-${t.month}`);
-    if (i === undefined) continue;
-    months[i].budgetQuoted = Number(t.budget_quoted);
-    months[i].budgetWon = Number(t.budget_won);
+    const personMonths = byPerson.get(t.user_id);
+    if (i === undefined || !personMonths) continue;
+    personMonths[i].budgetQuoted = Number(t.budget_quoted);
+    personMonths[i].budgetWon = Number(t.budget_won);
   }
 
   const awaiting: SalesQuote[] = [];
   const wins: SalesQuote[] = [];
+  const awaitingByPerson = new Map<string, { count: number; value: number }>();
 
   for (const job of jobs) {
+    const personMonths = byPerson.get(job.lead_by_user_id);
+    if (!personMonths) continue;
     const value = Number(job.quoted_sell_total ?? 0);
     const base = {
       id: job.id,
       name: job.job_number ? `${job.job_number} · ${job.name}` : job.name,
       client: job.client_id ? clientNames.get(job.client_id) ?? null : null,
+      person: nameOf.get(job.lead_by_user_id) ?? "",
       value,
     };
 
     if (job.quoted_at) {
       const [y, m] = job.quoted_at.split("-").map(Number);
       const i = monthIndex.get(`${y}-${m}`);
-      if (i !== undefined) months[i].quoted += value;
+      if (i !== undefined) personMonths[i].quoted += value;
     }
     if (job.won_at) {
       const wonKey = nzDateKey(job.won_at);
       const [y, m] = wonKey.split("-").map(Number);
       const i = monthIndex.get(`${y}-${m}`);
-      if (i !== undefined) months[i].won += value;
+      if (i !== undefined) personMonths[i].won += value;
       wins.push({ ...base, date: wonKey, days: daysBetween(wonKey, todayKey) });
     }
     if (job.status === "quoted") {
       const quotedKey = job.quoted_at ?? todayKey;
       awaiting.push({ ...base, date: quotedKey, days: daysBetween(quotedKey, todayKey) });
+      const tally = awaitingByPerson.get(job.lead_by_user_id) ?? { count: 0, value: 0 };
+      tally.count++;
+      tally.value += value;
+      awaitingByPerson.set(job.lead_by_user_id, tally);
     }
   }
+
+  const months = emptyMonths(fiscal);
+  for (const personMonths of byPerson.values()) {
+    personMonths.forEach((m, i) => {
+      months[i].quoted += m.quoted;
+      months[i].won += m.won;
+      months[i].budgetQuoted += m.budgetQuoted;
+      months[i].budgetWon += m.budgetWon;
+    });
+  }
+
+  const summaries: SalesPersonSummary[] = people.map((p) => {
+    const pm = byPerson.get(p.id) ?? emptyMonths(fiscal);
+    const tally = awaitingByPerson.get(p.id) ?? { count: 0, value: 0 };
+    return {
+      ...p,
+      monthWon: pm[currentIndex].won,
+      monthBudgetWon: pm[currentIndex].budgetWon,
+      ytdWon: sumTo(pm, "won", currentIndex),
+      ytdBudgetWon: sumTo(pm, "budgetWon", currentIndex),
+      ytdQuoted: sumTo(pm, "quoted", currentIndex),
+      awaitingCount: tally.count,
+      awaitingValue: tally.value,
+    };
+  });
 
   // Oldest first - the ones most in need of a follow-up call.
   awaiting.sort((a, b) => a.date.localeCompare(b.date));
   wins.sort((a, b) => b.date.localeCompare(a.date));
 
-  const upTo = months.slice(0, currentIndex + 1);
-  const ytdQuoted = upTo.reduce((s, m) => s + m.quoted, 0);
-  const ytdWon = upTo.reduce((s, m) => s + m.won, 0);
+  const ytdQuoted = sumTo(months, "quoted", currentIndex);
+  const ytdWon = sumTo(months, "won", currentIndex);
   const current = months[currentIndex];
 
   return {
@@ -171,12 +242,13 @@ export async function loadSalesDashboard(supabase: SupabaseClient, userId: strin
     yearToDate: {
       quoted: ytdQuoted,
       won: ytdWon,
-      budgetWon: upTo.reduce((s, m) => s + m.budgetWon, 0),
+      budgetWon: sumTo(months, "budgetWon", currentIndex),
       winRate: ytdQuoted > 0 ? ytdWon / ytdQuoted : null,
     },
     months,
     awaiting,
     awaitingValue: awaiting.reduce((s, q) => s + q.value, 0),
     recentWins: wins.slice(0, RECENT_WINS),
+    people: summaries,
   };
 }
