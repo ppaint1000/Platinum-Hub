@@ -7,6 +7,13 @@ import { isAbsenceType } from "@/lib/absences/types";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+// Where to go after a form: the Absences page (keeping its period) or a
+// record page - never anywhere else.
+function returnTo(formData: FormData): string {
+  const to = String(formData.get("return_to") ?? "");
+  return to.startsWith("/absences") ? to : "/absences";
+}
+
 function back(path: string, error?: string): never {
   redirect(error ? `${path}${path.includes("?") ? "&" : "?"}error=${encodeURIComponent(error)}` : path);
 }
@@ -75,6 +82,8 @@ export async function addAbsenceAction(formData: FormData) {
       flagged_by_check: false,
       recorded_by: recordedBy,
       recorded_at: now,
+      // Recording a day that was deleted brings it back.
+      dismissed_at: null,
     })),
     { onConflict: "user_id,absence_date" }
   );
@@ -85,14 +94,35 @@ export async function addAbsenceAction(formData: FormData) {
   redirect("/absences?saved=1");
 }
 
+// Delete any absence. It's kept but hidden (dismissed_at) rather than
+// removed, so the clock-in check never flags that person for that day again.
 export async function deleteAbsenceAction(formData: FormData) {
   const supabase = await requireAdmin();
   const id = String(formData.get("id") ?? "");
-  const { error } = await supabase.from("absences").delete().eq("id", id);
-  if (error) back(`/absences/${id}`, error.message);
+  const page = returnTo(formData);
+  const { error } = await supabase
+    .from("absences")
+    .update({ dismissed_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) back(page, error.message);
   revalidatePath("/absences");
   revalidatePath("/dashboard");
-  redirect("/absences");
+  redirect(page.startsWith(`/absences/${id}`) ? "/absences" : page);
+}
+
+// "Delete all" on the Needs a reason list.
+export async function deleteAllPendingAction(formData: FormData) {
+  const supabase = await requireAdmin();
+  const page = returnTo(formData);
+  const { error } = await supabase
+    .from("absences")
+    .update({ dismissed_at: new Date().toISOString() })
+    .is("absence_type", null)
+    .is("dismissed_at", null);
+  if (error) back(page, error.message);
+  revalidatePath("/absences");
+  revalidatePath("/dashboard");
+  redirect(page);
 }
 
 // Closed days (e.g. the Christmas shutdown): no 9am check runs on them.

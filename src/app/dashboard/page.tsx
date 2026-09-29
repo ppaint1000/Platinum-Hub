@@ -13,7 +13,11 @@ export default async function DashboardPage() {
   const [data, { count: pendingAbsences }] = await Promise.all([
     loadDashboard(supabase),
     // Staff flagged by the 9am check who still need a reason recorded.
-    supabase.from("absences").select("id", { count: "exact", head: true }).is("absence_type", null),
+    supabase
+      .from("absences")
+      .select("id", { count: "exact", head: true })
+      .is("absence_type", null)
+      .is("dismissed_at", null),
   ]);
 
   return <Dashboard data={data} fontClass={dashboardFontClass} pendingAbsences={pendingAbsences ?? 0} />;

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
-import { loadAbsences, type AbsenceRange } from "@/lib/absences/data";
+import { loadAbsences, parseRange } from "@/lib/absences/data";
 import { AbsencesDashboard } from "@/components/absences/AbsencesDashboard";
 import { DashboardShell } from "@/components/dashboard/parts";
 import { ADMIN_NAV, TopBar } from "@/components/dashboard/TopBar";
@@ -13,10 +13,10 @@ export const metadata: Metadata = { title: "Absences · Platinum Hub" };
 export default async function AbsencesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; error?: string; saved?: string }>;
+  searchParams: Promise<{ range?: string; error?: string; saved?: string; clear?: string }>;
 }) {
-  const { range: rangeParam, error, saved } = await searchParams;
-  const range: AbsenceRange = rangeParam === "year" || rangeParam === "all" ? rangeParam : "12m";
+  const { range: rangeParam, error, saved, clear } = await searchParams;
+  const range = parseRange(rangeParam);
 
   const supabase = await requireAdmin();
   const data = await loadAbsences(supabase, range);
@@ -28,7 +28,7 @@ export default async function AbsencesPage({
       todayKey={data.todayKey}
       title="Absences"
     >
-      <AbsencesDashboard data={data} error={error} saved={saved === "1"} />
+      <AbsencesDashboard data={data} error={error} saved={saved === "1"} confirmClear={clear === "1"} />
     </DashboardShell>
   );
 }

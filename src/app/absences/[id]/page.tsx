@@ -31,7 +31,7 @@ export default async function RecordAbsencePage({
 
   const { data: absence } = await supabase
     .from("absences")
-    .select("id, user_id, absence_date, absence_type, reason, flagged_by_check")
+    .select("id, user_id, absence_date, absence_type, reason, flagged_by_check, dismissed_at")
     .eq("id", id)
     .maybeSingle<{
       id: string;
@@ -40,8 +40,10 @@ export default async function RecordAbsencePage({
       absence_type: AbsenceType | null;
       reason: string | null;
       flagged_by_check: boolean;
+      dismissed_at: string | null;
     }>();
-  if (!absence) redirect("/absences");
+  // Deleted absences are hidden, including an old emailed/bookmarked link.
+  if (!absence || absence.dismissed_at) redirect("/absences");
 
   const [{ data: person }, clockedInAt] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", absence.user_id).maybeSingle<{ full_name: string }>(),
@@ -120,14 +122,13 @@ export default async function RecordAbsencePage({
           </button>
         </form>
 
-        {!absence.flagged_by_check && (
-          <form action={deleteAbsenceAction} className="border-t border-[#EFEDE7] pt-4">
-            <input type="hidden" name="id" value={absence.id} />
-            <button type="submit" className="min-h-10 text-sm font-semibold text-[#B91C1C] hover:underline">
-              Delete this record
-            </button>
-          </form>
-        )}
+        <form action={deleteAbsenceAction} className="border-t border-[#EFEDE7] pt-4">
+          <input type="hidden" name="id" value={absence.id} />
+          <input type="hidden" name="return_to" value={`/absences/${absence.id}`} />
+          <button type="submit" className="min-h-11 text-sm font-semibold text-[#B91C1C] hover:underline">
+            Delete this absence
+          </button>
+        </form>
       </Card>
     </DashboardShell>
   );

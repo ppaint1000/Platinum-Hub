@@ -10,9 +10,15 @@ import {
   SectionHeading,
   fmtDate,
 } from "@/components/dashboard/parts";
-import { RANGE_LABEL, type AbsenceRange, type AbsencesData } from "@/lib/absences/data";
+import { RANGE_LABEL, absencesHref, type AbsenceRange, type AbsencesData } from "@/lib/absences/data";
 import { ABSENCE_LABEL, ABSENCE_TYPES, type AbsenceType } from "@/lib/absences/types";
-import { addAbsenceAction, addClosedDaysAction, removeClosedDayAction } from "@/app/absences/actions";
+import {
+  addAbsenceAction,
+  addClosedDaysAction,
+  deleteAbsenceAction,
+  deleteAllPendingAction,
+  removeClosedDayAction,
+} from "@/app/absences/actions";
 
 // Colours per absence type. Unauthorised is the warning red.
 const TYPE_COLOUR: Record<"sick" | "authorised_leave" | "unauthorised_leave", string> = {
@@ -39,7 +45,33 @@ export function TypePill({ type }: { type: AbsenceType | null }) {
   return <Pill level="ok">{ABSENCE_LABEL[type]}</Pill>;
 }
 
-export function AbsencesDashboard({ data, error, saved }: { data: AbsencesData; error?: string; saved?: boolean }) {
+// Delete any absence (hidden, so it's never flagged again for that day).
+function DeleteButton({ id, returnTo }: { id: string; returnTo: string }) {
+  return (
+    <form action={deleteAbsenceAction}>
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="return_to" value={returnTo} />
+      <button
+        type="submit"
+        className="flex min-h-11 items-center px-2 text-sm font-semibold text-[#B91C1C] hover:underline"
+      >
+        Delete
+      </button>
+    </form>
+  );
+}
+
+export function AbsencesDashboard({
+  data,
+  error,
+  saved,
+  confirmClear = false,
+}: {
+  data: AbsencesData;
+  error?: string;
+  saved?: boolean;
+  confirmClear?: boolean;
+}) {
   return (
     <>
       {error && (
@@ -51,7 +83,7 @@ export function AbsencesDashboard({ data, error, saved }: { data: AbsencesData; 
         <p className="rounded-lg bg-[#E3ECF8] px-4 py-3 text-sm font-semibold text-[#163A69]">Saved.</p>
       )}
 
-      <PendingSection data={data} />
+      <PendingSection data={data} confirmClear={confirmClear} />
 
       <RangeTabs range={data.range} />
 
@@ -92,7 +124,7 @@ function RangeTabs({ range }: { range: AbsenceRange }) {
       {(Object.keys(RANGE_LABEL) as AbsenceRange[]).map((r) => (
         <Link
           key={r}
-          href={r === "12m" ? "/absences" : `/absences?range=${r}`}
+          href={absencesHref(r)}
           aria-current={r === range ? "page" : undefined}
           className={`flex min-h-10 items-center rounded-full border px-4 text-sm font-semibold transition ${
             r === range
@@ -107,25 +139,69 @@ function RangeTabs({ range }: { range: AbsenceRange }) {
   );
 }
 
-function PendingSection({ data }: { data: AbsencesData }) {
+function PendingSection({ data, confirmClear }: { data: AbsencesData; confirmClear: boolean }) {
   if (data.pending.length === 0) return null;
+  const here = absencesHref(data.range);
+  const n = data.pending.length;
   return (
     <section aria-label="Needs a reason" className="flex flex-col gap-3">
-      <SectionHeading title="Needs a reason" count={data.pending.length} />
+      <div className="flex items-center justify-between gap-3">
+        <SectionHeading title="Needs a reason" count={n} />
+        {!confirmClear && (
+          <Link
+            href={absencesHref(data.range, "clear=1")}
+            className="flex min-h-11 items-center text-sm font-semibold text-[#B91C1C] hover:underline"
+          >
+            Delete all
+          </Link>
+        )}
+      </div>
+
+      {confirmClear && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-[#B91C1C] bg-white px-4 py-3"
+        >
+          <span className="text-sm font-semibold">
+            Delete all {n} absence{n === 1 ? "" : "s"} waiting for a reason? They won&apos;t be flagged again.
+          </span>
+          <div className="flex items-center gap-2">
+            <Link
+              href={here}
+              className="flex min-h-11 items-center rounded-lg border border-[#D9D6CC] bg-white px-4 text-sm font-semibold"
+            >
+              Cancel
+            </Link>
+            <form action={deleteAllPendingAction}>
+              <input type="hidden" name="return_to" value={here} />
+              <button
+                type="submit"
+                className="flex min-h-11 items-center rounded-lg bg-[#B91C1C] px-4 text-sm font-semibold text-white hover:bg-[#991B1B]"
+              >
+                Yes, delete all
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <Card>
         <ul className="flex flex-col divide-y divide-[#EFEDE7]">
           {data.pending.map((a) => (
-            <li key={a.id} className="flex items-center justify-between gap-3 px-4 py-3">
+            <li key={a.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3">
               <div className="flex min-w-0 flex-col">
                 <span className="text-[15px] font-semibold">{a.name}</span>
                 <span className="text-[13px] text-[#5B6472]">Not clocked in by 9am · {fmtDate(a.date)}</span>
               </div>
-              <Link
-                href={`/absences/${a.id}`}
-                className="flex min-h-11 shrink-0 items-center rounded-lg bg-[#B91C1C] px-4 text-sm font-semibold text-white hover:bg-[#991B1B]"
-              >
-                Record reason
-              </Link>
+              <div className="flex shrink-0 items-center gap-2">
+                <DeleteButton id={a.id} returnTo={here} />
+                <Link
+                  href={`/absences/${a.id}`}
+                  className="flex min-h-11 items-center rounded-lg bg-[#B91C1C] px-4 text-sm font-semibold text-white hover:bg-[#991B1B]"
+                >
+                  Record reason
+                </Link>
+              </div>
             </li>
           ))}
         </ul>
@@ -295,8 +371,9 @@ function RecentSection({ data }: { data: AbsencesData }) {
                   </span>
                   {a.reason && <span className="text-[13px] text-[#5B6472]">{a.reason}</span>}
                 </div>
-                <div className="flex shrink-0 items-center gap-3">
+                <div className="flex shrink-0 items-center gap-2">
                   <TypePill type={a.type} />
+                  <DeleteButton id={a.id} returnTo={absencesHref(data.range)} />
                   <Link href={`/absences/${a.id}`} className="py-2 text-sm font-semibold text-[#1F4E8C] hover:underline">
                     Edit
                   </Link>

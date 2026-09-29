@@ -45,6 +45,7 @@ async function flagMissingClockIns() {
     admin.from("closed_days").select("day").in("day", candidates),
     admin.from("user_app_access").select("user_id").eq("timesheets", true),
     admin.from("timesheet_entries").select("user_id, clock_in_at").gte("clock_in_at", nzDayStartUtcIso(candidates[0])),
+    // Includes deleted (dismissed) ones, so a deleted absence is never re-flagged.
     admin.from("absences").select("user_id, absence_date").gte("absence_date", candidates[0]),
   ]);
 
@@ -84,7 +85,8 @@ export async function pendingAbsenceCount(): Promise<number> {
     const { count } = await createAdminClient()
       .from("absences")
       .select("id", { count: "exact", head: true })
-      .is("absence_type", null);
+      .is("absence_type", null)
+      .is("dismissed_at", null);
     return count ?? 0;
   } catch {
     return 0;

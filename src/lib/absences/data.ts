@@ -1,17 +1,33 @@
 // Everything the Absences dashboard shows. "Not rostered / public holiday"
-// records are kept (and listed) but never counted as absences.
+// records are kept (and listed) but never counted as absences. Deleted
+// absences (dismissed_at set) are hidden everywhere.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { nzDateKey, nzTodayDateString } from "@/lib/timesheets/formatNZ";
+import { mondayOf, nzDateKey, nzTodayDateString } from "@/lib/timesheets/formatNZ";
 import { nzPublicHolidays, type Holiday } from "./holidays";
 import { COUNTED_TYPES, WEEKDAYS, weekdayIndex, type AbsenceType } from "./types";
 
-export type AbsenceRange = "12m" | "year" | "all";
-export const RANGE_LABEL: Record<AbsenceRange, string> = {
-  "12m": "Last 12 months",
+// In the order the period buttons show.
+export const RANGE_LABEL = {
+  week: "This week",
+  month: "This month",
+  quarter: "This quarter",
   year: "This year",
+  "12m": "Last 12 months",
   all: "All time",
-};
+} as const;
+export type AbsenceRange = keyof typeof RANGE_LABEL;
+export const DEFAULT_RANGE: AbsenceRange = "12m";
+
+export function parseRange(value: string | undefined): AbsenceRange {
+  return value && value in RANGE_LABEL ? (value as AbsenceRange) : DEFAULT_RANGE;
+}
+
+// The Absences page address for a period (the default needs no ?range).
+export function absencesHref(range: AbsenceRange, extra = ""): string {
+  const params = [range === DEFAULT_RANGE ? "" : `range=${range}`, extra].filter(Boolean).join("&");
+  return params ? `/absences?${params}` : "/absences";
+}
 
 type Counts = { sick: number; authorised_leave: number; unauthorised_leave: number; total: number };
 const emptyCounts = (): Counts => ({ sick: 0, authorised_leave: 0, unauthorised_leave: 0, total: 0 });
@@ -55,12 +71,23 @@ type Row = {
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function rangeStart(range: AbsenceRange, todayKey: string): string | null {
-  if (range === "all") return null;
-  if (range === "year") return `${todayKey.slice(0, 4)}-01-01`;
   const [y, m] = todayKey.split("-").map(Number);
-  // The 1st of the month 11 months back, so the month chart shows 12 whole months.
-  const d = new Date(Date.UTC(y, m - 12, 1));
-  return d.toISOString().slice(0, 10);
+  const firstOfMonth = (monthIndex: number) => new Date(Date.UTC(y, monthIndex, 1)).toISOString().slice(0, 10);
+  switch (range) {
+    case "all":
+      return null;
+    case "week":
+      return mondayOf(todayKey);
+    case "month":
+      return firstOfMonth(m - 1);
+    case "quarter":
+      return firstOfMonth(Math.floor((m - 1) / 3) * 3);
+    case "year":
+      return `${y}-01-01`;
+    case "12m":
+      // The 1st of the month 11 months back, so the month chart shows 12 whole months.
+      return firstOfMonth(m - 12);
+  }
 }
 
 function add(counts: Counts, type: AbsenceType) {
@@ -83,6 +110,7 @@ export async function loadAbsences(supabase: SupabaseClient, range: AbsenceRange
   let rowsQuery = supabase
     .from("absences")
     .select("id, user_id, absence_date, absence_type, reason, flagged_by_check")
+    .is("dismissed_at", null)
     .order("absence_date", { ascending: false });
   if (from) rowsQuery = rowsQuery.gte("absence_date", from);
 
@@ -93,6 +121,7 @@ export async function loadAbsences(supabase: SupabaseClient, range: AbsenceRange
       .from("absences")
       .select("id, user_id, absence_date, absence_type, reason, flagged_by_check")
       .is("absence_type", null)
+      .is("dismissed_at", null)
       .order("absence_date", { ascending: false })
       .returns<Row[]>(),
     supabase.from("user_app_access").select("user_id").eq("timesheets", true),
