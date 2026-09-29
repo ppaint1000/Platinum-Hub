@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SignOutButton } from "@/components/SignOutButton";
+import { HubLogoLink } from "@/components/HubLogoLink";
 import { FuelEntryForm } from "@/components/fleet/FuelEntryForm";
 
 export default async function DriverFuelLogPage() {
@@ -55,14 +56,16 @@ export default async function DriverFuelLogPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 py-6">
       <header className="flex items-center justify-between">
-        <Image
-          src="/logo.webp"
-          alt="Platinum Painters"
-          width={140}
-          height={56}
-          priority
-          className="h-8 w-auto"
-        />
+        <HubLogoLink isAdmin={profile?.role === "admin"} className="block">
+          <Image
+            src="/logo.webp"
+            alt="Platinum Painters"
+            width={140}
+            height={56}
+            priority
+            className="h-8 w-auto"
+          />
+        </HubLogoLink>
         <SignOutButton className="text-sm font-medium text-muted transition hover:text-ink" />
       </header>
 

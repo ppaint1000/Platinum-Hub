@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { SignOutButton } from "@/components/SignOutButton";
 import { NavLink } from "@/components/fleet/NavLink";
+import { HubLogoLink } from "@/components/HubLogoLink";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 
 const NAV = [
@@ -52,13 +53,15 @@ export default async function FleetAdminLayout({
     <div className="flex min-h-screen flex-col md:flex-row">
       <nav className="flex flex-col gap-1 border-b border-border bg-surface px-3 py-4 md:w-56 md:flex-none md:border-b-0 md:border-r md:px-3 md:py-5">
         <div className="flex items-center justify-between px-2 pb-3 md:block md:pb-5">
-          <Image
-            src="/logo.webp"
-            alt="Platinum Painters"
-            width={140}
-            height={56}
-            className="h-8 w-auto"
-          />
+          <HubLogoLink isAdmin={profile?.role === "admin"} className="block">
+            <Image
+              src="/logo.webp"
+              alt="Platinum Painters"
+              width={140}
+              height={56}
+              className="h-8 w-auto"
+            />
+          </HubLogoLink>
           <Link
             href="/hub"
             className="flex items-center gap-1 text-xs font-medium text-muted transition hover:text-ink md:hidden"

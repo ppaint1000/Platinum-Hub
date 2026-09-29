@@ -226,13 +226,15 @@ function breakpointFor(items: NavItem[]) {
 }
 
 export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHref: string }) {
-  // The logo goes to the first item - the Dashboard for admins, their own
-  // sales dashboard for sales staff.
-  const home = items[0].href;
+  // Only the admin bar has Absences.
+  const isAdminBar = items.some((item) => item.href === "/absences");
+  // The logo goes to the Hub for admins (the same on every page), and to
+  // their own sales dashboard for sales staff.
+  const home = isAdminBar ? "/hub" : items[0].href;
   const breakpoint = breakpointFor(items);
-  // Only the admin bar has Absences: opening any admin page also runs the
-  // "who hasn't clocked in" check (see lib/absences/check.ts).
-  const alerts: Alerts = items.some((item) => item.href === "/absences")
+  // Opening any admin page also runs the "who hasn't clocked in" check
+  // (see lib/absences/check.ts).
+  const alerts: Alerts = isAdminBar
     ? { "/absences": await pendingAbsenceCount() }
     : {};
   const anyAlert = Object.values(alerts).some((n) => n > 0);

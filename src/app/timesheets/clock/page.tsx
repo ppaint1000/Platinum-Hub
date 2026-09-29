@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentProfile } from '@/lib/supabase/profile'
+import { HubLogoLink } from '@/components/HubLogoLink'
 import { SignOutButton } from '@/components/SignOutButton'
 import { Watermark } from '@/components/timesheets/Watermark'
 import { ClockWidget } from './clock-widget'
@@ -124,14 +125,16 @@ export default async function ClockPage() {
     <main className="relative flex flex-1 flex-col items-center justify-center gap-6 p-4">
       <Watermark />
       <div className="absolute inset-x-0 top-6 flex flex-col items-center gap-6 px-6 sm:static sm:inset-auto sm:px-0">
-        <Image
-          src="/logo.webp"
-          alt="Platinum Painters"
-          width={140}
-          height={56}
-          priority
-          className="h-auto w-full sm:w-[140px]"
-        />
+        <HubLogoLink isAdmin={profile.role === 'admin'} className="block w-full sm:w-[140px]">
+          <Image
+            src="/logo.webp"
+            alt="Platinum Painters"
+            width={140}
+            height={56}
+            priority
+            className="h-auto w-full sm:w-[140px]"
+          />
+        </HubLogoLink>
         <p className="text-sm text-black/60">Signed in as {profile.full_name}</p>
       </div>
       <ClockWidget sites={sites} openEntry={openEntry} />
