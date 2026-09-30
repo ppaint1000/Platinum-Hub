@@ -213,10 +213,13 @@ export type JobPayHours = {
   siteName: string
   staff: JobStaffPayHours[]
   totalHours: number
+  // Clock-in time of the most recent shift on this job.
+  lastWorkedAt: string
 }
 
 // For payroll: hours per staff member per job, rounded to the nearest
-// payable half hour (see lib/payroll.ts), plus a total per job.
+// payable half hour (see lib/payroll.ts), plus a total per job. The most
+// recently worked jobs come first.
 export async function groupPayHoursBySiteAndStaff(
   filters: ReportFilters,
   client?: SupabaseClientLike
@@ -225,12 +228,16 @@ export async function groupPayHoursBySiteAndStaff(
   const { entries: rounded } = applyPayRounding(entries)
 
   const bySite = new Map<string, Map<string, number>>()
+  const lastWorked = new Map<string, string>()
   for (const entry of rounded) {
     if (entry.hours === null) continue
 
     const staffHours = bySite.get(entry.site_name) ?? new Map<string, number>()
     staffHours.set(entry.user_name, round2((staffHours.get(entry.user_name) ?? 0) + entry.hours))
     bySite.set(entry.site_name, staffHours)
+
+    const latest = lastWorked.get(entry.site_name)
+    if (!latest || entry.clock_in_at > latest) lastWorked.set(entry.site_name, entry.clock_in_at)
   }
 
   return Array.from(bySite.entries())
@@ -242,7 +249,8 @@ export async function groupPayHoursBySiteAndStaff(
         siteName,
         staff,
         totalHours: round2(staff.reduce((sum, s) => sum + s.hours, 0)),
+        lastWorkedAt: lastWorked.get(siteName) ?? '',
       }
     })
-    .sort((a, b) => a.siteName.localeCompare(b.siteName))
+    .sort((a, b) => b.lastWorkedAt.localeCompare(a.lastWorkedAt) || a.siteName.localeCompare(b.siteName))
 }

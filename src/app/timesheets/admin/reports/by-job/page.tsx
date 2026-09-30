@@ -1,5 +1,6 @@
 import { requireAdmin } from '@/lib/timesheets/authGuards'
 import { groupPayHoursBySiteAndStaff } from '@/lib/timesheets/reportGroups'
+import { formatDateKeyShort, nzDateKey } from '@/lib/timesheets/formatNZ'
 
 export default async function HoursByJobPage({
   searchParams,
@@ -21,7 +22,7 @@ export default async function HoursByJobPage({
         <h1 className="text-2xl font-semibold">Hours by Job</h1>
         <p className="text-sm text-black/60">
           Paid hours per staff member per job, rounded to the nearest half hour (clock-in rounds
-          up, clock-out rounds down).
+          up, clock-out rounds down). Most recently worked jobs first.
         </p>
       </div>
 
@@ -62,9 +63,16 @@ export default async function HoursByJobPage({
       <div className="space-y-4">
         {jobs.map((job) => (
           <div key={job.siteName} className="overflow-hidden rounded-lg border border-black/10">
-            <div className="flex items-center justify-between bg-black/5 px-4 py-2">
-              <h2 className="font-medium">{job.siteName}</h2>
-              <p className="text-sm text-black/60">{job.totalHours.toFixed(2)} hours</p>
+            <div className="flex items-center justify-between gap-3 bg-black/5 px-4 py-2">
+              <div>
+                <h2 className="font-medium">{job.siteName}</h2>
+                {job.lastWorkedAt && (
+                  <p className="text-xs text-black/60">
+                    Last worked {formatDateKeyShort(nzDateKey(job.lastWorkedAt))}
+                  </p>
+                )}
+              </div>
+              <p className="shrink-0 text-sm text-black/60">{job.totalHours.toFixed(2)} hours</p>
             </div>
             <table className="w-full text-left text-sm">
               <thead className="border-b border-black/10">
