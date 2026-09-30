@@ -6,6 +6,8 @@ import { Camera, Check, Loader2, MapPin, MapPinOff, Upload } from "lucide-react"
 import { createClient } from "@/lib/supabase/client";
 import { readReceipt } from "@/lib/fleet/readReceipt";
 import { alertIncompleteFuelEntryAction, checkFuelEconomyAction } from "@/app/fleet/actions";
+import { splitWaterblasterFuel, waterblasterSplitError } from "@/lib/fleet/waterblasterSplit";
+import { WaterblasterSplitField } from "@/components/fleet/WaterblasterSplitField";
 
 type Vehicle = { id: string; plate: string; make: string; model: string };
 type JobOption = { id: string; label: string };
@@ -42,6 +44,11 @@ export function FuelEntryForm({
   const [vehicleId, setVehicleId] = useState(defaultVehicleId);
   const [jobId, setJobId] = useState("");
   const isWaterblaster = vehicleId === WATERBLASTER;
+  // A vehicle fill-up where some went into the water blaster (see
+  // lib/fleet/waterblasterSplit.ts). Uses jobId for the job site.
+  const [splitWaterblaster, setSplitWaterblaster] = useState(false);
+  const [waterblasterLitres, setWaterblasterLitres] = useState("");
+  const splitting = !isWaterblaster && splitWaterblaster;
   const [fuelledOn, setFuelledOn] = useState(todayLocal);
   // True once the driver picks a date themselves - the receipt reader then
   // leaves it alone, same as it does for boxes they've typed into.
@@ -132,6 +139,10 @@ return;
     if (!isWaterblaster && odometer && Number(odometer) <= 0) return setError("Check the odometer reading.");
     if (litres && Number(litres) <= 0) return setError("Check the litres.");
     if (cost && Number(cost) <= 0) return setError("Check the total cost.");
+    if (splitting) {
+      const splitError = waterblasterSplitError(litres, waterblasterLitres, jobId);
+      if (splitError) return setError(splitError);
+    }
 
     const missing = [
       ...(!isWaterblaster && !odometer ? ["mileage"] : []),
@@ -175,7 +186,7 @@ return;
       return;
     }
 
-    const { data: saved, error: insertError } = await supabase.from("fuel_entries").insert({
+    const entry = {
       driver_id: user.id,
       vehicle_id: isWaterblaster ? null : vehicleId,
       equipment: isWaterblaster ? WATERBLASTER : null,
@@ -189,7 +200,33 @@ return;
       gps_lat: gps.status === "ok" ? gps.lat : null,
       gps_lng: gps.status === "ok" ? gps.lng : null,
       gps_accuracy_m: gps.status === "ok" ? gps.accuracy : null,
-    }).select("id").single();
+    };
+
+    // With water blaster fuel, two entries from the one receipt: the
+    // vehicle's share, and the water blaster's (charged to the job site).
+    const rows = [entry];
+    if (splitting) {
+      const split = splitWaterblasterFuel(Number(litres), cost ? Number(cost) : null, Number(waterblasterLitres));
+      entry.litres = split.vehicleLitres;
+      entry.cost_total = split.vehicleCost;
+      rows.push({
+        ...entry,
+        vehicle_id: null,
+        equipment: WATERBLASTER,
+        job_id: jobId,
+        odometer_km: null,
+        odometer_photo_path: null,
+        litres: split.waterblasterLitres,
+        cost_total: split.waterblasterCost,
+      });
+    }
+
+    const { data: savedRows, error: insertError } = await supabase
+      .from("fuel_entries")
+      .insert(rows)
+      .select("id, equipment");
+    // The vehicle's entry (or the only one) - what the checks below are about.
+    const saved = savedRows?.find((r) => r.equipment === (isWaterblaster ? WATERBLASTER : null)) ?? savedRows?.[0];
 
     if (insertError) {
       setError("Couldn't save the entry. Try again.");
@@ -216,6 +253,8 @@ return;
     scanIdRef.current++;
     setScan("idle");
     setJobId("");
+    setSplitWaterblaster(false);
+    setWaterblasterLitres("");
     setFuelledOn(todayLocal());
     dateTouchedRef.current = false;
     setOdometer("");
@@ -272,7 +311,10 @@ return;
         <label className="text-sm font-medium text-foreground">Vehicle</label>
         <select
           value={vehicleId}
-          onChange={(e) => setVehicleId(e.target.value)}
+          onChange={(e) => {
+            setVehicleId(e.target.value);
+            setJobId("");
+          }}
           className="rounded-lg border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
         >
           {vehicles.length === 0 && <option value="">No vehicles set up</option>}
@@ -406,6 +448,21 @@ return;
         <p className="-mt-2 text-sm text-muted">
           ${costPerLitre.toFixed(2)} per litre
         </p>
+      )}
+
+      {!isWaterblaster && (
+        <WaterblasterSplitField
+          enabled={splitWaterblaster}
+          onEnabledChange={setSplitWaterblaster}
+          litres={waterblasterLitres}
+          onLitresChange={setWaterblasterLitres}
+          jobId={jobId}
+          onJobChange={setJobId}
+          jobs={jobs}
+          totalLitres={litres}
+          totalCost={cost}
+          inputClass="rounded-lg border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
+        />
       )}
 
       {error && (

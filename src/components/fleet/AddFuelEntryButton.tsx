@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Modal, Field, inputClass } from "@/components/fleet/Modal";
 import { readReceipt } from "@/lib/fleet/readReceipt";
 import { checkFuelEconomyAction } from "@/app/fleet/actions";
+import { splitWaterblasterFuel, waterblasterSplitError } from "@/lib/fleet/waterblasterSplit";
+import { WaterblasterSplitField } from "@/components/fleet/WaterblasterSplitField";
 
 type Vehicle = { id: string; plate: string; make: string; model: string; assigned_driver_id: string | null };
 type Option = { id: string; label: string };
@@ -88,6 +90,12 @@ function FuelEntryModalButton({
   const readIdRef = useRef(0);
 
   const isWaterblaster = form.vehicleId === WATERBLASTER;
+  // New vehicle fill-ups only: some of the fuel went into the water blaster
+  // (see lib/fleet/waterblasterSplit.ts). Uses form.jobId for the job site.
+  const [splitWaterblaster, setSplitWaterblaster] = useState(false);
+  const [waterblasterLitres, setWaterblasterLitres] = useState("");
+  const canSplit = !entry && !isWaterblaster;
+  const splitting = canSplit && splitWaterblaster;
 
   function emptyForm(): FormState {
     return { driverId: "", vehicleId: "", jobId: "", fuelledOn: todayLocal(), odometer: "", litres: "", cost: "" };
@@ -103,6 +111,8 @@ function FuelEntryModalButton({
     setReceipt(null);
     setReading(false);
     setError(null);
+    setSplitWaterblaster(false);
+    setWaterblasterLitres("");
     setOpen(true);
   }
 
@@ -151,6 +161,10 @@ function FuelEntryModalButton({
       return setError("Enter the odometer reading.");
     if (!form.litres || Number(form.litres) <= 0) return setError("Enter the litres.");
     if (!form.cost || Number(form.cost) <= 0) return setError("Enter the total cost.");
+    if (splitting) {
+      const splitError = waterblasterSplitError(form.litres, waterblasterLitres, form.jobId);
+      if (splitError) return setError(splitError);
+    }
 
     setSaving(true);
     const supabase = createClient();
@@ -187,13 +201,37 @@ function FuelEntryModalButton({
       receipt_photo_path: receiptPath ?? entry?.receipt_photo_path ?? null,
     };
 
-    const { data: saved, error: saveError } = entry
-      ? await supabase.from("fuel_entries").update(payload).eq("id", entry.id).select("id").single()
-      : await supabase
-          .from("fuel_entries")
-          .insert({ ...payload, odometer_photo_path: null })
-          .select("id")
-          .single();
+    let saved: { id: string } | null = null;
+    let saveError: { message: string } | null = null;
+    if (entry) {
+      ({ data: saved, error: saveError } = await supabase
+        .from("fuel_entries")
+        .update(payload)
+        .eq("id", entry.id)
+        .select("id")
+        .single());
+    } else {
+      // With water blaster fuel, two entries from the one receipt: the
+      // vehicle's share, and the water blaster's (charged to the job site).
+      const rows = [{ ...payload, odometer_photo_path: null as string | null }];
+      if (splitting) {
+        const split = splitWaterblasterFuel(Number(form.litres), Number(form.cost), Number(waterblasterLitres));
+        rows[0] = { ...rows[0], job_id: null, litres: split.vehicleLitres, cost_total: split.vehicleCost ?? 0 };
+        rows.push({
+          ...rows[0],
+          vehicle_id: null,
+          equipment: WATERBLASTER,
+          job_id: form.jobId,
+          odometer_km: null,
+          litres: split.waterblasterLitres,
+          cost_total: split.waterblasterCost ?? 0,
+        });
+      }
+      const { data, error } = await supabase.from("fuel_entries").insert(rows).select("id, equipment");
+      saveError = error;
+      // The vehicle's entry (or the only one) - what the check below is about.
+      saved = data?.find((r) => r.equipment === (isWaterblaster ? WATERBLASTER : null)) ?? data?.[0] ?? null;
+    }
 
     if (saveError) {
       setSaving(false);
@@ -346,6 +384,21 @@ function FuelEntryModalButton({
               />
             </Field>
           </div>
+
+          {canSplit && (
+            <WaterblasterSplitField
+              enabled={splitWaterblaster}
+              onEnabledChange={setSplitWaterblaster}
+              litres={waterblasterLitres}
+              onLitresChange={setWaterblasterLitres}
+              jobId={form.jobId}
+              onJobChange={(jobId) => set("jobId", jobId)}
+              jobs={jobs}
+              totalLitres={form.litres}
+              totalCost={form.cost}
+              inputClass={inputClass}
+            />
+          )}
 
           {error && (
             <p role="alert" className="text-sm text-brand-red">
