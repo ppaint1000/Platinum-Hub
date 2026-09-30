@@ -34,6 +34,7 @@ type JobRow = {
   quoted_hours: number | null;
   lead_by: string | null;
   lead_by_user_id: string | null;
+  lead_source: string | null;
   won_at: string | null;
   completed_at: string | null;
   lost_at: string | null;
@@ -84,7 +85,7 @@ export default async function JobDetailPage({
   const { data: job } = await supabase
     .from("jobs")
     .select(
-      "id, job_number, name, description, status, quoted_sell_total, quoted_hours, lead_by, lead_by_user_id, won_at, completed_at, lost_at, lost_to, client_id, client:clients(name)"
+      "id, job_number, name, description, status, quoted_sell_total, quoted_hours, lead_by, lead_by_user_id, lead_source, won_at, completed_at, lost_at, lost_to, client_id, client:clients(name)"
     )
     .eq("id", id)
     .single<JobRow>();
@@ -254,6 +255,7 @@ export default async function JobDetailPage({
           <h1 className="text-3xl font-bold text-ink">{job.name}</h1>
           <p className="mt-1 text-sm text-ink-soft">
             {job.client?.name ?? "No client set"}
+            {job.lead_source && <span className="text-ink-faint"> · Lead source: {job.lead_source}</span>}
           </p>
           {job.description && (
             <p className="mt-2 max-w-xl text-sm text-ink-soft">{job.description}</p>
@@ -282,6 +284,7 @@ export default async function JobDetailPage({
               quotedHours: job.quoted_hours,
               leadBy: job.lead_by,
               leadByUserId: job.lead_by_user_id,
+              leadSource: job.lead_source,
             }}
             clients={clients ?? []}
             leadOptions={(leadUsers ?? []).map((u) => ({ id: u.id, name: u.full_name }))}

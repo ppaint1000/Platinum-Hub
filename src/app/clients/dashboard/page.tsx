@@ -86,6 +86,8 @@ export default async function ClientsDashboardPage({
         />
       </div>
 
+      <LeadSources data={data} />
+
       <LostTo data={data} />
     </DashboardShell>
   );
@@ -287,6 +289,43 @@ function WinRateList({
           </ul>
         )}
         <p className="mt-auto text-xs text-[#5B6472]">Clients with {MIN_DECIDED} or more won or lost quotes in this period.</p>
+      </Card>
+    </section>
+  );
+}
+
+// Win rate for each lead source, with a bar for its share of the quotes.
+function LeadSources({ data }: { data: ClientsDashboardData }) {
+  const max = Math.max(...data.bySource.map((s) => s.quotedCount), 1);
+  return (
+    <section aria-label="Win rate by lead source">
+      <Card className="flex flex-col gap-4 p-4 md:p-5">
+        <SectionHeading title="Win rate by lead source" />
+        {data.bySource.length === 0 ? (
+          <Empty>No quotes in this period.</Empty>
+        ) : (
+          <ul className="grid gap-x-8 gap-y-3 md:grid-cols-2">
+            {data.bySource.map((s) => (
+              <li key={s.name} className="flex flex-col gap-1.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="block truncate text-[15px] font-semibold">{s.name}</span>
+                    <span className="text-xs text-[#5B6472]">
+                      {quotes(s.quotedCount)} · {s.wonCount} won · {s.lostCount} lost · {money(s.wonValue)} won
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-[15px] font-bold">{wholePct(s.winRate)}</span>
+                </div>
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#ECEAE3]" aria-hidden>
+                  <div className="h-full rounded-full" style={{ width: `${(s.quotedCount / max) * 100}%`, background: BLUE }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-xs text-[#5B6472]">
+          Win rate is won ÷ (won + lost). Set a job&apos;s lead source with Edit details on the job.
+        </p>
       </Card>
     </section>
   );

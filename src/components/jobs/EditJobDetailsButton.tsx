@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Panel } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
 import { updateJobCoreDetailsAction } from "@/app/jobs/actions";
+import { LeadSourceSelect } from "./LeadSourceSelect";
 
 type ClientOption = { id: string; name: string };
 type LeadOption = { id: string; name: string };
@@ -24,6 +25,7 @@ export function EditJobDetailsButton({
     quotedHours: number | null;
     leadBy: string | null;
     leadByUserId: string | null;
+    leadSource: string | null;
   };
   clients: ClientOption[];
   leadOptions: LeadOption[];
@@ -40,6 +42,7 @@ export function EditJobDetailsButton({
     initial.quotedHours != null ? String(initial.quotedHours) : ""
   );
   const [leadByUserId, setLeadByUserId] = useState(initial.leadByUserId ?? "");
+  const [leadSource, setLeadSource] = useState(initial.leadSource ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +58,7 @@ export function EditJobDetailsButton({
       quotedSellTotal: quotedSellTotal === "" ? null : Number(quotedSellTotal),
       quotedHours: quotedHours === "" ? null : Number(quotedHours),
       leadByUserId: leadByUserId || null,
+      leadSource: leadSource || null,
     });
 
     setSaving(false);
@@ -156,6 +160,8 @@ export function EditJobDetailsButton({
             ))}
           </select>
         </label>
+
+        <LeadSourceSelect value={leadSource} onChange={setLeadSource} />
 
         {error && (
           <p className="text-sm sm:col-span-2" style={{ color: overBudgetColor }}>

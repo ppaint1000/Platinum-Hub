@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Panel } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
 import { createJobAction } from "@/app/jobs/actions";
+import { LeadSourceSelect } from "./LeadSourceSelect";
 
 type ClientOption = { id: string; name: string };
 type LeadOption = { id: string; name: string };
@@ -24,6 +25,7 @@ export function AddJobButton({
   const [quotedSellTotal, setQuotedSellTotal] = useState("");
   const [quotedHours, setQuotedHours] = useState("");
   const [leadByUserId, setLeadByUserId] = useState("");
+  const [leadSource, setLeadSource] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +41,7 @@ export function AddJobButton({
       quotedSellTotal: quotedSellTotal === "" ? null : Number(quotedSellTotal),
       quotedHours: quotedHours === "" ? null : Number(quotedHours),
       leadByUserId,
+      leadSource: leadSource || null,
     });
 
     if (result.error) {
@@ -149,6 +152,8 @@ export function AddJobButton({
             ))}
           </select>
         </label>
+
+        <LeadSourceSelect value={leadSource} onChange={setLeadSource} />
 
         {error && (
           <p className="text-sm sm:col-span-2" style={{ color: overBudgetColor }}>

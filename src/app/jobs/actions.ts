@@ -18,6 +18,7 @@ export async function createJobAction(input: {
   quotedSellTotal: number | null;
   quotedHours: number | null;
   leadByUserId: string;
+  leadSource: string | null;
 }) {
   const supabase = await requireAppAccess("jobs");
   const {
@@ -41,6 +42,7 @@ export async function createJobAction(input: {
       quoted_sell_total: input.quotedSellTotal,
       quoted_hours: input.quotedHours,
       lead_by_user_id: input.leadByUserId,
+      lead_source: input.leadSource || null,
       created_by: user?.id ?? null,
     })
     .select("id")
@@ -61,6 +63,7 @@ export async function updateJobCoreDetailsAction(
     quotedSellTotal: number | null;
     quotedHours: number | null;
     leadByUserId: string | null;
+    leadSource: string | null;
   }
 ) {
   const supabase = await requireAppAccess("jobs");
@@ -76,6 +79,7 @@ export async function updateJobCoreDetailsAction(
       quoted_sell_total: input.quotedSellTotal,
       quoted_hours: input.quotedHours,
       lead_by_user_id: input.leadByUserId,
+      lead_source: input.leadSource || null,
     })
     .eq("id", jobId);
 

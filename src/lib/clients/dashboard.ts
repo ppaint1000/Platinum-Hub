@@ -3,6 +3,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { nzDateKey, nzTodayDateString } from "@/lib/timesheets/formatNZ";
+import { NO_LEAD_SOURCE } from "@/lib/jobs/leadSources";
 import { inPeriod, isWon, periodStart, type JobStatus, type Period } from "./winRate";
 
 // A client needs at least this many decided quotes to be ranked on win rate,
@@ -17,6 +18,7 @@ type JobRow = {
   won_at: string | null;
   lost_at: string | null;
   lost_to: string | null;
+  lead_source: string | null;
   client: { name: string } | { name: string }[] | null;
 };
 
@@ -44,6 +46,8 @@ export type ClientsDashboardData = {
   worstWinRate: ClientStat[];
   lostTo: { name: string; count: number; value: number }[];
   openQuotes: ClientStat[];
+  // Win rate for each lead source, most quotes first.
+  bySource: { name: string; quotedCount: number; wonCount: number; lostCount: number; wonValue: number; winRate: number | null }[];
 };
 
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -72,7 +76,7 @@ export async function loadClientsDashboard(supabase: SupabaseClient, period: Per
 
   const { data } = await supabase
     .from("jobs")
-    .select("client_id, status, quoted_sell_total, quoted_at, won_at, lost_at, lost_to, client:clients(name)")
+    .select("client_id, status, quoted_sell_total, quoted_at, won_at, lost_at, lost_to, lead_source, client:clients(name)")
     .not("client_id", "is", null)
     .returns<JobRow[]>();
   const jobs = (data ?? []).filter((j) => j.status !== "draft");
@@ -80,6 +84,7 @@ export async function loadClientsDashboard(supabase: SupabaseClient, period: Per
   const byClient = new Map<string, ClientStat>();
   const lostTo = new Map<string, { count: number; value: number }>();
   const decideDays: number[] = [];
+  const bySource = new Map<string, { quotedCount: number; wonCount: number; lostCount: number; wonValue: number }>();
 
   for (const j of jobs.filter((job) => inPeriod(job, start))) {
     const id = j.client_id as string;
@@ -87,6 +92,15 @@ export async function loadClientsDashboard(supabase: SupabaseClient, period: Per
     const value = Number(j.quoted_sell_total ?? 0);
     stat.quotedCount += 1;
     stat.quotedValue += value;
+
+    const sourceName = j.lead_source?.trim() || NO_LEAD_SOURCE;
+    const source = bySource.get(sourceName) ?? { quotedCount: 0, wonCount: 0, lostCount: 0, wonValue: 0 };
+    source.quotedCount += 1;
+    if (isWon(j.status)) {
+      source.wonCount += 1;
+      source.wonValue += value;
+    } else if (j.status === "lost") source.lostCount += 1;
+    bySource.set(sourceName, source);
 
     if (isWon(j.status)) {
       stat.wonCount += 1;
@@ -176,5 +190,12 @@ export async function loadClientsDashboard(supabase: SupabaseClient, period: Per
       .filter((c) => c.openCount > 0)
       .sort((a, b) => b.openValue - a.openValue)
       .slice(0, 6),
+    // "Not recorded" goes last, whatever its size.
+    bySource: [...bySource.entries()]
+      .map(([name, s]) => ({ name, ...s, winRate: rate(s.wonCount, s.lostCount) }))
+      .sort(
+        (a, b) =>
+          Number(a.name === NO_LEAD_SOURCE) - Number(b.name === NO_LEAD_SOURCE) || b.quotedCount - a.quotedCount
+      ),
   };
 }
