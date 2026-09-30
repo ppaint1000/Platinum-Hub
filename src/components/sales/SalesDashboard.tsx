@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   FOLLOW_UP_DAYS,
+  type SalesActivity,
   type SalesDashboardData,
   type SalesPersonSummary,
   type SalesQuote,
@@ -86,6 +87,8 @@ export function SalesDashboard({
         <AwaitingSection data={data} canOpenJobs={canOpenJobs} showPerson={overall} />
         <WinsSection wins={data.recentWins} canOpenJobs={canOpenJobs} showPerson={overall} />
       </div>
+
+      <ActivitySection activity={data.activity} canOpenJobs={canOpenJobs} showPerson={overall} />
     </DashboardShell>
   );
 }
@@ -320,6 +323,67 @@ function WinsSection({
                 <span className="shrink-0 text-[15px] font-bold">{money(w.value)}</span>
               </li>
             ))}
+          </ul>
+        )}
+      </Card>
+    </section>
+  );
+}
+
+// ── Activity: the latest things that happened on quotes ────────────────
+
+const ACTIVITY_LABEL: Record<SalesActivity["kind"], { text: string; color: string }> = {
+  quoted: { text: "Quoted", color: "#5B6472" },
+  sent: { text: "Proposal sent", color: "#5B6472" },
+  opened: { text: "Proposal opened", color: "#1F4E8C" },
+  accepted: { text: "Accepted online", color: "#1B7F4B" },
+  won: { text: "Won", color: "#1B7F4B" },
+  lost: { text: "Lost", color: "#B42318" },
+};
+
+function ActivitySection({
+  activity,
+  canOpenJobs,
+  showPerson,
+}: {
+  activity: SalesActivity[];
+  canOpenJobs: boolean;
+  showPerson: boolean;
+}) {
+  return (
+    <section aria-label="Activity">
+      <Card className="flex flex-col gap-4 p-4 md:p-5">
+        <SectionHeading title="Activity" />
+        {activity.length === 0 ? (
+          <Empty>Nothing yet - quotes, proposals, wins and losses will show here.</Empty>
+        ) : (
+          <ul className="flex flex-col divide-y divide-[#EFEDE7]">
+            {activity.map((a) => {
+              const label = ACTIVITY_LABEL[a.kind];
+              const who = [a.client, showPerson ? a.person : null].filter(Boolean).join(" · ");
+              return (
+                <li key={a.key} className="flex items-start justify-between gap-3 py-3 first:pt-0">
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className="text-[13px] font-bold uppercase tracking-wide" style={{ color: label.color }}>
+                      {label.text}
+                      {a.kind === "opened" && a.viewCount ? ` · ${a.viewCount}×` : ""}
+                    </span>
+                    {canOpenJobs ? (
+                      <Link href={`/jobs/${a.jobId}`} className="text-[15px] font-semibold text-[#1F4E8C] hover:underline">
+                        {a.name}
+                      </Link>
+                    ) : (
+                      <span className="text-[15px] font-semibold">{a.name}</span>
+                    )}
+                    {who && <span className="text-[13px] text-[#5B6472]">{who}</span>}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-0.5">
+                    <span className="text-[15px] font-bold">{money(a.value)}</span>
+                    <span className="text-[13px] text-[#5B6472]">{daysAgo(a.days)}</span>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>

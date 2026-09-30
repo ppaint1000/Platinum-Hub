@@ -12,6 +12,7 @@ import { fiscalMonths, fiscalYearLabel, fiscalYearStart } from "./fiscal";
 // A quote still waiting on the client this long gets flagged to follow up.
 export const FOLLOW_UP_DAYS = 30;
 const RECENT_WINS = 5;
+const ACTIVITY_ITEMS = 12;
 
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTH_LONG = [
@@ -34,6 +35,7 @@ type JobRow = {
   proposal_sent_at: string | null;
   proposal_viewed_at: string | null;
   proposal_view_count: number | null;
+  proposal_accepted_at: string | null;
   lead_by_user_id: string;
 };
 
@@ -58,6 +60,21 @@ export type SalesQuote = {
   days: number; // days since that date
   // Online proposal: its link, when sent, and how often/last opened.
   proposal?: { url: string; sentAt: string | null; viewedAt: string | null; viewCount: number } | null;
+};
+
+// Something that happened on a quote, for the Activity feed.
+export type SalesActivity = {
+  key: string;
+  kind: "quoted" | "sent" | "opened" | "accepted" | "won" | "lost";
+  jobId: string;
+  name: string;
+  client: string | null;
+  person: string;
+  value: number;
+  date: string; // YYYY-MM-DD (NZ)
+  days: number; // days since that date
+  viewCount?: number; // "opened" only
+  at: number; // for sorting: timestamps as they are, plain dates at midday NZ
 };
 
 // One row of the Overall view's "By salesperson" table.
@@ -91,6 +108,8 @@ export type SalesDashboardData = {
   awaiting: SalesQuote[];
   awaitingValue: number;
   recentWins: SalesQuote[];
+  // Latest quote activity, newest first.
+  activity: SalesActivity[];
   people: SalesPersonSummary[];
 };
 
@@ -139,7 +158,7 @@ export async function loadSalesDashboard(
       : await Promise.all([
           supabase
             .from("jobs")
-            .select("id, job_number, name, status, quoted_sell_total, quoted_at, won_at, lost_at, client_id, lead_by_user_id, proposal_url, proposal_sent_at, proposal_viewed_at, proposal_view_count")
+            .select("id, job_number, name, status, quoted_sell_total, quoted_at, won_at, lost_at, client_id, lead_by_user_id, proposal_url, proposal_sent_at, proposal_viewed_at, proposal_view_count, proposal_accepted_at")
             .in("lead_by_user_id", ids)
             .returns<JobRow[]>(),
           supabase
@@ -187,6 +206,7 @@ export async function loadSalesDashboard(
     return i !== undefined && i <= currentIndex;
   };
   const awaitingByPerson = new Map<string, { count: number; value: number }>();
+  const activity: SalesActivity[] = [];
 
   for (const job of jobs) {
     const personMonths = byPerson.get(job.lead_by_user_id);
@@ -207,6 +227,34 @@ export async function loadSalesDashboard(
         : null,
       value,
     };
+
+    const addEvent = (kind: SalesActivity["kind"], when: string | null, extra: Partial<SalesActivity> = {}) => {
+      if (!when) return;
+      const dateOnly = when.length === 10;
+      const date = dateOnly ? when : nzDateKey(when);
+      activity.push({
+        key: `${job.id}-${kind}`,
+        kind,
+        jobId: job.id,
+        name: base.name,
+        client: base.client,
+        person: base.person,
+        value,
+        date,
+        days: daysBetween(date, todayKey),
+        at: Date.parse(dateOnly ? `${when}T12:00:00+12:00` : when),
+        ...extra,
+      });
+    };
+    addEvent("quoted", job.quoted_at);
+    addEvent("sent", job.proposal_sent_at);
+    if (Number(job.proposal_view_count ?? 0) > 0) {
+      addEvent("opened", job.proposal_viewed_at, { viewCount: Number(job.proposal_view_count) });
+    }
+    // Accepted online is the win - no separate "won" line for it.
+    if (job.proposal_accepted_at) addEvent("accepted", job.proposal_accepted_at);
+    else addEvent("won", job.won_at);
+    if (job.status === "lost") addEvent("lost", job.lost_at);
 
     if (job.quoted_at) {
       const [y, m] = job.quoted_at.split("-").map(Number);
@@ -260,6 +308,7 @@ export async function loadSalesDashboard(
   // Oldest first - the ones most in need of a follow-up call.
   awaiting.sort((a, b) => a.date.localeCompare(b.date));
   wins.sort((a, b) => b.date.localeCompare(a.date));
+  activity.sort((a, b) => b.at - a.at);
 
   const ytdQuoted = sumTo(months, "quoted", currentIndex);
   const ytdWon = sumTo(months, "won", currentIndex);
@@ -288,6 +337,7 @@ export async function loadSalesDashboard(
     awaiting,
     awaitingValue: awaiting.reduce((s, q) => s + q.value, 0),
     recentWins: wins.slice(0, RECENT_WINS),
+    activity: activity.slice(0, ACTIVITY_ITEMS),
     people: summaries,
   };
 }
