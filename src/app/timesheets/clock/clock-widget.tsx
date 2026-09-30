@@ -8,6 +8,7 @@ type ExtraDocument = { id: string; name: string }
 type Site = {
   id: string
   label: string
+  workOrderUrl: string | null
   hasExtentOfWork: boolean
   hasSafetyPlan: boolean
   safetyAcknowledged: boolean
@@ -18,6 +19,7 @@ type OpenEntry = {
   clock_in_at: string
   site_id: string | null
   site_name: string
+  workOrderUrl: string | null
   hasExtentOfWork: boolean
   hasSafetyPlan: boolean
   extraDocuments: ExtraDocument[]
@@ -177,8 +179,21 @@ export function ClockWidget({
         <p className="text-center text-sm text-black/60">{openEntry.site_name}</p>
 
         {openEntry.site_id &&
-          (openEntry.hasExtentOfWork || openEntry.hasSafetyPlan || openEntry.extraDocuments.length > 0) && (
+          (openEntry.workOrderUrl ||
+            openEntry.hasExtentOfWork ||
+            openEntry.hasSafetyPlan ||
+            openEntry.extraDocuments.length > 0) && (
             <div className="flex flex-wrap gap-2">
+              {openEntry.workOrderUrl && (
+                <a
+                  href={openEntry.workOrderUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 rounded-md border border-black/20 px-3 py-2 text-center text-sm font-medium hover:bg-black/5"
+                >
+                  Work Order
+                </a>
+              )}
               {openEntry.hasExtentOfWork && (
                 <a
                   href={`/api/timesheets/site-documents/${openEntry.site_id}/extent-of-work`}
@@ -326,10 +341,21 @@ export function ClockWidget({
             </select>
           </div>
           {selectedSite &&
-            (selectedSite.hasExtentOfWork ||
+            (selectedSite.workOrderUrl ||
+              selectedSite.hasExtentOfWork ||
               selectedSite.hasSafetyPlan ||
               selectedSite.extraDocuments.length > 0) && (
             <div className="flex flex-wrap gap-2">
+              {selectedSite.workOrderUrl && (
+                <a
+                  href={selectedSite.workOrderUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 rounded-md border border-black/20 px-3 py-2 text-sm font-medium hover:bg-black/5"
+                >
+                  Work Order
+                </a>
+              )}
               {selectedSite.hasExtentOfWork && (
                 <a
                   href={`/api/timesheets/site-documents/${selectedSite.id}/extent-of-work`}

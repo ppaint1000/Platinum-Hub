@@ -14,6 +14,9 @@ type Body = {
   quotedSellTotal: number | null;
   quotedHours: number | null;
   quotedAt?: string | null;
+  // The crew's work order link (/w/<token> in the Costing app), shown on
+  // the job's site when clocking in.
+  workOrderUrl?: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -57,6 +60,7 @@ export async function POST(request: NextRequest) {
         quoted_sell_total: body.quotedSellTotal,
         quoted_hours: body.quotedHours,
         quoted_at: body.quotedAt ?? null,
+        ...(body.workOrderUrl ? { work_order_url: body.workOrderUrl } : {}),
       },
       { onConflict: "source_quote_id" }
     )

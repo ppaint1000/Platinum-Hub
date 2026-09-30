@@ -16,7 +16,17 @@ type SiteRow = {
   extent_of_work_filename: string | null
   safety_plan_filename: string | null
   customers: CustomerRelation
-  jobs: { status: string } | { status: string }[] | null
+  jobs: JobRelation
+}
+
+// The site's job, and its work order from the Costing app if it has one.
+type JobRelation =
+  | { status: string; work_order_url: string | null }
+  | { status: string; work_order_url: string | null }[]
+  | null
+
+function workOrderUrl(relation: JobRelation): string | null {
+  return (Array.isArray(relation) ? relation[0]?.work_order_url : relation?.work_order_url) ?? null
 }
 
 type OpenEntrySite = {
@@ -64,7 +74,7 @@ export default async function ClockPage() {
       admin
         .from('sites')
         .select(
-          'id, name, extent_of_work_filename, safety_plan_filename, customers(name), jobs!inner(status)'
+          'id, name, extent_of_work_filename, safety_plan_filename, customers(name), jobs!inner(status, work_order_url)'
         )
         .eq('is_active', true)
         .eq('jobs.status', 'in_progress')
@@ -94,8 +104,11 @@ export default async function ClockPage() {
     extraDocsBySite.set(doc.site_id, list)
   }
 
+  const workOrderBySite = new Map((siteRows ?? []).map((s) => [s.id, workOrderUrl(s.jobs)]))
+
   const sites = (siteRows ?? []).map((s) => ({
     id: s.id,
+    workOrderUrl: workOrderBySite.get(s.id) ?? null,
     label: customerName(s.customers) ? `${s.name} (${customerName(s.customers)})` : s.name,
     hasExtentOfWork: Boolean(s.extent_of_work_filename),
     hasSafetyPlan: Boolean(s.safety_plan_filename),
@@ -115,6 +128,7 @@ export default async function ClockPage() {
         clock_in_at: openEntryRow.clock_in_at,
         site_id: openEntrySite?.id ?? null,
         site_name: openEntrySite?.name ?? 'Site',
+        workOrderUrl: openEntrySite ? (workOrderBySite.get(openEntrySite.id) ?? null) : null,
         hasExtentOfWork: Boolean(openEntrySite?.extent_of_work_filename),
         hasSafetyPlan: Boolean(openEntrySite?.safety_plan_filename),
         extraDocuments: openEntrySite ? (extraDocsBySite.get(openEntrySite.id) ?? []) : [],
