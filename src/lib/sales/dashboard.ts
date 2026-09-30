@@ -29,6 +29,11 @@ type JobRow = {
   won_at: string | null;
   lost_at: string | null;
   client_id: string | null;
+  // The online proposal from the Costing app (jobs_proposal_activity.sql).
+  proposal_url: string | null;
+  proposal_sent_at: string | null;
+  proposal_viewed_at: string | null;
+  proposal_view_count: number | null;
   lead_by_user_id: string;
 };
 
@@ -51,6 +56,8 @@ export type SalesQuote = {
   value: number;
   date: string; // YYYY-MM-DD: quoted date for awaiting quotes, won date for wins
   days: number; // days since that date
+  // Online proposal: its link, when sent, and how often/last opened.
+  proposal?: { url: string; sentAt: string | null; viewedAt: string | null; viewCount: number } | null;
 };
 
 // One row of the Overall view's "By salesperson" table.
@@ -132,7 +139,7 @@ export async function loadSalesDashboard(
       : await Promise.all([
           supabase
             .from("jobs")
-            .select("id, job_number, name, status, quoted_sell_total, quoted_at, won_at, lost_at, client_id, lead_by_user_id")
+            .select("id, job_number, name, status, quoted_sell_total, quoted_at, won_at, lost_at, client_id, lead_by_user_id, proposal_url, proposal_sent_at, proposal_viewed_at, proposal_view_count")
             .in("lead_by_user_id", ids)
             .returns<JobRow[]>(),
           supabase
@@ -190,6 +197,14 @@ export async function loadSalesDashboard(
       name: job.job_number ? `${job.job_number} · ${job.name}` : job.name,
       client: job.client_id ? clientNames.get(job.client_id) ?? null : null,
       person: nameOf.get(job.lead_by_user_id) ?? "",
+      proposal: job.proposal_url
+        ? {
+            url: job.proposal_url,
+            sentAt: job.proposal_sent_at,
+            viewedAt: job.proposal_viewed_at,
+            viewCount: Number(job.proposal_view_count ?? 0),
+          }
+        : null,
       value,
     };
 

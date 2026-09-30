@@ -212,6 +212,28 @@ function QuoteName({ quote, canOpenJobs }: { quote: SalesQuote; canOpenJobs: boo
   );
 }
 
+// Whether the customer has opened the online proposal, with a link to it.
+function ProposalStatus({ proposal }: { proposal: NonNullable<SalesQuote["proposal"]> }) {
+  const shortDate = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-NZ", { day: "numeric", month: "short", timeZone: "Pacific/Auckland" });
+  return (
+    <span className="flex flex-wrap items-center gap-x-2 text-[13px]">
+      {proposal.viewCount > 0 ? (
+        <span className="font-semibold text-[#1F4E8C]">
+          Opened {proposal.viewCount}×{proposal.viewedAt ? ` · last ${shortDate(proposal.viewedAt)}` : ""}
+        </span>
+      ) : (
+        <span className="text-[#5B6472]">
+          {proposal.sentAt ? `Sent ${shortDate(proposal.sentAt)} · not opened yet` : "Proposal not sent yet"}
+        </span>
+      )}
+      <a href={proposal.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#1F4E8C] hover:underline">
+        View proposal
+      </a>
+    </span>
+  );
+}
+
 // Client, and on the Overall view whose quote it is.
 function Who({ quote, showPerson }: { quote: SalesQuote; showPerson: boolean }) {
   const parts = [quote.client, showPerson ? quote.person : null].filter(Boolean);
@@ -250,6 +272,7 @@ function AwaitingSection({
                   <span className="text-[13px] text-[#5B6472]">
                     Quoted {fmtDate(q.date)} · {daysAgo(q.days)}
                   </span>
+                  {q.proposal && <ProposalStatus proposal={q.proposal} />}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
                   <span className="text-[15px] font-bold">{money(q.value)}</span>
