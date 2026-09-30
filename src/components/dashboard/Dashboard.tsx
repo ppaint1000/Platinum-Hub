@@ -16,6 +16,7 @@ import {
   Empty,
   Headline,
   Pill,
+  Ring,
   SectionHeading,
   fmtDate,
   money,
@@ -240,7 +241,7 @@ function JobsSection({ jobs }: { jobs: DashboardJob[] }) {
 
 
 function SalesSection({ data }: { data: DashboardData }) {
-  const { months, won6, winRate6, awaitingCount, awaitingValue } = data.sales;
+  const { months, won6, winRate6, wonCount6, lostCount6, countWinRate6, awaitingCount, awaitingValue } = data.sales;
   const max = Math.max(...months.map((m) => Math.max(m.quoted, m.won)), 1);
   const chartHeight = 160;
 
@@ -314,14 +315,20 @@ function SalesSection({ data }: { data: DashboardData }) {
           </tbody>
         </table>
 
-        <dl className="mt-auto grid grid-cols-2 gap-3 border-t border-[#EFEDE7] pt-3 sm:grid-cols-3">
+        <div className="flex justify-around gap-3 border-t border-[#EFEDE7] pt-4">
+          <Ring
+            value={countWinRate6}
+            label="Win rate · 6 months"
+            sub={`${wonCount6} won · ${lostCount6} lost`}
+            size={88}
+          />
+          <Ring value={winRate6} label="Dollars won · 6 months" sub={`${money(won6)} won`} size={88} />
+        </div>
+
+        <dl className="mt-auto grid grid-cols-2 gap-3 border-t border-[#EFEDE7] pt-3">
           <div>
             <dt className="text-xs font-semibold text-[#5B6472]">Won · 6 months</dt>
             <dd className="text-lg font-bold">{money(won6)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold text-[#5B6472]">Average win rate</dt>
-            <dd className="text-lg font-bold">{winRate6 === null ? "—" : `${Math.round(winRate6 * 100)}%`}</dd>
           </div>
           <div>
             <dt className="text-xs font-semibold text-[#5B6472]">Awaiting reply</dt>

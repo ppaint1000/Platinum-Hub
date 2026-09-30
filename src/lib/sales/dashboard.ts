@@ -27,6 +27,7 @@ type JobRow = {
   quoted_sell_total: number | null;
   quoted_at: string | null;
   won_at: string | null;
+  lost_at: string | null;
   client_id: string | null;
   lead_by_user_id: string;
 };
@@ -68,7 +69,17 @@ export type SalesDashboardData = {
   yearLabel: string;
   monthLabel: string;
   thisMonth: { quoted: number; budgetQuoted: number; won: number; budgetWon: number };
-  yearToDate: { quoted: number; won: number; budgetWon: number; winRate: number | null };
+  yearToDate: {
+    quoted: number;
+    won: number;
+    budgetWon: number;
+    // Dollars won: $ won ÷ $ quoted.
+    winRate: number | null;
+    // Win rate by number of quotes: won ÷ (won + lost).
+    wonCount: number;
+    lostCount: number;
+    countWinRate: number | null;
+  };
   months: SalesMonth[];
   awaiting: SalesQuote[];
   awaitingValue: number;
@@ -121,7 +132,7 @@ export async function loadSalesDashboard(
       : await Promise.all([
           supabase
             .from("jobs")
-            .select("id, job_number, name, status, quoted_sell_total, quoted_at, won_at, client_id, lead_by_user_id")
+            .select("id, job_number, name, status, quoted_sell_total, quoted_at, won_at, lost_at, client_id, lead_by_user_id")
             .in("lead_by_user_id", ids)
             .returns<JobRow[]>(),
           supabase
@@ -160,6 +171,14 @@ export async function loadSalesDashboard(
 
   const awaiting: SalesQuote[] = [];
   const wins: SalesQuote[] = [];
+  // Quotes won and lost this sales year, up to this month.
+  let wonCount = 0;
+  let lostCount = 0;
+  const inYearToDate = (dateKey: string) => {
+    const [y, m] = dateKey.split("-").map(Number);
+    const i = monthIndex.get(`${y}-${m}`);
+    return i !== undefined && i <= currentIndex;
+  };
   const awaitingByPerson = new Map<string, { count: number; value: number }>();
 
   for (const job of jobs) {
@@ -179,6 +198,8 @@ export async function loadSalesDashboard(
       const i = monthIndex.get(`${y}-${m}`);
       if (i !== undefined) personMonths[i].quoted += value;
     }
+    if (job.won_at && inYearToDate(nzDateKey(job.won_at))) wonCount++;
+    if (job.status === "lost" && job.lost_at && inYearToDate(job.lost_at.slice(0, 10))) lostCount++;
     if (job.won_at) {
       const wonKey = nzDateKey(job.won_at);
       const [y, m] = wonKey.split("-").map(Number);
@@ -244,6 +265,9 @@ export async function loadSalesDashboard(
       won: ytdWon,
       budgetWon: sumTo(months, "budgetWon", currentIndex),
       winRate: ytdQuoted > 0 ? ytdWon / ytdQuoted : null,
+      wonCount,
+      lostCount,
+      countWinRate: wonCount + lostCount > 0 ? wonCount / (wonCount + lostCount) : null,
     },
     months,
     awaiting,

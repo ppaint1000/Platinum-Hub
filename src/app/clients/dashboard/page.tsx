@@ -17,6 +17,7 @@ import {
   Headline,
   Pill,
   SectionHeading,
+  WinRings,
   money,
   moneyK,
 } from "@/components/dashboard/parts";
@@ -99,14 +100,17 @@ function Headlines({ data }: { data: ClientsDashboardData }) {
       </Headline>
       <Headline label="Won" value={money(t.wonValue)}>
         {t.wonCount} job{t.wonCount === 1 ? "" : "s"}
+        {t.avgDaysToDecide !== null && <span className="block">Avg {t.avgDaysToDecide} days to decide</span>}
       </Headline>
       <Headline label="Lost" value={money(t.lostValue)}>
         {quotes(t.lostCount)}
       </Headline>
-      <Headline label="Win rate" value={wholePct(t.winRate)}>
-        {wholePct(t.valueWinRate)} by value
-        {t.avgDaysToDecide !== null && <span className="block">Avg {t.avgDaysToDecide} days to decide</span>}
-      </Headline>
+      <WinRings
+        winRate={t.winRate}
+        winSub={`${t.wonCount} won · ${t.lostCount} lost`}
+        dollarsWon={t.quotedValue > 0 ? t.wonValue / t.quotedValue : null}
+        dollarsSub={`of ${money(t.quotedValue)} quoted`}
+      />
     </section>
   );
 }

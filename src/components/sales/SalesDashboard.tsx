@@ -14,6 +14,7 @@ import {
   Headline,
   Pill,
   SectionHeading,
+  WinRings,
   fmtDate,
   money,
   moneyK,
@@ -68,12 +69,13 @@ export function SalesDashboard({
         <Headline label={`Won · year to date`} value={money(yearToDate.won)}>
           {ofBudget(yearToDate.won, yearToDate.budgetWon, "budget so far")}
         </Headline>
-        <Headline
-          label="Win rate · year to date"
-          value={yearToDate.winRate === null ? "—" : wholePct(yearToDate.winRate)}
-        >
-          {yearToDate.quoted > 0 ? `${money(yearToDate.won)} won of ${money(yearToDate.quoted)} quoted` : "No quotes yet this year"}
-        </Headline>
+        <WinRings
+          title="Year to date"
+          winRate={yearToDate.countWinRate}
+          winSub={`${yearToDate.wonCount} won · ${yearToDate.lostCount} lost`}
+          dollarsWon={yearToDate.winRate}
+          dollarsSub={yearToDate.quoted > 0 ? `of ${money(yearToDate.quoted)} quoted` : "No quotes yet"}
+        />
       </section>
 
       {overall && <PeopleSection people={data.people} monthLabel={monthLabel} />}

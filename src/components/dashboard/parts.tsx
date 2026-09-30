@@ -134,6 +134,83 @@ export function Headline({
   );
 }
 
+// A percentage as a ring with the number in the middle (e.g. win rate).
+// `value` is a fraction (0.33 = 33%); null shows a dash on an empty ring.
+export function Ring({
+  value,
+  label,
+  sub,
+  size = 96,
+}: {
+  value: number | null;
+  label: string;
+  sub?: React.ReactNode;
+  size?: number;
+}) {
+  const stroke = Math.round(size / 9);
+  const r = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * r;
+  const share = value === null ? 0 : Math.max(0, Math.min(1, value));
+  const pctText = value === null ? "—" : `${Math.round(value * 100)}%`;
+  return (
+    <div className="flex flex-col items-center gap-1.5 text-center">
+      <span className="text-xs font-semibold text-[#5B6472] md:text-sm">{label}</span>
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${label}: ${pctText}`}>
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#ECEAE3" strokeWidth={stroke} />
+          {share > 0 && (
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              fill="none"
+              stroke={BLUE}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              strokeDasharray={`${share * circumference} ${circumference}`}
+              transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            />
+          )}
+        </svg>
+        <span
+          aria-hidden
+          className={`${display} absolute inset-0 flex items-center justify-center text-xl font-bold md:text-2xl`}
+        >
+          {pctText}
+        </span>
+      </div>
+      {sub && <span className="text-xs text-[#5B6472]">{sub}</span>}
+    </div>
+  );
+}
+
+// The two rings side by side in a card - win rate by count and by dollars.
+export function WinRings({
+  winRate,
+  dollarsWon,
+  winSub,
+  dollarsSub,
+  title,
+}: {
+  winRate: number | null;
+  dollarsWon: number | null;
+  winSub?: React.ReactNode;
+  dollarsSub?: React.ReactNode;
+  title?: string;
+}) {
+  return (
+    // Full width on phones (two rings don't fit in a half-width card), one
+    // column alongside the other headline cards on wider screens.
+    <Card className="col-span-2 flex flex-col gap-2 p-3.5 md:p-5 lg:col-span-1">
+      {title && <span className="text-xs font-semibold text-[#5B6472] md:text-sm">{title}</span>}
+      <div className="flex flex-1 items-start justify-around gap-3">
+        <Ring value={winRate} label="Win rate" sub={winSub} />
+        <Ring value={dollarsWon} label="Dollars won" sub={dollarsSub} />
+      </div>
+    </Card>
+  );
+}
+
 // Page frame: top bar, date and title, then the page's sections.
 export function DashboardShell({
   fontClass,

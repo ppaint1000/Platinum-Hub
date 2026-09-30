@@ -37,6 +37,7 @@ type JobRow = {
   quoted_hours: number | null;
   quoted_at: string | null;
   won_at: string | null;
+  lost_at: string | null;
   client: Relation<{ name: string }>;
 };
 type TotalsRow = { job_id: string; budgeted_total: number; actual_total: number; hours_actual: number };
@@ -121,7 +122,12 @@ export type DashboardData = {
   sales: {
     months: { key: string; label: string; quoted: number; won: number }[];
     won6: number;
+    // Dollars won over the 6 months: $ won ÷ $ quoted.
     winRate6: number | null;
+    // Win rate by number of quotes over the 6 months: won ÷ (won + lost).
+    wonCount6: number;
+    lostCount6: number;
+    countWinRate6: number | null;
     awaitingCount: number;
     awaitingValue: number;
   };
@@ -178,7 +184,7 @@ export async function loadDashboard(supabase: SupabaseClient): Promise<Dashboard
   const [jobsRes, totalsRes, entriesRes, sitesRes, peopleRes, vehiclesRes, servicesRes, fuelRes] = await Promise.all([
     supabase
       .from("jobs")
-      .select("id, job_number, name, description, status, quoted_sell_total, quoted_hours, quoted_at, won_at, client:clients(name)")
+      .select("id, job_number, name, description, status, quoted_sell_total, quoted_hours, quoted_at, won_at, lost_at, client:clients(name)")
       .returns<JobRow[]>(),
     supabase.from("job_totals").select("job_id, budgeted_total, actual_total, hours_actual").returns<TotalsRow[]>(),
     supabase
@@ -219,6 +225,8 @@ export async function loadDashboard(supabase: SupabaseClient): Promise<Dashboard
   const quotedByMonth = new Map<string, number>(monthKeys.map((k) => [k, 0]));
   const wonByMonth = new Map<string, number>(monthKeys.map((k) => [k, 0]));
   let wonCountThisMonth = 0;
+  let wonCount6 = 0;
+  let lostCount6 = 0;
   let awaitingCount = 0;
   let awaitingValue = 0;
 
@@ -232,7 +240,9 @@ export async function loadDashboard(supabase: SupabaseClient): Promise<Dashboard
       const k = nzDateKey(job.won_at).slice(0, 7);
       if (wonByMonth.has(k)) wonByMonth.set(k, wonByMonth.get(k)! + amount);
       if (k === monthKey) wonCountThisMonth++;
+      if (wonByMonth.has(k)) wonCount6++;
     }
+    if (job.status === "lost" && job.lost_at && wonByMonth.has(job.lost_at.slice(0, 7))) lostCount6++;
     if (job.status === "quoted") {
       awaitingCount++;
       awaitingValue += amount;
@@ -411,6 +421,9 @@ export async function loadDashboard(supabase: SupabaseClient): Promise<Dashboard
       months,
       won6,
       winRate6: quoted6 > 0 ? won6 / quoted6 : null,
+      wonCount6,
+      lostCount6,
+      countWinRate6: wonCount6 + lostCount6 > 0 ? wonCount6 / (wonCount6 + lostCount6) : null,
       awaitingCount,
       awaitingValue,
     },
