@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useUserRole } from "@/lib/supabase/useUserRole";
 import { Modal, Field, inputClass } from "@/components/fleet/Modal";
 import { fmtDate, fmtKm, fmtMoney } from "@/lib/fleet/format";
+import { SERVICE_INTERVAL_KM } from "@/lib/fleet/nextService";
 
 type Vehicle = { id: string; plate: string; make: string; model: string };
 
@@ -255,7 +256,24 @@ export function ServicingClient({
                 type="number"
                 className={inputClass}
                 value={form.odometer_km}
-                onChange={(e) => setForm({ ...form, odometer_km: e.target.value })}
+                onChange={(e) => {
+                  // Next due km follows the odometer (+ the service interval)
+                  // unless someone has typed a different figure into it.
+                  const followsOdometer =
+                    !form.next_due_odometer_km ||
+                    form.next_due_odometer_km === String(Number(form.odometer_km) + SERVICE_INTERVAL_KM);
+                  const odometer = e.target.value;
+                  setForm({
+                    ...form,
+                    odometer_km: odometer,
+                    next_due_odometer_km:
+                      followsOdometer && Number(odometer) > 0
+                        ? String(Number(odometer) + SERVICE_INTERVAL_KM)
+                        : followsOdometer
+                          ? ""
+                          : form.next_due_odometer_km,
+                  });
+                }}
               />
             </Field>
           </div>

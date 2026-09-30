@@ -19,6 +19,8 @@ type Vehicle = {
   assigned_driver_id: string | null;
   wof_expiry: string | null;
   rego_expiry: string | null;
+  next_service_km: number | null;
+  next_service_date: string | null;
   notes: string | null;
 };
 
@@ -33,6 +35,8 @@ type FormState = {
   assigned_driver_id: string;
   wof_expiry: string;
   rego_expiry: string;
+  next_service_km: string;
+  next_service_date: string;
   notes: string;
 };
 
@@ -45,6 +49,8 @@ const EMPTY: FormState = {
   assigned_driver_id: "",
   wof_expiry: "",
   rego_expiry: "",
+  next_service_km: "",
+  next_service_date: "",
   notes: "",
 };
 
@@ -85,6 +91,8 @@ export function VehiclesClient({
       assigned_driver_id: v.assigned_driver_id ?? "",
       wof_expiry: v.wof_expiry ?? "",
       rego_expiry: v.rego_expiry ?? "",
+      next_service_km: v.next_service_km?.toString() ?? "",
+      next_service_date: v.next_service_date ?? "",
       notes: v.notes ?? "",
     });
     setError(null);
@@ -114,6 +122,8 @@ export function VehiclesClient({
       assigned_driver_id: form.assigned_driver_id || null,
       wof_expiry: form.wof_expiry || null,
       rego_expiry: form.rego_expiry || null,
+      next_service_km: form.next_service_km ? Number(form.next_service_km) : null,
+      next_service_date: form.next_service_date || null,
       notes: form.notes.trim() || null,
     };
 
@@ -303,6 +313,29 @@ export function VehiclesClient({
               />
             </Field>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Next service due (km)">
+              <input
+                type="number"
+                inputMode="numeric"
+                className={inputClass}
+                value={form.next_service_km}
+                onChange={(e) => setForm({ ...form, next_service_km: e.target.value })}
+              />
+            </Field>
+            <Field label="Next service date">
+              <input
+                type="date"
+                className={inputClass}
+                value={form.next_service_date}
+                onChange={(e) => setForm({ ...form, next_service_date: e.target.value })}
+              />
+            </Field>
+          </div>
+          <p className="-mt-1 text-xs text-muted">
+            Used until a service is logged under Servicing - after that the next one is due every 10,000 km from
+            the last.
+          </p>
           <Field label="Notes">
             <textarea
               className={inputClass + " min-h-16 resize-y"}

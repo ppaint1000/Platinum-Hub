@@ -6,6 +6,7 @@
 // service_records for the fleet. Dates are NZ calendar dates throughout.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { SERVICE_SOON_KM, nextServiceFor } from "@/lib/fleet/nextService";
 import {
   addDays,
   mondayOf,
@@ -22,7 +23,6 @@ const DAY_START_MIN = 7 * 60 + 30;
 const DAY_END_MIN = 16 * 60;
 const WOF_URGENT_DAYS = 14;
 const DUE_SOON_DAYS = 30;
-const SERVICE_SOON_KM = 1000;
 
 type Relation<T> = T | T[] | null;
 const one = <T,>(r: Relation<T>): T | null => (Array.isArray(r) ? r[0] ?? null : r);
@@ -57,11 +57,14 @@ type VehicleRow = {
   wof_expiry: string | null;
   current_odometer_km: number | null;
   assigned_driver_id: string | null;
+  next_service_km: number | null;
+  next_service_date: string | null;
 };
 type ServiceRow = {
   vehicle_id: string;
   date: string;
   created_at: string;
+  odometer_km: number | null;
   next_due_date: string | null;
   next_due_odometer_km: number | null;
 };
@@ -172,7 +175,7 @@ export async function loadDashboard(supabase: SupabaseClient): Promise<Dashboard
   const monthKey = todayKey.slice(0, 7);
   const monthKeys = Array.from({ length: 6 }, (_, i) => monthKeyMinus(monthKey, 5 - i));
 
-  const [jobsRes, totalsRes, entriesRes, sitesRes, peopleRes, vehiclesRes, servicesRes] = await Promise.all([
+  const [jobsRes, totalsRes, entriesRes, sitesRes, peopleRes, vehiclesRes, servicesRes, fuelRes] = await Promise.all([
     supabase
       .from("jobs")
       .select("id, job_number, name, description, status, quoted_sell_total, quoted_hours, quoted_at, won_at, client:clients(name)")
@@ -188,16 +191,23 @@ export async function loadDashboard(supabase: SupabaseClient): Promise<Dashboard
     supabase.from("profiles").select("id, full_name, role, is_active").returns<PersonRow[]>(),
     supabase
       .from("vehicles")
-      .select("id, plate, make, model, wof_expiry, current_odometer_km, assigned_driver_id")
+      .select("id, plate, make, model, wof_expiry, current_odometer_km, assigned_driver_id, next_service_km, next_service_date")
       .order("plate")
       .returns<VehicleRow[]>(),
     supabase
       .from("service_records")
-      .select("vehicle_id, date, created_at, next_due_date, next_due_odometer_km")
+      .select("vehicle_id, date, created_at, odometer_km, next_due_date, next_due_odometer_km")
       .returns<ServiceRow[]>(),
+    // Latest odometer readings - receipts keep them more up to date than the vehicle's own.
+    supabase
+      .from("fuel_entries")
+      .select("vehicle_id, odometer_km")
+      .not("vehicle_id", "is", null)
+      .not("odometer_km", "is", null)
+      .returns<{ vehicle_id: string; odometer_km: number }[]>(),
   ]);
 
-  for (const res of [jobsRes, totalsRes, entriesRes, sitesRes, peopleRes, vehiclesRes, servicesRes]) {
+  for (const res of [jobsRes, totalsRes, entriesRes, sitesRes, peopleRes, vehiclesRes, servicesRes, fuelRes]) {
     if (res.error) throw new Error(`Dashboard query failed: ${res.error.message}`);
   }
 
@@ -344,11 +354,13 @@ export async function loadDashboard(supabase: SupabaseClient): Promise<Dashboard
       wofDays === null ? "ok" : wofDays <= WOF_URGENT_DAYS ? "alert" : wofDays <= DUE_SOON_DAYS ? "soon" : "ok";
 
     const s = latestService.get(v.id);
-    const serviceDate = s?.next_due_date ?? null;
+    // With no service logged yet, the vehicle's own next service date/km.
+    const serviceDate = s ? s.next_due_date : v.next_service_date;
     const serviceDays = serviceDate ? daysBetween(todayKey, serviceDate) : null;
-    const serviceKm = s?.next_due_odometer_km ?? null;
-    const serviceKmLeft =
-      serviceKm !== null && v.current_odometer_km !== null ? serviceKm - v.current_odometer_km : null;
+    // Every 10,000 km from the last service (lib/fleet/nextService.ts).
+    const next = nextServiceFor(v, servicesRes.data ?? [], fuelRes.data ?? []);
+    const serviceKm = next.dueAtKm;
+    const serviceKmLeft = next.kmLeft;
     const serviceOverdue = (serviceDays !== null && serviceDays < 0) || (serviceKmLeft !== null && serviceKmLeft < 0);
     const serviceSoon =
       (serviceDays !== null && serviceDays <= DUE_SOON_DAYS) ||
