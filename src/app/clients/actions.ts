@@ -3,12 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 
-export async function createClientAction(input: { name: string; notes: string }) {
+async function isAdmin(supabase: Awaited<ReturnType<typeof requireAppAccess>>) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data } = await supabase.from("profiles").select("role").eq("id", user?.id ?? "").maybeSingle();
+  return data?.role === "admin";
+}
+
+// The salesperson is set when the client is new.
+export async function createClientAction(input: { name: string; notes: string; salesPersonId: string | null }) {
   const supabase = await requireAppAccess("jobs");
 
   const { data, error } = await supabase
     .from("clients")
-    .insert({ name: input.name, notes: input.notes || null })
+    .insert({ name: input.name, notes: input.notes || null, sales_person_id: input.salesPersonId || null })
     .select("id")
     .single();
 
@@ -18,13 +27,20 @@ export async function createClientAction(input: { name: string; notes: string })
   return { id: data.id as string };
 }
 
-export async function updateClientAction(id: string, input: { name: string; notes: string }) {
+// After that, only an admin can change whose client it is (the database
+// enforces this too - see supabase/clients_sales_person.sql).
+export async function updateClientAction(
+  id: string,
+  input: { name: string; notes: string; salesPersonId?: string | null }
+) {
   const supabase = await requireAppAccess("jobs");
+  const update: Record<string, unknown> = { name: input.name, notes: input.notes || null };
+  if (input.salesPersonId !== undefined) {
+    if (!(await isAdmin(supabase))) return { error: "Only an admin can change a client's salesperson." };
+    update.sales_person_id = input.salesPersonId || null;
+  }
 
-  const { error } = await supabase
-    .from("clients")
-    .update({ name: input.name, notes: input.notes || null })
-    .eq("id", id);
+  const { error } = await supabase.from("clients").update(update).eq("id", id);
 
   if (error) return { error: error.message };
 

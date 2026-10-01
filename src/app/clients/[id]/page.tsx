@@ -4,6 +4,8 @@ import { ArrowLeft } from "lucide-react";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { Panel } from "@/components/ui";
 import { ClientDetail, type ClientDetailRow, type ContactRow } from "@/components/clients/ClientDetail";
+import { fetchSalesTeam } from "@/lib/jobs/salesTeam";
+import { getCurrentProfile } from "@/lib/supabase/profile";
 
 export default async function ClientDetailPage({
   params,
@@ -15,13 +17,13 @@ export default async function ClientDetailPage({
 
   const { data: client } = await supabase
     .from("clients")
-    .select("id, name, notes")
+    .select("id, name, notes, sales_person_id")
     .eq("id", id)
     .single<ClientDetailRow>();
 
   if (!client) notFound();
 
-  const [{ data: contacts }, { data: jobs }] = await Promise.all([
+  const [{ data: contacts }, { data: jobs }, salesTeam, profile] = await Promise.all([
     supabase
       .from("client_contacts")
       .select("id, name, email, phone, job_id")
@@ -34,6 +36,8 @@ export default async function ClientDetailPage({
       .eq("client_id", id)
       .order("created_at", { ascending: false })
       .returns<{ id: string; job_number: string | null; name: string }[]>(),
+    fetchSalesTeam(supabase),
+    getCurrentProfile(),
   ]);
 
   return (
@@ -47,7 +51,13 @@ export default async function ClientDetailPage({
       </Link>
 
       <Panel className="p-4">
-        <ClientDetail client={client} contacts={contacts ?? []} jobs={jobs ?? []} />
+        <ClientDetail
+          client={client}
+          contacts={contacts ?? []}
+          jobs={jobs ?? []}
+          salesTeam={salesTeam}
+          canChangeSalesPerson={profile.role === "admin"}
+        />
       </Panel>
     </div>
   );

@@ -11,31 +11,49 @@ export type ClientRow = {
   id: string;
   name: string;
   notes: string | null;
+  sales_person_id: string | null;
   client_contacts: { count: number }[];
 };
 
-export function ClientsList({ clients }: { clients: ClientRow[] }) {
+type SalesPerson = { id: string; name: string };
+
+export function ClientsList({
+  clients,
+  salesTeam,
+  currentUserId,
+}: {
+  clients: ClientRow[];
+  salesTeam: SalesPerson[];
+  currentUserId: string;
+}) {
+  const nameOf = new Map(salesTeam.map((p) => [p.id, p.name]));
+  // A new client starts as the person adding it, if they're on the sales team.
+  const defaultSalesPerson = nameOf.has(currentUserId) ? currentUserId : "";
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
+  const [salesPersonId, setSalesPersonId] = useState(defaultSalesPerson);
+  // "" = everyone's clients, "none" = no salesperson yet.
+  const [salesFilter, setSalesFilter] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return clients;
     return clients.filter(
-      (c) => c.name.toLowerCase().includes(q) || (c.notes?.toLowerCase().includes(q) ?? false)
+      (c) =>
+        (!salesFilter || (salesFilter === "none" ? !c.sales_person_id : c.sales_person_id === salesFilter)) &&
+        (!q || c.name.toLowerCase().includes(q) || (c.notes?.toLowerCase().includes(q) ?? false))
     );
-  }, [clients, query]);
+  }, [clients, query, salesFilter]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
 
-    const result = await createClientAction({ name, notes });
+    const result = await createClientAction({ name, notes, salesPersonId: salesPersonId || null });
     setSaving(false);
 
     if (result.error) {
@@ -44,6 +62,7 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
     }
     setName("");
     setNotes("");
+    setSalesPersonId(defaultSalesPerson);
     setOpen(false);
   }
 
@@ -73,6 +92,21 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
               className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-ink">Salesperson</label>
+            <select
+              value={salesPersonId}
+              onChange={(e) => setSalesPersonId(e.target.value)}
+              className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
+            >
+              <option value="">No one yet</option>
+              {salesTeam.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
           {error && (
             <p className="text-sm" style={{ color: overBudgetColor }}>
               {error}
@@ -87,7 +121,22 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
       )}
 
       {clients.length > 0 && (
-        <div className="mb-4 relative">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+        <select
+          value={salesFilter}
+          onChange={(e) => setSalesFilter(e.target.value)}
+          aria-label="Salesperson"
+          className="rounded-md border border-line bg-paper-raised px-3 py-2 text-sm text-ink"
+        >
+          <option value="">Everyone&apos;s clients</option>
+          {salesTeam.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}&apos;s clients
+            </option>
+          ))}
+          <option value="none">No salesperson yet</option>
+        </select>
+        <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
           <input
             type="text"
@@ -97,14 +146,13 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
             className="w-full rounded-md border border-line bg-paper-raised py-2 pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-accent/40"
           />
         </div>
+        </div>
       )}
 
       {clients.length === 0 ? (
         <p className="py-6 text-center text-sm text-ink-soft">No clients yet.</p>
       ) : filtered.length === 0 ? (
-        <p className="py-6 text-center text-sm text-ink-soft">
-          No clients match &ldquo;{query}&rdquo;.
-        </p>
+        <p className="py-6 text-center text-sm text-ink-soft">No clients match.</p>
       ) : (
         <div className="space-y-2">
           {filtered.map((c) => (
@@ -115,6 +163,9 @@ export function ClientsList({ clients }: { clients: ClientRow[] }) {
             >
               <div>
                 <div className="font-medium text-ink">{c.name}</div>
+                <div className="text-sm text-ink-soft">
+                  {c.sales_person_id ? nameOf.get(c.sales_person_id) ?? "Former salesperson" : "No salesperson yet"}
+                </div>
                 {c.notes && <div className="text-sm text-ink-soft">{c.notes}</div>}
               </div>
               <span className="text-sm text-ink-soft">

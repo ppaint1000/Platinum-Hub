@@ -6,6 +6,9 @@ type Body = {
   sourceCustomerId: string;
   name: string;
   notes?: string | null;
+  // Who created/saved the customer in the Costing app: becomes the
+  // client's salesperson if the client is new and they're on the sales team.
+  createdByEmail?: string | null;
 };
 
 // Lets Measures pull the Hub's existing client list (see
@@ -52,20 +55,48 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
+  const fields = { name: body.name.trim(), notes: body.notes ?? null };
+
+  const { data: existing } = await admin
+    .from("clients")
+    .select("id")
+    .eq("source_quote_customer_id", body.sourceCustomerId)
+    .maybeSingle<{ id: string }>();
+  if (existing) {
+    // Never changes the salesperson - only an admin does that, in the Hub.
+    const { error } = await admin.from("clients").update(fields).eq("id", existing.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ clientId: existing.id });
+  }
+
   const { data, error } = await admin
     .from("clients")
-    .upsert(
-      {
-        source_quote_customer_id: body.sourceCustomerId,
-        name: body.name.trim(),
-        notes: body.notes ?? null,
-      },
-      { onConflict: "source_quote_customer_id" }
-    )
+    .insert({
+      source_quote_customer_id: body.sourceCustomerId,
+      ...fields,
+      sales_person_id: await salesPersonByEmail(admin, body.createdByEmail),
+    })
     .select("id")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ clientId: data.id });
+}
+
+async function salesPersonByEmail(admin: ReturnType<typeof createAdminClient>, email: string | null | undefined) {
+  if (!email?.trim()) return null;
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id")
+    // Exact match, ignoring case (escaping the LIKE wildcards).
+    .ilike("email", email.trim().replace(/[%_\\]/g, "\\$&"))
+    .maybeSingle<{ id: string }>();
+  if (!profile) return null;
+  const { data: access } = await admin
+    .from("user_app_access")
+    .select("sales")
+    .eq("user_id", profile.id)
+    .maybeSingle<{ sales: boolean }>();
+  return access?.sales ? profile.id : null;
 }

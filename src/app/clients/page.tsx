@@ -5,15 +5,21 @@ import { ArrowLeft } from "lucide-react";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { Panel } from "@/components/ui";
 import { ClientsList, type ClientRow } from "@/components/clients/ClientsList";
+import { fetchSalesTeam } from "@/lib/jobs/salesTeam";
+import { getCurrentProfile } from "@/lib/supabase/profile";
 
 export default async function ClientsPage() {
   const supabase = await requireAppAccess("jobs");
 
-  const { data: clients } = await supabase
-    .from("clients")
-    .select("id, name, notes, client_contacts(count)")
-    .order("name")
-    .returns<ClientRow[]>();
+  const [{ data: clients }, salesTeam, profile] = await Promise.all([
+    supabase
+      .from("clients")
+      .select("id, name, notes, sales_person_id, client_contacts(count)")
+      .order("name")
+      .returns<ClientRow[]>(),
+    fetchSalesTeam(supabase),
+    getCurrentProfile(),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-3xl p-8">
@@ -33,7 +39,7 @@ export default async function ClientsPage() {
       <h1 className="mb-6 text-3xl font-bold text-ink">Clients</h1>
 
       <Panel className="p-4">
-        <ClientsList clients={clients ?? []} />
+        <ClientsList clients={clients ?? []} salesTeam={salesTeam} currentUserId={profile.id} />
       </Panel>
     </div>
   );

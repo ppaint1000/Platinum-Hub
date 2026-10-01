@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
 
-export type ClientDetailRow = { id: string; name: string; notes: string | null };
+export type ClientDetailRow = { id: string; name: string; notes: string | null; sales_person_id: string | null };
 export type ContactRow = {
   id: string;
   name: string;
@@ -26,14 +26,23 @@ export function ClientDetail({
   client,
   contacts,
   jobs,
+  salesTeam,
+  canChangeSalesPerson,
 }: {
   client: ClientDetailRow;
   contacts: ContactRow[];
   jobs: JobOption[];
+  salesTeam: { id: string; name: string }[];
+  // Admins only - everyone else sees whose client it is.
+  canChangeSalesPerson: boolean;
 }) {
   const router = useRouter();
   const [name, setName] = useState(client.name);
   const [notes, setNotes] = useState(client.notes ?? "");
+  const [salesPersonId, setSalesPersonId] = useState(client.sales_person_id ?? "");
+  const salesPersonName = client.sales_person_id
+    ? salesTeam.find((p) => p.id === client.sales_person_id)?.name ?? "Former salesperson"
+    : "No salesperson yet";
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +50,11 @@ export function ClientDetail({
   async function saveClient() {
     setSaving(true);
     setError(null);
-    const result = await updateClientAction(client.id, { name, notes });
+    const result = await updateClientAction(client.id, {
+      name,
+      notes,
+      ...(canChangeSalesPerson ? { salesPersonId: salesPersonId || null } : {}),
+    });
     setSaving(false);
     if (result.error) setError(result.error);
   }
@@ -88,6 +101,28 @@ export function ClientDetail({
             rows={2}
             className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
           />
+        </div>
+        <div className="mt-3">
+          <label className="block text-sm font-medium text-ink">Salesperson</label>
+          {canChangeSalesPerson ? (
+            <select
+              value={salesPersonId}
+              onChange={(e) => setSalesPersonId(e.target.value)}
+              className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
+            >
+              <option value="">No one yet</option>
+              {client.sales_person_id && !salesTeam.some((p) => p.id === client.sales_person_id) && (
+                <option value={client.sales_person_id}>Former salesperson</option>
+              )}
+              {salesTeam.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="mt-1 text-sm text-ink-soft">{salesPersonName} · only an admin can change this</p>
+          )}
         </div>
         {error && (
           <p className="mt-2 text-sm" style={{ color: overBudgetColor }}>
