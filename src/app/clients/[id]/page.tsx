@@ -1,11 +1,17 @@
+// One client: details, contacts, jobs and a timeline (see ClientPage).
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
-import { Panel } from "@/components/ui";
-import { ClientDetail, type ClientDetailRow, type ContactRow } from "@/components/clients/ClientDetail";
+import { ClientPage, type ClientJob, type ClientNote, type ClientPageRow } from "@/components/clients/ClientPage";
+import type { ContactRow } from "@/components/clients/ClientDetail";
 import { fetchSalesTeam } from "@/lib/jobs/salesTeam";
 import { getCurrentProfile } from "@/lib/supabase/profile";
+
+type NoteRow = {
+  id: string;
+  body: string;
+  created_at: string;
+  author: { full_name: string } | { full_name: string }[] | null;
+};
 
 export default async function ClientDetailPage({
   params,
@@ -17,13 +23,13 @@ export default async function ClientDetailPage({
 
   const { data: client } = await supabase
     .from("clients")
-    .select("id, name, notes, email, phone, address, sales_person_id")
+    .select("id, name, notes, email, phone, address, sales_person_id, created_at, updated_at")
     .eq("id", id)
-    .single<ClientDetailRow>();
+    .single<ClientPageRow>();
 
   if (!client) notFound();
 
-  const [{ data: contacts }, { data: jobs }, salesTeam, profile] = await Promise.all([
+  const [{ data: contacts }, { data: jobs }, { data: noteRows }, salesTeam, profile] = await Promise.all([
     supabase
       .from("client_contacts")
       .select("id, name, email, phone, job_id")
@@ -32,33 +38,39 @@ export default async function ClientDetailPage({
       .returns<ContactRow[]>(),
     supabase
       .from("jobs")
-      .select("id, job_number, name")
+      .select(
+        "id, job_number, name, status, quoted_sell_total, quoted_at, won_at, lost_at, lost_to, lead_source, lead_by_user_id, created_at, proposal_url, proposal_sent_at, proposal_viewed_at, proposal_view_count, proposal_accepted_at"
+      )
       .eq("client_id", id)
       .order("created_at", { ascending: false })
-      .returns<{ id: string; job_number: string | null; name: string }[]>(),
+      .returns<ClientJob[]>(),
+    supabase
+      .from("client_notes")
+      .select("id, body, created_at, author:profiles(full_name)")
+      .eq("client_id", id)
+      .order("created_at", { ascending: false })
+      .returns<NoteRow[]>(),
     fetchSalesTeam(supabase),
     getCurrentProfile(),
   ]);
 
-  return (
-    <div className="mx-auto w-full max-w-3xl p-8">
-      <Link
-        href="/clients"
-        className="mb-4 flex items-center gap-1.5 text-sm font-medium text-ink-soft transition hover:text-ink"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Back to Clients
-      </Link>
+  const notes: ClientNote[] = (noteRows ?? []).map((n) => ({
+    id: n.id,
+    body: n.body,
+    created_at: n.created_at,
+    author: (Array.isArray(n.author) ? n.author[0]?.full_name : n.author?.full_name) ?? null,
+  }));
 
-      <Panel className="p-4">
-        <ClientDetail
-          client={client}
-          contacts={contacts ?? []}
-          jobs={jobs ?? []}
-          salesTeam={salesTeam}
-          canChangeSalesPerson={profile.role === "admin"}
-        />
-      </Panel>
+  return (
+    <div className="mx-auto w-full max-w-4xl p-4 md:p-8">
+      <ClientPage
+        client={client}
+        contacts={contacts ?? []}
+        jobs={jobs ?? []}
+        notes={notes}
+        salesTeam={salesTeam}
+        canChangeSalesPerson={profile.role === "admin"}
+      />
     </div>
   );
 }

@@ -30,19 +30,18 @@ export type ContactRow = {
 };
 export type JobOption = { id: string; job_number: string | null; name: string };
 
-export function ClientDetail({
+// The client's details as a form ("Edit details" on the client page).
+export function ClientEditForm({
   client,
-  contacts,
-  jobs,
   salesTeam,
   canChangeSalesPerson,
+  onDone,
 }: {
   client: ClientDetailRow;
-  contacts: ContactRow[];
-  jobs: JobOption[];
   salesTeam: { id: string; name: string }[];
   // Admins only - everyone else sees whose client it is.
   canChangeSalesPerson: boolean;
+  onDone: () => void;
 }) {
   const router = useRouter();
   const [name, setName] = useState(client.name);
@@ -70,7 +69,9 @@ export function ClientDetail({
       ...(canChangeSalesPerson ? { salesPersonId: salesPersonId || null } : {}),
     });
     setSaving(false);
-    if (result.error) setError(result.error);
+    if (result.error) return setError(result.error);
+    router.refresh();
+    onDone();
   }
 
   async function handleDeleteClient() {
@@ -172,16 +173,14 @@ export function ClientDetail({
             {error}
           </p>
         )}
-        <div className="mt-3">
+        <div className="mt-3 flex gap-2">
           <Button onClick={saveClient} disabled={saving}>
             {saving ? "Saving…" : "Save"}
           </Button>
+          <Button variant="secondary" onClick={onDone}>
+            Cancel
+          </Button>
         </div>
-      </div>
-
-      <div className="border-t border-line pt-6">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Contacts</h2>
-        <ContactsList clientId={client.id} contacts={contacts} jobs={jobs} />
       </div>
     </div>
   );
@@ -216,7 +215,7 @@ function ProjectSelect({
   );
 }
 
-function ContactsList({
+export function ContactsList({
   clientId,
   contacts,
   jobs,

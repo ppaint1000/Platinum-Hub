@@ -138,3 +138,30 @@ export async function deleteContactAction(id: string, clientId: string) {
   revalidatePath(`/clients/${clientId}`);
   return {};
 }
+
+// Notes on the client's Timeline.
+export async function addClientNoteAction(clientId: string, body: string) {
+  const supabase = await requireAppAccess("jobs");
+  if (!body.trim()) return { error: "Write a note first." };
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase
+    .from("client_notes")
+    .insert({ client_id: clientId, body: body.trim(), created_by: user?.id ?? null });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/clients/${clientId}`);
+  return {};
+}
+
+export async function deleteClientNoteAction(id: string, clientId: string) {
+  const supabase = await requireAppAccess("jobs");
+
+  const { error } = await supabase.from("client_notes").delete().eq("id", id);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/clients/${clientId}`);
+  return {};
+}
