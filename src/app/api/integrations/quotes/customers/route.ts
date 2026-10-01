@@ -6,6 +6,10 @@ type Body = {
   sourceCustomerId: string;
   name: string;
   notes?: string | null;
+  // Sent only when the Costing app has them - left alone when missing.
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
   // Who created/saved the customer in the Costing app: becomes the
   // client's salesperson if the client is new and they're on the sales team.
   createdByEmail?: string | null;
@@ -22,7 +26,7 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("clients")
-    .select("id, name, notes")
+    .select("id, name, notes, email, phone, address")
     .order("name");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -32,6 +36,9 @@ export async function GET(request: NextRequest) {
       sourceClientId: c.id,
       name: c.name,
       notes: c.notes,
+      email: c.email,
+      phone: c.phone,
+      address: c.address,
     })),
   });
 }
@@ -55,7 +62,10 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const fields = { name: body.name.trim(), notes: body.notes ?? null };
+  const fields: Record<string, string | null> = { name: body.name.trim(), notes: body.notes ?? null };
+  for (const key of ["email", "phone", "address"] as const) {
+    if (body[key] !== undefined) fields[key] = body[key]?.trim() || null;
+  }
 
   const { data: existing } = await admin
     .from("clients")

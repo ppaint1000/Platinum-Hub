@@ -12,7 +12,15 @@ import {
 import { Button } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
 
-export type ClientDetailRow = { id: string; name: string; notes: string | null; sales_person_id: string | null };
+export type ClientDetailRow = {
+  id: string;
+  name: string;
+  notes: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  sales_person_id: string | null;
+};
 export type ContactRow = {
   id: string;
   name: string;
@@ -39,6 +47,9 @@ export function ClientDetail({
   const router = useRouter();
   const [name, setName] = useState(client.name);
   const [notes, setNotes] = useState(client.notes ?? "");
+  const [email, setEmail] = useState(client.email ?? "");
+  const [phone, setPhone] = useState(client.phone ?? "");
+  const [address, setAddress] = useState(client.address ?? "");
   const [salesPersonId, setSalesPersonId] = useState(client.sales_person_id ?? "");
   const salesPersonName = client.sales_person_id
     ? salesTeam.find((p) => p.id === client.sales_person_id)?.name ?? "Former salesperson"
@@ -53,6 +64,9 @@ export function ClientDetail({
     const result = await updateClientAction(client.id, {
       name,
       notes,
+      email,
+      phone,
+      address,
       ...(canChangeSalesPerson ? { salesPersonId: salesPersonId || null } : {}),
     });
     setSaving(false);
@@ -92,6 +106,35 @@ export function ClientDetail({
           >
             {confirmingDelete ? "Confirm delete" : "Delete client"}
           </button>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-ink">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-ink">Phone</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
+            />
+          </div>
+        </div>
+        <div className="mt-3">
+          <label className="block text-sm font-medium text-ink">Address</label>
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
+          />
         </div>
         <div className="mt-3">
           <label className="block text-sm font-medium text-ink">Notes</label>

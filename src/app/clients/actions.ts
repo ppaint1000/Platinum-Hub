@@ -31,10 +31,23 @@ export async function createClientAction(input: { name: string; notes: string; s
 // enforces this too - see supabase/clients_sales_person.sql).
 export async function updateClientAction(
   id: string,
-  input: { name: string; notes: string; salesPersonId?: string | null }
+  input: {
+    name: string;
+    notes: string;
+    email: string;
+    phone: string;
+    address: string;
+    salesPersonId?: string | null;
+  }
 ) {
   const supabase = await requireAppAccess("jobs");
-  const update: Record<string, unknown> = { name: input.name, notes: input.notes || null };
+  const update: Record<string, unknown> = {
+    name: input.name,
+    notes: input.notes || null,
+    email: input.email.trim() || null,
+    phone: input.phone.trim() || null,
+    address: input.address.trim() || null,
+  };
   if (input.salesPersonId !== undefined) {
     if (!(await isAdmin(supabase))) return { error: "Only an admin can change a client's salesperson." };
     update.sales_person_id = input.salesPersonId || null;
@@ -46,6 +59,20 @@ export async function updateClientAction(
 
   revalidatePath("/clients");
   revalidatePath(`/clients/${id}`);
+  return {};
+}
+
+// Admins: set the salesperson on several clients at once (ticked on the
+// Clients table).
+export async function setClientsSalesPersonAction(ids: string[], salesPersonId: string | null) {
+  const supabase = await requireAppAccess("jobs");
+  if (!(await isAdmin(supabase))) return { error: "Only an admin can change a client's salesperson." };
+  if (ids.length === 0) return {};
+
+  const { error } = await supabase.from("clients").update({ sales_person_id: salesPersonId }).in("id", ids);
+  if (error) return { error: error.message };
+
+  revalidatePath("/clients");
   return {};
 }
 
