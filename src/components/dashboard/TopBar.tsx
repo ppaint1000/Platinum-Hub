@@ -21,6 +21,7 @@ import {
 import { SignOutButton } from "@/components/SignOutButton";
 import { MEASURES_URL } from "@/lib/measuresUrl";
 import { pendingAbsenceCount } from "@/lib/absences/check";
+import { hoursAlertCounts } from "@/lib/jobs/hoursApproval";
 import { NAVY } from "./parts";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; external?: boolean };
@@ -234,9 +235,13 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
   const breakpoint = breakpointFor(items);
   // Opening any admin page also runs the "who hasn't clocked in" check
   // (see lib/absences/check.ts).
-  const alerts: Alerts = isAdminBar
-    ? { "/absences": await pendingAbsenceCount() }
-    : {};
+  // Also: timesheet hours waiting to go on jobs (Jobs), and people with
+  // job hours but no hourly rate (Users).
+  let alerts: Alerts = {};
+  if (isAdminBar) {
+    const [absences, hours] = await Promise.all([pendingAbsenceCount(), hoursAlertCounts()]);
+    alerts = { "/absences": absences, "/jobs": hours.waiting, "/users": hours.noRate };
+  }
   const anyAlert = Object.values(alerts).some((n) => n > 0);
   return (
     <header className="sticky top-0 z-20 text-white shadow-sm" style={{ background: NAVY }}>

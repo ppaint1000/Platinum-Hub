@@ -176,6 +176,10 @@ export default async function JobDetailPage({
   );
 
   const hoursActual = jobTotals?.hours_actual ?? 0;
+  // Timesheet hours on this job that an admin hasn't approved yet - not in
+  // Labour or Hours until they are (see /jobs/hours).
+  const { data: hoursWaiting } = await supabase.rpc("job_hours_pending", { p_job_id: id });
+  const waitingHours = Number(hoursWaiting ?? 0);
   const quotedTotal = job.quoted_sell_total ?? 0;
   const rows = budgetRows ?? [];
   const {
@@ -336,6 +340,17 @@ export default async function JobDetailPage({
           value={job.quoted_hours != null ? `${hoursActual.toFixed(0)} / ${job.quoted_hours.toFixed(0)}` : hoursActual.toFixed(0)}
         />
       </div>
+
+      {waitingHours > 0 && (
+        <Link
+          href="/jobs/hours"
+          className="-mt-4 mb-8 flex flex-wrap items-center gap-x-3 rounded-lg border border-[#E5484D]/40 bg-[#FDECEC] px-4 py-3 text-sm hover:bg-[#FBE0E0]"
+        >
+          <span className="font-semibold text-ink">{waitingHours.toFixed(1)} timesheet hours waiting for approval</span>
+          <span className="text-ink-soft">Not in Labour or Hours until approved.</span>
+          <span className="ml-auto font-semibold text-accent">Approve →</span>
+        </Link>
+      )}
 
       <JobBudgetTable
         jobId={job.id}

@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { Panel } from "@/components/ui";
 import { UsersTable, type UserRow, type PayRate } from "@/components/users/UsersTable";
 import { NewUserForm } from "@/components/users/NewUserForm";
+import { loadNoRate, type NoRatePerson } from "@/lib/jobs/hoursApproval";
 
 type RateRow = {
   user_id: string;
@@ -57,6 +58,15 @@ export default async function UsersPage() {
   }
   const rows = (profiles ?? []).map((p) => ({ ...p, payRate: rateByUser.get(p.id) ?? null }));
 
+  // People with hours on jobs but no hourly rate for those days - their
+  // hours cost $0 on jobs until a rate is set (see Jobs → Hours to approve).
+  let noRate: NoRatePerson[] = [];
+  try {
+    noRate = await loadNoRate(supabase);
+  } catch {
+    // Not shown if it can't be worked out.
+  }
+
   return (
     // Wider than the other admin pages - the table has a dozen columns. On
     // screens narrower than that it scrolls sideways inside the Panel
@@ -79,6 +89,24 @@ export default async function UsersPage() {
         </div>
         <NewUserForm />
       </div>
+
+      {noRate.length > 0 && (
+        <div className="mb-4 rounded-lg border border-[#F2C94C] bg-[#FFF8E1] p-4 text-sm">
+          <p className="font-semibold text-ink">No hourly rate set</p>
+          <p className="mt-0.5 text-ink-soft">
+            These people have hours on jobs that cost $0 until you set their rate below with &ldquo;Set rate&rdquo;. A first
+            rate covers their past shifts too.
+          </p>
+          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            {noRate.map((p) => (
+              <li key={p.user_id}>
+                <span className="font-semibold">{p.person ?? "Unknown"}</span>{" "}
+                <span className="text-ink-soft">{p.hours.toFixed(1)} hrs on jobs</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <Panel className="overflow-x-auto p-4">
         <UsersTable users={rows} />

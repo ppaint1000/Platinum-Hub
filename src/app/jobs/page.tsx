@@ -9,6 +9,7 @@ import { JobsList, type JobListRow } from "@/components/jobs/JobsList";
 import { AddJobButton } from "@/components/jobs/AddJobButton";
 import { fetchSalesTeam, needsSalesPerson } from "@/lib/jobs/salesTeam";
 import { jobMargin } from "@/lib/jobs/margin";
+import { hoursAlertCounts } from "@/lib/jobs/hoursApproval";
 
 type JobStatus = "draft" | "quoted" | "won" | "in_progress" | "complete" | "lost";
 
@@ -72,7 +73,7 @@ function money(n: number) {
 export default async function JobsPage() {
   const supabase = await requireAppAccess("jobs");
 
-  const [{ data: jobs }, { data: totals }, { data: clients }, salesTeam] =
+  const [{ data: jobs }, { data: totals }, { data: clients }, salesTeam, hoursAlerts] =
     await Promise.all([
       supabase
         .from("jobs")
@@ -90,6 +91,7 @@ export default async function JobsPage() {
         .order("name")
         .returns<{ id: string; name: string }[]>(),
       fetchSalesTeam(supabase),
+      hoursAlertCounts(),
     ]);
 
   const rows = [...(jobs ?? [])].sort((a, b) => jobSortDate(b).localeCompare(jobSortDate(a)));
@@ -142,6 +144,9 @@ export default async function JobsPage() {
           Back to Hub
         </Link>
         <div className="flex items-center gap-4">
+          <Link href="/jobs/hours" className="text-sm font-medium text-accent hover:text-accent-hover">
+            Hours to approve
+          </Link>
           <Link
             href="/jobs/lost-report"
             className="text-sm font-medium text-accent hover:text-accent-hover"
@@ -158,6 +163,25 @@ export default async function JobsPage() {
       </div>
 
       <h1 className="mb-2 text-3xl font-bold text-ink">Jobs</h1>
+      {(hoursAlerts.waiting > 0 || hoursAlerts.noRate > 0) && (
+        <Link
+          href="/jobs/hours"
+          className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-[#E5484D]/40 bg-[#FDECEC] px-4 py-3 text-sm hover:bg-[#FBE0E0]"
+        >
+          <span className="font-semibold text-ink">Hours to approve</span>
+          {hoursAlerts.waiting > 0 && (
+            <span className="text-ink-soft">
+              {hoursAlerts.waiting} painter-week{hoursAlerts.waiting === 1 ? "" : "s"} of timesheet hours waiting
+            </span>
+          )}
+          {hoursAlerts.noRate > 0 && (
+            <span className="text-ink-soft">
+              · {hoursAlerts.noRate} {hoursAlerts.noRate === 1 ? "person has" : "people have"} no hourly rate
+            </span>
+          )}
+          <span className="ml-auto font-semibold text-accent">Review →</span>
+        </Link>
+      )}
       <div className="mb-6">
         <AddJobButton
           clients={clients ?? []}
