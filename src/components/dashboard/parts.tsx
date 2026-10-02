@@ -212,6 +212,21 @@ export function WinRings({
 }
 
 // Page frame: top bar, date and title, then the page's sections.
+// The app-wide colour tokens (buttons, borders, text) switched to the
+// dashboard colours, so shared pieces used inside a dashboard page (forms,
+// buttons) match it.
+const DASHBOARD_THEME = {
+  "--color-ink": "#16202E",
+  "--color-ink-soft": "#5B6472",
+  "--color-ink-faint": "#8A919C",
+  "--color-line": "#E3E1DA",
+  "--color-paper-raised": "#FFFFFF",
+  "--color-paper-sunken": "#ECEAE3",
+  "--color-accent": BLUE,
+  "--color-accent-hover": "#183E70",
+  "--color-accent-soft": "#E3ECF8",
+} as React.CSSProperties;
+
 export function DashboardShell({
   fontClass,
   topBar,
@@ -228,6 +243,7 @@ export function DashboardShell({
   return (
     <div
       className={`${fontClass} flex min-h-screen flex-col bg-[#F5F4F0] text-[#16202E] [font-family:var(--font-body)] [font-variant-numeric:tabular-nums]`}
+      style={DASHBOARD_THEME}
     >
       {topBar}
 

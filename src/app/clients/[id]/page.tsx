@@ -5,6 +5,10 @@ import { ClientPage, type ClientJob, type ClientNote, type ClientPageRow } from 
 import type { ContactRow } from "@/components/clients/ClientDetail";
 import { fetchSalesTeam } from "@/lib/jobs/salesTeam";
 import { getCurrentProfile } from "@/lib/supabase/profile";
+import { DashboardShell } from "@/components/dashboard/parts";
+import { ADMIN_NAV, TopBar } from "@/components/dashboard/TopBar";
+import { dashboardFontClass } from "@/components/dashboard/fonts";
+import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 type NoteRow = {
   id: string;
@@ -62,7 +66,12 @@ export default async function ClientDetailPage({
   }));
 
   return (
-    <div className="mx-auto w-full max-w-4xl p-4 md:p-8">
+    <DashboardShell
+      fontClass={dashboardFontClass}
+      topBar={<TopBar items={ADMIN_NAV} activeHref="/clients" />}
+      todayKey={nzTodayDateString()}
+      title={client.name}
+    >
       <ClientPage
         client={client}
         contacts={contacts ?? []}
@@ -71,6 +80,6 @@ export default async function ClientDetailPage({
         salesTeam={salesTeam}
         canChangeSalesPerson={profile.role === "admin"}
       />
-    </div>
+    </DashboardShell>
   );
 }

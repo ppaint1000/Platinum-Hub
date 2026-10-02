@@ -43,7 +43,7 @@ export default async function DriverFuelLogPage() {
     ? await createAdminClient()
         .from("jobs")
         .select("id, job_number, name, client:clients(name)")
-        .in("status", ["won", "in_progress"])
+        .in("status", ["won", "scheduled", "in_progress"])
         .order("name")
         .returns<{ id: string; job_number: string | null; name: string; client: { name: string } | null }[]>()
     : { data: [] };

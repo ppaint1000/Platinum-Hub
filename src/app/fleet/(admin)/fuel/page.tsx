@@ -57,7 +57,7 @@ export default async function FuelLogPage() {
         supabase
           .from("jobs")
           .select("id, job_number, name, client:clients(name)")
-          .in("status", ["won", "in_progress"])
+          .in("status", ["won", "scheduled", "in_progress"])
           .order("name")
           .returns<JobRow[]>(),
       ])

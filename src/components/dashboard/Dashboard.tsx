@@ -106,7 +106,7 @@ function Headlines({ data }: { data: DashboardData }) {
 
 function JobStatus({ job }: { job: DashboardJob }) {
   if (job.overHours) return <Pill level="alert">Over hours</Pill>;
-  return <Pill level="ok">{job.status === "won" ? "Won" : "In progress"}</Pill>;
+  return <Pill level="ok">{job.status === "won" ? "To be scheduled" : job.status === "scheduled" ? "Scheduled" : "In progress"}</Pill>;
 }
 
 function JobMargin({ job }: { job: DashboardJob }) {

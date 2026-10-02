@@ -1,12 +1,14 @@
 // Clients — customer/contact details for Jobs, as a table (see ClientsList).
 // Shares the Jobs app-access flag; has its own Hub tile too.
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { ClientsList, type ClientRow } from "@/components/clients/ClientsList";
 import { fetchSalesTeam } from "@/lib/jobs/salesTeam";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import { isWon, type JobStatus } from "@/lib/clients/winRate";
+import { DashboardShell } from "@/components/dashboard/parts";
+import { ADMIN_NAV, TopBar } from "@/components/dashboard/TopBar";
+import { dashboardFontClass } from "@/components/dashboard/fonts";
+import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 type Row = Omit<ClientRow, "contactCount" | "quoteCount" | "wonCount" | "wonValue"> & {
   client_contacts: { count: number }[];
@@ -42,31 +44,18 @@ export default async function ClientsPage() {
   });
 
   return (
-    <div className="mx-auto w-full max-w-7xl p-4 md:p-8">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <Link
-          href="/hub"
-          className="flex items-center gap-1.5 text-sm font-medium text-ink-soft transition hover:text-ink"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to Hub
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link href="/clients/dashboard" className="text-sm font-medium text-accent hover:text-accent-hover">
-            Dashboard
-          </Link>
-          <Link href="/clients/report" className="text-sm font-medium text-accent hover:text-accent-hover">
-            Win rate report
-          </Link>
-        </div>
-      </div>
-
+    <DashboardShell
+      fontClass={dashboardFontClass}
+      topBar={<TopBar items={ADMIN_NAV} activeHref="/clients" />}
+      todayKey={nzTodayDateString()}
+      title="Clients"
+    >
       <ClientsList
         clients={clients}
         salesTeam={salesTeam}
         currentUserId={profile.id}
         isAdmin={profile.role === "admin"}
       />
-    </div>
+    </DashboardShell>
   );
 }

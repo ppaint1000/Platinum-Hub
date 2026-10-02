@@ -11,12 +11,13 @@ import { addClientNoteAction, deleteClientNoteAction } from "@/app/clients/actio
 import { ClientEditForm, ContactsList, type ClientDetailRow, type ContactRow } from "./ClientDetail";
 import { Button } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
+import { isWonStatus, type JobStatus } from "@/lib/jobs/status";
 
 export type ClientJob = {
   id: string;
   job_number: string | null;
   name: string;
-  status: "draft" | "quoted" | "won" | "in_progress" | "complete" | "lost";
+  status: JobStatus;
   quoted_sell_total: number | null;
   quoted_at: string | null;
   won_at: string | null;
@@ -34,19 +35,26 @@ export type ClientJob = {
 export type ClientNote = { id: string; body: string; created_at: string; author: string | null };
 export type ClientPageRow = ClientDetailRow & { created_at: string; updated_at: string };
 
-const NAVY = "#2E3A4F";
+// Dashboard colours (components/dashboard/parts.tsx).
+const NAVY = "#16202E";
+const RED = "#B91C1C";
+const GREY = "#5B6472";
 const BLUE = "#1F4E8C";
 const TZ = "Pacific/Auckland";
 
 const STATUS: Record<ClientJob["status"], { label: string; bg: string; fg: string }> = {
-  draft: { label: "Draft", bg: "#EEF0F3", fg: "#5B6472" },
-  quoted: { label: "Quoted", bg: "#E8EFF8", fg: BLUE },
-  won: { label: "Won", bg: "#E6F4EC", fg: "#1B7F4B" },
-  in_progress: { label: "In progress", bg: "#E6F4EC", fg: "#1B7F4B" },
-  complete: { label: "Complete", bg: "#E6F4EC", fg: "#1B7F4B" },
-  lost: { label: "Lost", bg: "#FCEBEA", fg: "#B42318" },
+  draft: { label: "Draft", bg: "#ECEAE3", fg: "#3F4753" },
+  quoted: { label: "Quoted", bg: "#ECEAE3", fg: "#3F4753" },
+  on_hold: { label: "On hold", bg: "#ECEAE3", fg: "#3F4753" },
+  won: { label: "Won · to be scheduled", bg: "#E3ECF8", fg: "#163A69" },
+  scheduled: { label: "Scheduled", bg: "#E3ECF8", fg: "#163A69" },
+  in_progress: { label: "In progress", bg: "#E3ECF8", fg: "#163A69" },
+  complete: { label: "Complete", bg: "#E3ECF8", fg: "#163A69" },
+  invoiced: { label: "Invoiced", bg: "#E3ECF8", fg: "#163A69" },
+  paid: { label: "Paid", bg: "#E3ECF8", fg: "#163A69" },
+  lost: { label: "Lost", bg: RED, fg: "#FFFFFF" },
 };
-const isWon = (s: ClientJob["status"]) => s === "won" || s === "in_progress" || s === "complete";
+const isWon = (s: ClientJob["status"]) => isWonStatus(s);
 
 const money = (n: number) => "$" + n.toLocaleString("en-NZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 // Plain dates (quoted, lost) are a day, not a moment - midday NZ that day.
@@ -86,12 +94,12 @@ function buildTimeline(client: ClientPageRow, jobs: ClientJob[], notes: ClientNo
 
 const EVENT_COLOR: Record<Event["kind"], string> = {
   note: NAVY,
-  quoted: "#5B6472",
-  sent: "#5B6472",
+  quoted: GREY,
+  sent: GREY,
   opened: BLUE,
-  accepted: "#1B7F4B",
-  won: "#1B7F4B",
-  lost: "#B42318",
+  accepted: BLUE,
+  won: BLUE,
+  lost: RED,
   created: "#5B6472",
 };
 
@@ -141,7 +149,7 @@ export function ClientPage({
 
   const actionBtn =
     "flex h-11 w-11 items-center justify-center rounded-lg text-white transition hover:opacity-90";
-  const disabledBtn = "flex h-11 w-11 items-center justify-center rounded-lg bg-[#C9CED8] text-white";
+  const disabledBtn = "flex h-11 w-11 items-center justify-center rounded-lg bg-[#C9CDD3] text-white";
 
   return (
     <div className="flex flex-col gap-5">
@@ -156,7 +164,6 @@ export function ClientPage({
 
       {/* Name and quick actions */}
       <div className="flex flex-col items-center gap-4 text-center">
-        <h1 className="text-3xl font-bold text-ink">{client.name}</h1>
         <div className="flex items-center gap-3">
           {client.address ? (
             <a
@@ -200,7 +207,7 @@ export function ClientPage({
               aria-expanded={plusOpen}
               aria-label="Add"
               title="Add"
-              className="flex h-11 w-11 items-center justify-center rounded-lg border-2 bg-white transition hover:bg-[#F1F5FB]"
+              className="flex h-11 w-11 items-center justify-center rounded-lg border-2 bg-white transition hover:bg-[#E3ECF8]"
               style={{ borderColor: BLUE, color: BLUE }}
             >
               <Plus className="h-5 w-5" />
@@ -219,7 +226,7 @@ export function ClientPage({
                       setPlusOpen(false);
                       item.go();
                     }}
-                    className="block w-full rounded-md px-3 py-2 text-left hover:bg-[#F1F2F5]"
+                    className="block w-full rounded-md px-3 py-2 text-left hover:bg-[#F5F4F0]"
                   >
                     {item.label}
                   </button>
@@ -259,7 +266,7 @@ export function ClientPage({
           { label: "Win rate", value: winRate === null ? "—" : `${winRate}%` },
           { label: "Won $", value: wonValue > 0 ? "$" + Math.round(wonValue).toLocaleString("en-NZ") : "—" },
         ].map((f) => (
-          <div key={f.label} className="rounded-lg border border-line bg-paper-raised px-3 py-2 text-center">
+          <div key={f.label} className="rounded-xl border border-line bg-paper-raised px-3 py-2 text-center">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">{f.label}</p>
             <p className="text-lg font-bold text-ink">{f.value}</p>
           </div>
@@ -267,7 +274,7 @@ export function ClientPage({
       </div>
 
       {view === "overview" ? (
-        <div className="rounded-lg border border-line bg-paper-raised">
+        <div className="rounded-xl border border-line bg-paper-raised">
           <div className="flex flex-wrap gap-2 border-b border-line p-3" role="tablist">
             {(
               [
@@ -283,7 +290,7 @@ export function ClientPage({
                 aria-selected={tab === k}
                 onClick={() => setTab(k)}
                 className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                  tab === k ? "text-white" : "bg-[#EEF0F3] text-ink hover:bg-[#E3E6EB]"
+                  tab === k ? "text-white" : "border border-line bg-white text-ink hover:bg-[#F5F4F0]"
                 }`}
                 style={tab === k ? { background: BLUE } : undefined}
               >
@@ -384,7 +391,7 @@ function DetailRow({
           onClick={doCopy}
           title={copied ? "Copied" : `Copy ${label.toLowerCase()}`}
           aria-label={copied ? "Copied" : `Copy ${label.toLowerCase()}`}
-          className="shrink-0 rounded p-1.5 text-ink-faint hover:bg-[#F1F2F5] hover:text-ink"
+          className="shrink-0 rounded p-1.5 text-ink-faint hover:bg-[#F5F4F0] hover:text-ink"
         >
           {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
         </button>
@@ -494,7 +501,7 @@ function Timeline({
   }
 
   return (
-    <div className="rounded-lg border border-line bg-paper-raised">
+    <div className="rounded-xl border border-line bg-paper-raised">
       <div className="flex flex-wrap gap-2 border-b border-line p-3" role="tablist">
         {(
           [
@@ -509,7 +516,7 @@ function Timeline({
             aria-selected={filter === k}
             onClick={() => setFilter(k)}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-              filter === k ? "text-white" : "bg-[#EEF0F3] text-ink hover:bg-[#E3E6EB]"
+              filter === k ? "text-white" : "border border-line bg-white text-ink hover:bg-[#F5F4F0]"
             }`}
             style={filter === k ? { background: BLUE } : undefined}
           >
@@ -557,7 +564,7 @@ function Timeline({
                         aria-hidden
                       />
                       {e.kind === "note" && e.note ? (
-                        <div className="rounded-md bg-[#F5F6F8] px-3 py-2">
+                        <div className="rounded-md bg-[#F5F4F0] px-3 py-2">
                           <div className="flex items-start justify-between gap-2">
                             <p className="whitespace-pre-wrap text-sm text-ink">{e.note.body}</p>
                             <button

@@ -238,7 +238,14 @@ export function ClientsList({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-ink">Clients</h1>
+        <div className="flex items-center gap-4 text-sm font-medium">
+          <Link href="/clients/dashboard" className="text-accent hover:underline">
+            Dashboard
+          </Link>
+          <Link href="/clients/report" className="text-accent hover:underline">
+            Win rate report
+          </Link>
+        </div>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -252,7 +259,7 @@ export function ClientsList({
       {open && (
         <form
           onSubmit={handleSubmit}
-          className="grid gap-3 rounded-lg border border-line bg-paper-raised p-4 sm:grid-cols-2"
+          className="grid gap-3 rounded-xl border border-line bg-paper-raised p-4 sm:grid-cols-2"
         >
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-ink">Name</span>
@@ -300,7 +307,7 @@ export function ClientsList({
       )}
 
       {/* Search and filter */}
-      <div className="rounded-lg border border-line bg-paper-raised p-3">
+      <div className="rounded-xl border border-line bg-paper-raised p-3">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
@@ -353,7 +360,7 @@ export function ClientsList({
 
       {/* Ticked clients (admins) */}
       {isAdmin && selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#1F4E8C]/30 bg-[#EEF3FA] px-3 py-2 text-sm">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#9DB6D9] bg-[#E3ECF8] px-3 py-2 text-sm">
           <span className="font-semibold">{selected.size} ticked</span>
           <span className="text-ink-soft">· set salesperson to</span>
           <select
@@ -385,10 +392,10 @@ export function ClientsList({
 
       {/* The table */}
       {/* Not overflow-hidden, so the Columns menu is never cut off. */}
-      <div className="relative rounded-lg border border-line bg-paper-raised">
+      <div className="relative rounded-xl border border-line bg-paper-raised">
         <div className="overflow-x-auto rounded-t-lg">
           <table className="w-full border-collapse text-sm">
-            <thead className="bg-[#2E3A4F] text-white">
+            <thead className="bg-[#16202E] text-white">
               <tr>
                 {isAdmin && (
                   <th className="w-10 px-3 py-3">
@@ -433,7 +440,7 @@ export function ClientsList({
                 <tr
                   key={c.id}
                   onClick={() => router.push(`/clients/${c.id}`)}
-                  className={`cursor-pointer border-t border-line hover:bg-[#F5F7FA] ${selected.has(c.id) ? "bg-[#EEF3FA]" : ""}`}
+                  className={`cursor-pointer border-t border-line hover:bg-[#F5F7FA] ${selected.has(c.id) ? "bg-[#E3ECF8]" : ""}`}
                 >
                   {isAdmin && (
                     <td className={td} onClick={(e) => e.stopPropagation()}>
@@ -501,11 +508,11 @@ export function ClientsList({
                     >
                       {c.label}
                       {on ? (
-                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#2E3A4F] text-white">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#16202E] text-white">
                           <Check className="h-3 w-3" />
                         </span>
                       ) : (
-                        <span className="h-4 w-4 rounded-full border-2 border-[#2E3A4F]" />
+                        <span className="h-4 w-4 rounded-full border-2 border-[#16202E]" />
                       )}
                     </button>
                   </li>

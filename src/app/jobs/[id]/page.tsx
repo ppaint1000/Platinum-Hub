@@ -23,13 +23,14 @@ import { JobBudgetTable, type CategoryBudgetRow } from "@/components/jobs/JobBud
 import { fetchSalesTeam, needsSalesPerson } from "@/lib/jobs/salesTeam";
 import { AssignSalesPersonBanner } from "@/components/jobs/AssignSalesPersonBanner";
 import { jobMargin } from "@/lib/jobs/margin";
+import type { JobStatus } from "@/lib/jobs/status";
 
 type JobRow = {
   id: string;
   job_number: string | null;
   name: string;
   description: string | null;
-  status: "draft" | "quoted" | "won" | "in_progress" | "complete" | "lost";
+  status: JobStatus;
   quoted_sell_total: number | null;
   quoted_hours: number | null;
   lead_by: string | null;
@@ -293,13 +294,13 @@ export default async function JobDetailPage({
             clients={clients ?? []}
             leadOptions={(leadUsers ?? []).map((u) => ({ id: u.id, name: u.full_name }))}
           />
-          {(job.status === "draft" || job.status === "quoted") && (
+          {(job.status === "draft" || job.status === "quoted" || job.status === "on_hold") && (
             <>
               <MarkAsWonButton jobId={job.id} />
               <MarkAsLostButton jobId={job.id} lostToOptions={lostToOptions} />
             </>
           )}
-          {job.status === "won" && <MarkAsInProgressButton jobId={job.id} />}
+          {(job.status === "won" || job.status === "scheduled") && <MarkAsInProgressButton jobId={job.id} />}
           {job.status === "in_progress" && <MarkAsCompleteButton jobId={job.id} />}
           <JobStatusControl
             jobId={job.id}

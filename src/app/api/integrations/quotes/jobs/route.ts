@@ -49,6 +49,16 @@ export async function POST(request: NextRequest) {
     clientId = client?.id ?? null;
   }
 
+  // A job that has moved past quoting (won, in production, on hold, lost)
+  // keeps its status - re-saving the costing never moves it back. The
+  // Production board and admins move it from there.
+  const { data: existing } = await admin
+    .from("jobs")
+    .select("status")
+    .eq("source_quote_id", body.sourceQuoteId)
+    .maybeSingle<{ status: string }>();
+  const keepStatus = !!existing && existing.status !== "draft" && existing.status !== "quoted";
+
   const { data, error } = await admin
     .from("jobs")
     .upsert(
@@ -56,7 +66,7 @@ export async function POST(request: NextRequest) {
         source_quote_id: body.sourceQuoteId,
         client_id: clientId,
         name: body.name.trim(),
-        status: mapQuoteStatusToJobStatus(body.status),
+        ...(keepStatus ? {} : { status: mapQuoteStatusToJobStatus(body.status) }),
         quoted_sell_total: body.quotedSellTotal,
         quoted_hours: body.quotedHours,
         quoted_at: body.quotedAt ?? null,

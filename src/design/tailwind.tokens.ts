@@ -28,6 +28,10 @@ export const platinumTokens = {
       inProgress: "#3F7D58", // forest green — active, healthy
       complete: "#4A544F", // settled graphite — done, filed
       lost: "#8A938E", // grey — did not proceed
+      onHold: "#8A6D3B", // muted ochre — quote gone quiet
+      scheduled: "#1F4E8C", // blue — booked in
+      invoiced: "#6B4FA0", // purple — billed, awaiting payment
+      paid: "#3F7D58", // green — money in
       overBudget: "#B33F3F", // brick — needs attention
     },
   },
@@ -41,6 +45,10 @@ export const jobStatusColor: Record<string, string> = {
   in_progress: platinumTokens.colors.status.inProgress,
   complete: platinumTokens.colors.status.complete,
   lost: platinumTokens.colors.status.lost,
+  on_hold: platinumTokens.colors.status.onHold,
+  scheduled: platinumTokens.colors.status.scheduled,
+  invoiced: platinumTokens.colors.status.invoiced,
+  paid: platinumTokens.colors.status.paid,
 };
 
 export const jobStatusLabel: Record<string, string> = {
@@ -50,6 +58,10 @@ export const jobStatusLabel: Record<string, string> = {
   in_progress: "In progress",
   complete: "Complete",
   lost: "Lost",
+  on_hold: "On hold",
+  scheduled: "Scheduled",
+  invoiced: "Invoiced",
+  paid: "Paid",
 };
 
 export const overBudgetColor = platinumTokens.colors.status.overBudget;

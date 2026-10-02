@@ -7,6 +7,8 @@ import {
   CalendarX,
   ChevronDown,
   Clock,
+  Kanban,
+  Receipt,
   Contact,
   LayoutDashboard,
   LayoutGrid,
@@ -22,6 +24,7 @@ import { SignOutButton } from "@/components/SignOutButton";
 import { MEASURES_URL } from "@/lib/measuresUrl";
 import { pendingAbsenceCount } from "@/lib/absences/check";
 import { hoursAlertCounts } from "@/lib/jobs/hoursApproval";
+import { readyToInvoiceCount, runAutoOnHold } from "@/lib/jobs/production";
 import { NAVY } from "./parts";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; external?: boolean };
@@ -31,6 +34,8 @@ export type NavItem = { href: string; label: string; icon: LucideIcon; external?
 export const ADMIN_NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/production", label: "Production", icon: Kanban },
+  { href: "/jobs/invoices", label: "Invoices", icon: Receipt },
   { href: "/timesheets/admin", label: "Timesheets", icon: Clock },
   { href: "/absences", label: "Absences", icon: CalendarX },
   { href: "/clients", label: "Clients", icon: Contact },
@@ -217,13 +222,15 @@ const BREAKPOINTS = {
   md: { row: "hidden px-8 md:block", menu: "group px-4 py-2.5 md:hidden" },
   lg: { row: "hidden px-8 lg:block", menu: "group px-4 py-2.5 lg:hidden" },
   xl: { row: "hidden px-8 xl:block", menu: "group px-4 py-2.5 xl:hidden" },
+  "2xl": { row: "hidden px-8 2xl:block", menu: "group px-4 py-2.5 2xl:hidden" },
 };
 
 function breakpointFor(items: NavItem[]) {
   const tabs = items.filter((item) => !item.external).length + (items.some((item) => item.external) ? 1 : 0);
   if (tabs <= 5) return BREAKPOINTS.md;
   if (tabs <= 8) return BREAKPOINTS.lg;
-  return BREAKPOINTS.xl;
+  if (tabs <= 11) return BREAKPOINTS.xl;
+  return BREAKPOINTS["2xl"];
 }
 
 export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHref: string }) {
@@ -239,15 +246,21 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
   // job hours but no hourly rate (Users).
   let alerts: Alerts = {};
   if (isAdminBar) {
-    const [absences, hours] = await Promise.all([pendingAbsenceCount(), hoursAlertCounts()]);
-    alerts = { "/absences": absences, "/jobs": hours.waiting, "/users": hours.noRate };
+    // Quotes undecided for 8 months go On Hold before anything is counted.
+    await runAutoOnHold();
+    const [absences, hours, toInvoice] = await Promise.all([
+      pendingAbsenceCount(),
+      hoursAlertCounts(),
+      readyToInvoiceCount(),
+    ]);
+    alerts = { "/absences": absences, "/jobs": hours.waiting, "/users": hours.noRate, "/production": toInvoice };
   }
   const anyAlert = Object.values(alerts).some((n) => n > 0);
   return (
     <header className="sticky top-0 z-20 text-white shadow-sm" style={{ background: NAVY }}>
       {/* Wide enough for the row of tabs */}
       <div className={breakpoint.row}>
-        <div className="mx-auto flex h-16 max-w-6xl items-stretch gap-6">
+        <div className="mx-auto flex h-16 max-w-6xl 2xl:max-w-[92rem] items-stretch gap-6">
           <div className="flex items-center">
             <Logo href={home} className="w-28" />
           </div>

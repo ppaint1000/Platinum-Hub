@@ -265,7 +265,7 @@ export async function loadDashboard(supabase: SupabaseClient): Promise<Dashboard
   let marginQuoted = 0;
   let marginProfit = 0;
   const activeJobs: DashboardJob[] = jobs
-    .filter((j) => j.status === "won" || j.status === "in_progress")
+    .filter((j) => j.status === "won" || j.status === "scheduled" || j.status === "in_progress")
     .map((j) => {
       const t = totalsByJob.get(j.id);
       const quoted = Number(j.quoted_sell_total ?? 0);

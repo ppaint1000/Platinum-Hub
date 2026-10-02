@@ -10,9 +10,13 @@ import { ConfirmDialog } from "@/components/orders/ConfirmDialog";
 const STATUS_OPTIONS = [
   { value: "draft", label: "Draft" },
   { value: "quoted", label: "Quoted" },
-  { value: "won", label: "Won" },
+  { value: "on_hold", label: "On hold" },
+  { value: "won", label: "Won (to be scheduled)" },
+  { value: "scheduled", label: "Scheduled" },
   { value: "in_progress", label: "In progress" },
   { value: "complete", label: "Complete" },
+  { value: "invoiced", label: "Invoiced" },
+  { value: "paid", label: "Paid" },
   { value: "lost", label: "Lost" },
 ] as const;
 

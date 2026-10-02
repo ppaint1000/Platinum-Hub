@@ -14,9 +14,10 @@ export function periodStart(period: Period): Date {
   return new Date(now.getFullYear(), 0, 1);
 }
 
-export type JobStatus = "draft" | "quoted" | "won" | "in_progress" | "complete" | "lost";
+import { isWonStatus, type JobStatus } from "@/lib/jobs/status";
+export type { JobStatus };
 
-export const isWon = (status: JobStatus) => status === "won" || status === "in_progress" || status === "complete";
+export const isWon = (status: JobStatus) => isWonStatus(status);
 
 // A quote is in the period if it was decided (won/lost) in it, or - still
 // undecided - quoted in it.

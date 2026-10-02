@@ -125,7 +125,7 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
     supabase
       .from("jobs")
       .select("id, name, job_number")
-      .in("status", ["won", "in_progress"])
+      .in("status", ["won", "scheduled", "in_progress"])
       .order("won_at", { ascending: false })
       .then(({ data }) => {
         setJobOptions(data ?? []);

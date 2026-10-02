@@ -163,6 +163,11 @@ export default async function ClockPage() {
             Dashboard
           </Link>
         )}
+        {(profile.role === "admin" || profile.role === "supervisor") && (
+          <Link href="/production" className={pillClass}>
+            Production
+          </Link>
+        )}
         <Link href="/timesheets/timesheet" className={pillClass}>
           My Timesheet
         </Link>

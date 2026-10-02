@@ -13,10 +13,14 @@ import {
   TrendingUp,
   LayoutDashboard,
   CalendarX,
+  Receipt,
+  Kanban,
+  AlertTriangle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/SignOutButton";
 import { MEASURES_URL } from "@/lib/measuresUrl";
+import { readyToInvoiceCount, runAutoOnHold } from "@/lib/jobs/production";
 
 type AppAccess = {
   timesheets: boolean;
@@ -47,6 +51,14 @@ export default async function HubPage() {
 
   const firstName = profile?.full_name?.split(" ")[0] ?? "there";
   const isAdmin = profile?.role === "admin";
+  const isSupervisor = profile?.role === "supervisor";
+  // Admins: quotes gone quiet for 8 months go On Hold, and jobs at Job
+  // completed are flagged here to invoice.
+  let toInvoice = 0;
+  if (isAdmin) {
+    await runAutoOnHold();
+    toInvoice = await readyToInvoiceCount();
+  }
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
@@ -74,6 +86,20 @@ export default async function HubPage() {
           Everything for the business, in one place.
         </p>
       </div>
+
+      {toInvoice > 0 && (
+        <Link
+          href="/production"
+          role="alert"
+          className="mt-6 flex items-center gap-3 rounded-xl bg-[#B91C1C] px-4 py-3 text-sm text-white hover:bg-[#991B1B]"
+        >
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          <span className="font-semibold">
+            {toInvoice} job{toInvoice === 1 ? "" : "s"} completed - ready to invoice
+          </span>
+          <span className="ml-auto font-semibold underline underline-offset-2">Production →</span>
+        </Link>
+      )}
 
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
         {isAdmin && (
@@ -122,6 +148,22 @@ export default async function HubPage() {
             icon={<Briefcase className="h-5 w-5" />}
             title="Jobs"
             description="Pipeline, budgets, and budget-vs-actual by job."
+          />
+        )}
+        {(isAdmin || isSupervisor) && (
+          <AppTile
+            href="/production"
+            icon={<Kanban className="h-5 w-5" />}
+            title="Production"
+            description="Won jobs from To be scheduled through to Paid."
+          />
+        )}
+        {(isAdmin || access?.jobs) && (
+          <AppTile
+            href="/jobs/invoices"
+            icon={<Receipt className="h-5 w-5" />}
+            title="Supplier invoices"
+            description="Upload supplier invoices and put their lines against jobs."
           />
         )}
         {(isAdmin || access?.jobs) && (

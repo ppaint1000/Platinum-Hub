@@ -10,8 +10,9 @@ import { AddJobButton } from "@/components/jobs/AddJobButton";
 import { fetchSalesTeam, needsSalesPerson } from "@/lib/jobs/salesTeam";
 import { jobMargin } from "@/lib/jobs/margin";
 import { hoursAlertCounts } from "@/lib/jobs/hoursApproval";
+import { runAutoOnHold } from "@/lib/jobs/production";
 
-type JobStatus = "draft" | "quoted" | "won" | "in_progress" | "complete" | "lost";
+import type { JobStatus } from "@/lib/jobs/status";
 
 type JobRow = {
   id: string;
@@ -72,6 +73,8 @@ function money(n: number) {
 
 export default async function JobsPage() {
   const supabase = await requireAppAccess("jobs");
+  // Quotes undecided for 8 months go On Hold before the list is read.
+  await runAutoOnHold();
 
   const [{ data: jobs }, { data: totals }, { data: clients }, salesTeam, hoursAlerts] =
     await Promise.all([
@@ -152,12 +155,6 @@ export default async function JobsPage() {
             className="text-sm font-medium text-accent hover:text-accent-hover"
           >
             Lost to report
-          </Link>
-          <Link
-            href="/jobs/invoices"
-            className="text-sm font-medium text-accent hover:text-accent-hover"
-          >
-            Supplier invoices
           </Link>
         </div>
       </div>

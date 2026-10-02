@@ -6,7 +6,7 @@ import { AlertTriangle, Search } from "lucide-react";
 import { Panel, StatusRow, StatusLabel, Money } from "@/components/ui";
 import { jobStatusLabel } from "@/design/tailwind.tokens";
 
-type JobStatus = "draft" | "quoted" | "won" | "in_progress" | "complete" | "lost";
+import type { JobStatus } from "@/lib/jobs/status";
 
 export type JobListRow = {
   id: string;
@@ -33,7 +33,7 @@ export type JobListRow = {
 // Fixed order the user actually asked for; "draft" only shows up as a tab
 // when there's at least one (it's a rare transient state, not part of the
 // normal pipeline).
-const STAGE_TABS: JobStatus[] = ["quoted", "won", "in_progress", "complete", "lost"];
+const STAGE_TABS: JobStatus[] = ["quoted", "on_hold", "won", "scheduled", "in_progress", "complete", "invoiced", "paid", "lost"];
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-NZ", { day: "2-digit", month: "short", year: "numeric" });
