@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { daysUntil, fmtDate, fmtMoney } from "@/lib/fleet/format";
 import { missingFuelNumbers } from "@/lib/fleet/missingNumbers";
 import { SERVICE_INTERVAL_KM, nextServiceFor, type NextService } from "@/lib/fleet/nextService";
+import { fleetUsage } from "@/lib/fleet/usage";
+import { UsageRings } from "@/components/fleet/UsageRings";
 
 type Vehicle = {
   id: string;
@@ -183,6 +185,12 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
   const avgEconomy =
     economies.length > 0 ? economies.reduce((a, b) => a + b, 0) / economies.length : null;
 
+  // Km per month and L/100km for each vehicle against the fleet average.
+  const usage = fleetUsage(
+    vList.map((v) => v.id),
+    fList
+  );
+
   const activity = [
     ...fList.map((f) => ({ type: "fuel" as const, date: f.created_at, rec: f })),
     ...sList.map((s) => ({ type: "service" as const, date: s.created_at, rec: s })),
@@ -223,6 +231,8 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
       </div>
 
       <NextServiceSection services={services} />
+
+      <UsageRings vehicles={vList} usage={usage} />
 
       <div className="mt-6 rounded-xl border border-border bg-surface shadow-sm">
         <div className="border-b border-border px-5 py-3.5">
