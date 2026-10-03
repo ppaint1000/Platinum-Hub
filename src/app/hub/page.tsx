@@ -15,6 +15,7 @@ import {
   CalendarX,
   Receipt,
   Kanban,
+  PieChart,
   AlertTriangle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -180,6 +181,14 @@ export default async function HubPage() {
             icon={<TrendingUp className="h-5 w-5" />}
             title="Sales"
             description="Quoted and won $ by salesperson, against a monthly budget."
+          />
+        )}
+        {isAdmin && (
+          <AppTile
+            href="/reports"
+            icon={<PieChart className="h-5 w-5" />}
+            title="Reports"
+            description="Sales, jobs, production and activity reports with charts and export."
           />
         )}
         {isAdmin && (
