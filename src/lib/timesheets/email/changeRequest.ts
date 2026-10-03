@@ -4,9 +4,7 @@ import { timesheetRecipients } from '@/lib/notifications/recipients'
 
 const FROM_NAME = 'Platinum Painters Timesheets'
 
-// This app's own URL (not siteUrl.ts's SITE_URL, which deliberately still
-// points at the separate standalone Timesheets app for auth-token
-// exchange only - see its own comment).
+// The Hub's own URL, for the link in the email.
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? 'https://platinum-painters-hub.vercel.app'
 
 // Fires when a painter files a change request — a heads-up only, the

@@ -90,7 +90,7 @@ export async function inviteStaff(
 
   if (typeof password === 'string' && password) {
     return {
-      success: `Account created. Have them sign in at ${SITE_URL}/login with ${email.trim()} and the password you set.`,
+      success: `Account created. Have them sign in at ${SITE_URL}/sign-in with ${email.trim()} and the password you set.`,
     }
   }
 

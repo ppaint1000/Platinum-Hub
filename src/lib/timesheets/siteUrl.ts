@@ -1,9 +1,5 @@
-// Deliberately still the STANDALONE Timesheets app's URL, not the Hub's -
-// invite/recovery links generated from these ported routes need to land on
-// a page that can actually exchange the token (/accept-invite,
-// /reset-password), and those pages haven't been ported into the Hub yet.
-// Must exactly match the "Site URL" configured in Supabase Auth ->
-// URL Configuration, or Supabase silently falls back to that value instead
-// of honoring redirectTo. Update this (and port the auth pages) as part of
-// the real cutover, not before.
-export const SITE_URL = 'https://platinum-painters-timesheets.vercel.app'
+// Where invite and password-reset emails send people: the Hub's own
+// /accept-invite page, which exchanges the token on a real button click
+// (see authEmails.ts), then /reset-password. The standalone Timesheets app
+// now just forwards to the Hub.
+export const SITE_URL = process.env.NEXT_PUBLIC_HUB_URL ?? 'https://platinum-painters-hub.vercel.app'
