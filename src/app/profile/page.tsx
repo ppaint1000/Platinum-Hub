@@ -1,6 +1,5 @@
-// Profile — your own photo, name, phone, title, signature and bio. Sales
-// staff's details show on their proposals as "Your contact". Also where you
-// change your password. Everyone signed in.
+// Profile — your own photo, name, phone, title, signature and bio, and
+// where you change your password. Everyone signed in.
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/profile";
@@ -39,7 +38,8 @@ export default async function ProfilePage() {
         fullName={profile.full_name}
         email={me?.email ?? null}
         details={details ?? { phone: null, title: null, bio: null, photo_path: null, signature_path: null }}
-        showsOnProposals={profile.role === "admin" || profile.role === "sales"}
+        // The proposal "Your contact" box is turned off (Costing app).
+        showsOnProposals={false}
       />
     </DashboardShell>
   );

@@ -169,7 +169,7 @@ export function ProfileForm({
             )}
             <div>
               <p className="font-semibold text-[#16202E]">Your photo</p>
-              <p className="text-sm text-[#5B6472]">Shown on your proposals.</p>
+              <p className="text-sm text-[#5B6472]">Your picture in the Hub.</p>
               <label className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#E3E1DA] px-3 py-1.5 text-sm font-medium text-[#1F4E8C] hover:bg-[#E3ECF8]">
                 <Camera className="h-4 w-4" />
                 {photoUrl ? "Change photo" : "Upload photo"}
@@ -181,7 +181,7 @@ export function ProfileForm({
           <section aria-label="Contact information" className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <h2 className="font-semibold text-[#16202E]">Contact information</h2>
-              <p className="text-sm text-[#5B6472]">Shown on your proposals so customers can reach you.</p>
+              <p className="text-sm text-[#5B6472]">How the office and customers can reach you.</p>
             </div>
             <label>
               <span className={label}>Name</span>
@@ -204,7 +204,7 @@ export function ProfileForm({
 
           <section aria-label="Signature" className="flex flex-col gap-2">
             <h2 className="font-semibold text-[#16202E]">Signature</h2>
-            <p className="text-sm text-[#5B6472]">Sign in the box, or upload a picture of your signature. Shown under your name on proposals.</p>
+            <p className="text-sm text-[#5B6472]">Sign in the box, or upload a picture of your signature.</p>
             {signatureUrl && !drawn && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={signatureUrl} alt="Your current signature" className="h-20 w-auto self-start rounded border border-[#E3E1DA] bg-white p-1" />
@@ -238,7 +238,7 @@ export function ProfileForm({
 
           <section aria-label="About you" className="flex flex-col gap-2">
             <h2 className="font-semibold text-[#16202E]">About you</h2>
-            <p className="text-sm text-[#5B6472]">A few lines about you, shown as &ldquo;Your contact&rdquo; on proposals.</p>
+            <p className="text-sm text-[#5B6472]">A few lines about you.</p>
             <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={4} className={field} />
           </section>
 
