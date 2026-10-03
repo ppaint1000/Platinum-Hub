@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email/mailer'
 import { groupByStaffForPayroll } from '@/lib/timesheets/reportGroups'
 import { TimesheetReportPdf } from '@/lib/timesheets/pdf/timesheet-report-pdf'
+import { timesheetRecipients } from '@/lib/notifications/recipients'
 
 const FROM_NAME = 'Platinum Painters Timesheets'
 
@@ -64,7 +65,8 @@ export async function sendWeeklyReportEmail(options?: {
   }) as ReactElement<DocumentProps>
   const pdfBuffer = await renderToBuffer(document)
 
-  const recipient = process.env.WEEKLY_REPORT_EMAIL || 'nrichmond@platinumpainters.co.nz'
+  // The timesheet address, plus anyone who's turned this on (Notifications).
+  const recipient = await timesheetRecipients('weekly_timesheet_report')
 
   return sendEmail({
     to: recipient,

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/mailer";
 import { missingFuelNumbers } from "@/lib/fleet/missingNumbers";
+import { notificationRecipients } from "@/lib/notifications/recipients";
 import { fillUpsForVehicle, totalsFor, type FuelEntryInput } from "@/lib/fleet/fuelEconomy";
 
 // Called by the driver fuel form right after it saves an entry. If the
@@ -43,7 +44,7 @@ export async function alertIncompleteFuelEntryAction(entryId: string) {
   const missing = missingFuelNumbers(entry);
   if (missing.length === 0) return {};
 
-  const to = await activeAdminEmails(admin);
+  const to = (await notificationRecipients("fuel_missing_numbers")).join(", ");
   if (!to) return {};
 
   const origin = await hubOrigin();
@@ -133,7 +134,7 @@ export async function checkFuelEconomyAction(entryId: string) {
   const change = (fill.costPerKm - average) / average;
   if (Math.abs(change) <= ECONOMY_ALERT_THRESHOLD) return {};
 
-  const to = await activeAdminEmails(admin);
+  const to = (await notificationRecipients("fuel_unusual")).join(", ");
   if (!to) return {};
 
   const origin = await hubOrigin();
@@ -164,15 +165,7 @@ export async function checkFuelEconomyAction(entryId: string) {
   return result.sent ? {} : { emailError: result.reason };
 }
 
-async function activeAdminEmails(admin: ReturnType<typeof createAdminClient>) {
-  const { data: admins } = await admin
-    .from("profiles")
-    .select("email")
-    .eq("role", "admin")
-    .eq("is_active", true)
-    .returns<{ email: string | null }[]>();
-  return (admins ?? []).map((a) => a.email).filter(Boolean).join(", ");
-}
+// Who gets these: the Notifications page (admins, on by default).
 
 // The Hub's own address, for links in alert emails.
 async function hubOrigin() {

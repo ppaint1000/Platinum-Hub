@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui";
+import { notifyJobCompletedAction } from "@/app/jobs/notify-actions";
 
 export function MarkAsCompleteButton({ jobId }: { jobId: string }) {
   const router = useRouter();
@@ -22,6 +23,8 @@ export function MarkAsCompleteButton({ jobId }: { jobId: string }) {
       alert(error.message);
       return;
     }
+    // "Ready to invoice" email (Notifications page).
+    await notifyJobCompletedAction(jobId);
     router.refresh();
   }
 

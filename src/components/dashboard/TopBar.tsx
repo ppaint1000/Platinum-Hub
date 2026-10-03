@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
+  Bell,
   Briefcase,
   Calculator,
   CalendarX,
@@ -47,6 +48,13 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/orders", label: "Orders", icon: ShoppingCart },
   { href: "/fleet", label: "Fleet", icon: Truck },
   { href: "/users", label: "Users", icon: UserCog },
+  { href: "/hub", label: "All apps", icon: LayoutGrid },
+];
+
+// Supervisors: the Production board and their timesheets.
+export const SUPERVISOR_NAV: NavItem[] = [
+  { href: "/production", label: "Production", icon: Kanban },
+  { href: "/timesheets/admin", label: "Timesheets", icon: Clock },
   { href: "/hub", label: "All apps", icon: LayoutGrid },
 ];
 
@@ -269,7 +277,17 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
           <nav aria-label="Main" className="flex-1">
             <NavRow items={items} activeHref={activeHref} alerts={alerts} />
           </nav>
-          <div className="flex items-center">
+          <div className="flex items-center gap-1">
+            <Link
+              href="/notifications"
+              aria-label="Notifications"
+              title="Notifications"
+              className={`flex min-h-10 items-center rounded-lg px-2.5 hover:bg-white/10 hover:text-white ${
+                activeHref === "/notifications" ? "bg-white/10 text-white" : "text-[#C9D1DC]"
+              }`}
+            >
+              <Bell className="h-5 w-5" />
+            </Link>
             <SignOutButton className="min-h-10 whitespace-nowrap rounded-lg px-3 text-sm font-medium text-[#C9D1DC] hover:bg-white/10 hover:text-white" />
           </div>
         </div>
@@ -289,6 +307,13 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
         </summary>
         <nav aria-label="Main" className="mt-3 border-t border-[#2A3748] pb-2 pt-3">
           <NavList items={items} activeHref={activeHref} alerts={alerts} />
+          <Link
+            href="/notifications"
+            className="mt-1 flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#C9D1DC] hover:bg-white/10 hover:text-white"
+          >
+            <Bell className="h-4 w-4" />
+            Notifications
+          </Link>
           <SignOutButton className="mt-1 min-h-11 w-full rounded-lg px-3 text-left text-sm font-medium text-[#C9D1DC] hover:bg-white/10 hover:text-white" />
         </nav>
       </details>

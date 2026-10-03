@@ -1,5 +1,6 @@
 import { sendEmail } from '@/lib/email/mailer'
 import { formatNZDateTime } from '@/lib/timesheets/formatNZ'
+import { timesheetRecipients } from '@/lib/notifications/recipients'
 
 const FROM_NAME = 'Platinum Painters Timesheets'
 
@@ -23,7 +24,8 @@ export async function sendChangeRequestEmail(options: {
   requestedSiteName: string | null
   note: string
 }) {
-  const recipient = process.env.WEEKLY_REPORT_EMAIL || 'nrichmond@platinumpainters.co.nz'
+  // The timesheet address, plus anyone who's turned this on (Notifications).
+  const recipient = await timesheetRecipients('timesheet_change_request')
 
   const lines = [
     `${options.userName} has requested a timesheet correction for ${options.date} (${options.siteName}).`,

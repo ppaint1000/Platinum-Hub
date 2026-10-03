@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { PRODUCTION_STAGES } from "@/lib/jobs/status";
+import { sendJobCompletedEmail } from "@/lib/notifications/jobCompleted";
 
 // Moving a job on the Production board. Who can do what is checked in the
 // database (production_set_status): supervisors up to Job completed, only
@@ -13,6 +14,7 @@ export async function setProductionStatusAction(jobId: string, status: string) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("production_set_status", { p_job_id: jobId, p_status: status });
   if (error) return { error: error.message };
+  if (status === "complete") await sendJobCompletedEmail(jobId);
 
   revalidatePath("/", "layout");
   return {};

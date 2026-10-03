@@ -78,7 +78,14 @@ export default async function HubPage() {
             Hub
           </span>
         </div>
-        <SignOutButton className="text-sm font-medium text-muted transition hover:text-ink" />
+        <div className="flex items-center gap-4">
+          {(isAdmin || isSupervisor || access?.sales) && (
+            <Link href="/notifications" className="text-sm font-medium text-muted transition hover:text-ink">
+              Notifications
+            </Link>
+          )}
+          <SignOutButton className="text-sm font-medium text-muted transition hover:text-ink" />
+        </div>
       </header>
 
       <div className="mt-10">

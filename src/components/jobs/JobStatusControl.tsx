@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui";
 import { LostToField } from "./LostToField";
 import { ConfirmDialog } from "@/components/orders/ConfirmDialog";
+import { notifyJobCompletedAction } from "@/app/jobs/notify-actions";
 
 const STATUS_OPTIONS = [
   { value: "draft", label: "Draft" },
@@ -104,6 +105,7 @@ export function JobStatusControl({
       setError(updateError.message);
       return;
     }
+    if (target === "complete") await notifyJobCompletedAction(jobId);
     setAskingQuotedBy(false);
     setOpen(false);
     router.refresh();

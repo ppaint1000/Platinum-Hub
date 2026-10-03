@@ -8,6 +8,7 @@ import { applyPayRounding } from '@/lib/timesheets/payroll'
 import { formatDateKeyShort } from '@/lib/timesheets/formatNZ'
 import { TimesheetReportPdf } from '@/lib/timesheets/pdf/timesheet-report-pdf'
 import type { ReportEntry } from '@/lib/timesheets/reports'
+import { timesheetRecipients } from '@/lib/notifications/recipients'
 
 const FROM_NAME = 'Platinum Painters Timesheets'
 
@@ -46,7 +47,8 @@ export async function sendTimesheetConfirmationEmail(options: {
   }) as ReactElement<DocumentProps>
   const pdfBuffer = await renderToBuffer(document)
 
-  const recipient = process.env.WEEKLY_REPORT_EMAIL || 'nrichmond@platinumpainters.co.nz'
+  // The timesheet address, plus anyone who's turned this on (Notifications).
+  const recipient = await timesheetRecipients('timesheet_confirmed')
 
   return sendEmail({
     to: recipient,

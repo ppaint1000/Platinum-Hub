@@ -3,23 +3,17 @@
 // supervisors don't see $ and can't move jobs to Invoiced or Paid.
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Clock, Kanban, LayoutGrid } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import { loadProductionJobs, PAID_SHOWN_DAYS } from "@/lib/jobs/production";
 import { ProductionBoard } from "@/components/production/ProductionBoard";
 import { DashboardShell } from "@/components/dashboard/parts";
-import { ADMIN_NAV, TopBar, type NavItem } from "@/components/dashboard/TopBar";
+import { ADMIN_NAV, SUPERVISOR_NAV, TopBar } from "@/components/dashboard/TopBar";
 import { dashboardFontClass } from "@/components/dashboard/fonts";
 import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 export const metadata: Metadata = { title: "Production · Platinum Hub" };
 
-const SUPERVISOR_NAV: NavItem[] = [
-  { href: "/production", label: "Production", icon: Kanban },
-  { href: "/timesheets/admin", label: "Timesheets", icon: Clock },
-  { href: "/hub", label: "All apps", icon: LayoutGrid },
-];
 
 export default async function ProductionPage() {
   const profile = await getCurrentProfile();
