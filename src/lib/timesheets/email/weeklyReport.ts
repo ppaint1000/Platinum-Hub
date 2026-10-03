@@ -9,7 +9,7 @@ import { groupByStaffForPayroll } from '@/lib/timesheets/reportGroups'
 import { TimesheetReportPdf } from '@/lib/timesheets/pdf/timesheet-report-pdf'
 import { timesheetRecipients } from '@/lib/notifications/recipients'
 
-const FROM_NAME = 'Platinum Painters Timesheets'
+const FROM_NAME = 'Platinum weekly timesheet report'
 
 function nzDateString(date: Date): string {
   // en-CA formats as YYYY-MM-DD.

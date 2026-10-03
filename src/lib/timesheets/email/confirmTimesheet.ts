@@ -10,7 +10,9 @@ import { TimesheetReportPdf } from '@/lib/timesheets/pdf/timesheet-report-pdf'
 import type { ReportEntry } from '@/lib/timesheets/reports'
 import { timesheetRecipients } from '@/lib/notifications/recipients'
 
-const FROM_NAME = 'Platinum Painters Timesheets'
+// The sender name shows who it is and what for, e.g. "Jo Bloggs timesheet confirmation".
+// Kept to plain characters so it can't break the From line.
+const senderName = (userName: string, what: string) => `${userName.replace(/["<>,;]/g, '').trim()} ${what}`
 
 export type SendConfirmationResult = { sent: true } | { sent: false; reason: string }
 
@@ -60,6 +62,6 @@ export async function sendTimesheetConfirmationEmail(options: {
         content: pdfBuffer,
       },
     ],
-    fromName: FROM_NAME,
+    fromName: senderName(options.userName, 'timesheet confirmation'),
   })
 }

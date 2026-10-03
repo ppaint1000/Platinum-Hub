@@ -2,7 +2,9 @@ import { sendEmail } from '@/lib/email/mailer'
 import { formatNZDateTime } from '@/lib/timesheets/formatNZ'
 import { timesheetRecipients } from '@/lib/notifications/recipients'
 
-const FROM_NAME = 'Platinum Painters Timesheets'
+// The sender name shows who it is and what for, e.g. "Jo Bloggs change clock request".
+// Kept to plain characters so it can't break the From line.
+const senderName = (userName: string, what: string) => `${userName.replace(/["<>,;]/g, '').trim()} ${what}`
 
 // The Hub's own URL, for the link in the email.
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? 'https://platinum-painters-hub.vercel.app'
@@ -41,6 +43,6 @@ export async function sendChangeRequestEmail(options: {
     to: recipient,
     subject: `Timesheet change request: ${options.userName} — ${options.date}`,
     text: lines.join('\n'),
-    fromName: FROM_NAME,
+    fromName: senderName(options.userName, 'change clock request'),
   })
 }
