@@ -104,6 +104,22 @@ export async function updateAccessAction(userId: string, app: AccessApp, granted
   return {};
 }
 
+// Measures and Costing (people ticked see only their own costings and
+// measures; admins see everything regardless).
+export async function updateMcAccessAction(userId: string, app: "measures" | "costing", granted: boolean) {
+  const supabase = await requireAdmin();
+
+  const { error } = await supabase
+    .from("user_app_access")
+    .update({ [app]: granted, updated_at: new Date().toISOString() })
+    .eq("user_id", userId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/users");
+  return {};
+}
+
 export async function updateSalesAuthorityAction(userId: string, granted: boolean) {
   const supabase = await requireAdmin();
 

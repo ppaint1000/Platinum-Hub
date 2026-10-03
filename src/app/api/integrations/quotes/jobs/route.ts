@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  verifyQuotesWebhook,
-  mapQuoteStatusToJobStatus,
-  type QuoteStatus,
-} from "@/lib/integrations/quotesWebhook";
+import { verifyQuotesWebhook, type QuoteStatus } from "@/lib/integrations/quotesWebhook";
+import { upsertJobFromCosting } from "@/lib/integrations/costingJob";
 
 type Body = {
   sourceQuoteId: string;
@@ -49,35 +46,18 @@ export async function POST(request: NextRequest) {
     clientId = client?.id ?? null;
   }
 
-  // A job that has moved past quoting (won, in production, on hold, lost)
-  // keeps its status - re-saving the costing never moves it back. The
-  // Production board and admins move it from there.
-  const { data: existing } = await admin
-    .from("jobs")
-    .select("status")
-    .eq("source_quote_id", body.sourceQuoteId)
-    .maybeSingle<{ status: string }>();
-  const keepStatus = !!existing && existing.status !== "draft" && existing.status !== "quoted";
+  const { data, error } = await upsertJobFromCosting({
+    quoteId: body.sourceQuoteId,
+    clientId,
+    name: body.name,
+    status: body.status,
+    quotedSellTotal: body.quotedSellTotal,
+    quotedHours: body.quotedHours,
+    quotedAt: body.quotedAt,
+    workOrderUrl: body.workOrderUrl,
+  });
 
-  const { data, error } = await admin
-    .from("jobs")
-    .upsert(
-      {
-        source_quote_id: body.sourceQuoteId,
-        client_id: clientId,
-        name: body.name.trim(),
-        ...(keepStatus ? {} : { status: mapQuoteStatusToJobStatus(body.status) }),
-        quoted_sell_total: body.quotedSellTotal,
-        quoted_hours: body.quotedHours,
-        quoted_at: body.quotedAt ?? null,
-        ...(body.workOrderUrl ? { work_order_url: body.workOrderUrl } : {}),
-      },
-      { onConflict: "source_quote_id" }
-    )
-    .select("id, job_number")
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !data) return NextResponse.json({ error: error?.message ?? "Couldn't save the job." }, { status: 500 });
 
   return NextResponse.json({ jobId: data.id, jobNumber: data.job_number });
 }

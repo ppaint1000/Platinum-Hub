@@ -60,3 +60,39 @@ body {
     margin: 0;
   }
 }
+
+/* ── Costing and Site Measures (moved in from the Measures app) ── */
+
+/* Edit Costing's tables are dense with number inputs (Girth, Qty, Coats,
+   Prep Rate, etc.) — the browser's default up/down spinner steals space and
+   is easy to bump by accident, so it's hidden there. */
+[data-no-spinner] input[type="number"]::-webkit-inner-spin-button,
+[data-no-spinner] input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+[data-no-spinner] input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Building-line cells (Surface, Girth, Qty, Coats, Labour Rate, Spread
+   Rate, Prep Rate) shrink or grow to fit whatever's typed in them instead
+   of all sharing one fixed width. */
+.line-input {
+  field-sizing: content;
+  width: auto;
+  min-width: 2.75rem;
+  max-width: 12rem;
+}
+
+/* A locked (Complete) costing: its fields are disabled — make that obvious. */
+fieldset:disabled input:not([type="checkbox"]),
+fieldset:disabled select,
+fieldset:disabled textarea {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+fieldset:disabled button {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

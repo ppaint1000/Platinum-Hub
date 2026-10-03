@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/SignOutButton";
-import { MEASURES_URL } from "@/lib/measuresUrl";
 import { readyToInvoiceCount, runAutoOnHold } from "@/lib/jobs/production";
 
 type AppAccess = {
@@ -29,6 +28,8 @@ type AppAccess = {
   orders: boolean;
   jobs: boolean;
   sales: boolean;
+  measures: boolean;
+  costing: boolean;
 };
 
 export default async function HubPage() {
@@ -45,7 +46,7 @@ export default async function HubPage() {
       .single(),
     supabase
       .from("user_app_access")
-      .select("timesheets, fleet, orders, jobs, sales")
+      .select("timesheets, fleet, orders, jobs, sales, measures, costing")
       .eq("user_id", user?.id ?? "")
       .maybeSingle<AppAccess>(),
   ]);
@@ -201,19 +202,17 @@ export default async function HubPage() {
             description="Sales, jobs, production and activity reports with charts and export."
           />
         )}
-        {isAdmin && (
+        {(isAdmin || access?.costing) && (
           <AppTile
-            href={`${MEASURES_URL}/costing`}
-            external
+            href="/costing"
             icon={<Calculator className="h-5 w-5" />}
             title="Costing"
             description="Job costings."
           />
         )}
-        {isAdmin && (
+        {(isAdmin || access?.measures) && (
           <AppTile
-            href={`${MEASURES_URL}/site-measures`}
-            external
+            href="/site-measures"
             icon={<Ruler className="h-5 w-5" />}
             title="Measures"
             description="Site measures."

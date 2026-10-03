@@ -7,6 +7,7 @@ import {
   updateRoleAction,
   updateActiveAction,
   updateSalesAuthorityAction,
+  updateMcAccessAction,
   updateHourlyRateAction,
   resetPasswordAction,
   deleteUserAction,
@@ -39,6 +40,8 @@ export type UserRow = {
     sales: boolean;
     sales_authority: boolean;
     default_app: DefaultApp;
+    measures: boolean;
+    costing: boolean;
   } | null;
   payRate: PayRate | null;
 };
@@ -142,6 +145,8 @@ export function UsersTable({ users }: { users: UserRow[] }) {
           "Jobs",
           "Sales",
           "Authority",
+          "Measures",
+          "Costing",
           "Default app",
           "Active",
           "Pay rate",
@@ -193,6 +198,12 @@ function UserRowItem({
   function toggleActive() {
     startTransition(async () => {
       await updateActiveAction(user.id, !user.is_active);
+    });
+  }
+
+  function toggleMc(app: "measures" | "costing", granted: boolean) {
+    startTransition(async () => {
+      await updateMcAccessAction(user.id, app, granted);
     });
   }
 
@@ -282,6 +293,17 @@ function UserRowItem({
             onChange={(e) => toggleAuthority(e.target.checked)}
           />
         </td>
+        {(["measures", "costing"] as const).map((app) => (
+          // Admins see every costing and measure anyway.
+          <td key={app} className="py-2 pl-4 text-center">
+            <input
+              type="checkbox"
+              checked={isAdmin ? true : !!access?.[app]}
+              disabled={isPending || isAdmin}
+              onChange={(e) => toggleMc(app, e.target.checked)}
+            />
+          </td>
+        ))}
         <td className="py-2 pl-4">
           <select
             value={access?.default_app ?? "timesheets"}

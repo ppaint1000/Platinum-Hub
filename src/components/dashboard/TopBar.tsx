@@ -24,13 +24,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { SignOutButton } from "@/components/SignOutButton";
-import { MEASURES_URL } from "@/lib/measuresUrl";
 import { pendingAbsenceCount } from "@/lib/absences/check";
 import { hoursAlertCounts } from "@/lib/jobs/hoursApproval";
 import { readyToInvoiceCount, runAutoOnHold } from "@/lib/jobs/production";
 import { NAVY } from "./parts";
 
-export type NavItem = { href: string; label: string; icon: LucideIcon; external?: boolean };
+// group: shown together in the desktop "Costing & Measures" drop-down.
+export type NavItem = { href: string; label: string; icon: LucideIcon; external?: boolean; group?: boolean };
 
 // Admins get every app. Costing and Measures live in the separate Measures
 // app, so they open in a new tab, the same as their Hub tiles.
@@ -44,8 +44,8 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/clients", label: "Clients", icon: Contact },
   { href: "/sales", label: "Sales", icon: TrendingUp },
   { href: "/reports", label: "Reports", icon: PieChart },
-  { href: `${MEASURES_URL}/costing`, label: "Costing", icon: Calculator, external: true },
-  { href: `${MEASURES_URL}/site-measures`, label: "Measures", icon: Ruler, external: true },
+  { href: "/costing", label: "Costing", icon: Calculator, group: true },
+  { href: "/site-measures", label: "Measures", icon: Ruler, group: true },
   { href: "/orders", label: "Orders", icon: ShoppingCart },
   { href: "/fleet", label: "Fleet", icon: Truck },
   { href: "/users", label: "Users", icon: UserCog },
@@ -67,6 +67,8 @@ export function staffNav(access: {
   orders?: boolean;
   fleet?: boolean;
   salesAuthority?: boolean;
+  measures?: boolean;
+  costing?: boolean;
 }): NavItem[] {
   const items: NavItem[] = [{ href: "/sales/dashboard", label: "My sales", icon: LayoutDashboard }];
   if (access.salesAuthority) items.push({ href: "/sales", label: "Team sales", icon: TrendingUp });
@@ -74,6 +76,8 @@ export function staffNav(access: {
     items.push({ href: "/jobs", label: "Jobs", icon: Briefcase });
     items.push({ href: "/clients", label: "Clients", icon: Contact });
   }
+  if (access.costing) items.push({ href: "/costing", label: "Costing", icon: Calculator });
+  if (access.measures) items.push({ href: "/site-measures", label: "Measures", icon: Ruler });
   if (access.timesheets) items.push({ href: "/timesheets", label: "Timesheets", icon: Clock });
   if (access.orders) items.push({ href: "/orders", label: "Orders", icon: ShoppingCart });
   if (access.fleet) items.push({ href: "/fleet", label: "Fleet", icon: Truck });
@@ -100,12 +104,12 @@ function AlertCount({ count }: { count: number }) {
 }
 
 // Desktop: one row of links across the top bar, Xero style. Costing and
-// Measures (the separate Measures app) sit together in a drop-down tab,
+// Measures sit together in a drop-down tab,
 // listed the same way as the phone menu.
 function NavRow({ items, activeHref, alerts }: { items: NavItem[]; activeHref: string; alerts: Alerts }) {
-  const inRow = items.filter((item) => !item.external);
-  const measures = items.filter((item) => item.external);
-  const dropdownAfter = items.findIndex((item) => item.external) - 1;
+  const inRow = items.filter((item) => !item.group);
+  const measures = items.filter((item) => item.group);
+  const dropdownAfter = items.findIndex((item) => item.group) - 1;
 
   return (
     <ul className="flex h-full items-stretch">
@@ -159,15 +163,13 @@ function MeasuresDropdown({ items }: { items: NavItem[] }) {
             const Icon = item.icon;
             return (
               <li key={item.href}>
-                <a
+                <Link
                   href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#C9D1DC] transition hover:bg-white/10 hover:text-white"
                 >
                   <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden />
                   {item.label}
-                </a>
+                </Link>
               </li>
             );
           })}
@@ -237,7 +239,7 @@ const BREAKPOINTS = {
 };
 
 function breakpointFor(items: NavItem[]) {
-  const tabs = items.filter((item) => !item.external).length + (items.some((item) => item.external) ? 1 : 0);
+  const tabs = items.filter((item) => !item.group).length + (items.some((item) => item.group) ? 1 : 0);
   if (tabs <= 5) return BREAKPOINTS.md;
   if (tabs <= 8) return BREAKPOINTS.lg;
   if (tabs <= 11) return BREAKPOINTS.xl;
