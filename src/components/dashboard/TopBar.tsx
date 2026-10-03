@@ -19,6 +19,7 @@ import {
   ShoppingCart,
   TrendingUp,
   Truck,
+  UserCircle,
   UserCog,
   type LucideIcon,
 } from "lucide-react";
@@ -288,6 +289,16 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
             >
               <Bell className="h-5 w-5" />
             </Link>
+            <Link
+              href="/profile"
+              aria-label="Profile"
+              title="Profile"
+              className={`flex min-h-10 items-center rounded-lg px-2.5 hover:bg-white/10 hover:text-white ${
+                activeHref === "/profile" ? "bg-white/10 text-white" : "text-[#C9D1DC]"
+              }`}
+            >
+              <UserCircle className="h-5 w-5" />
+            </Link>
             <SignOutButton className="min-h-10 whitespace-nowrap rounded-lg px-3 text-sm font-medium text-[#C9D1DC] hover:bg-white/10 hover:text-white" />
           </div>
         </div>
@@ -313,6 +324,13 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
           >
             <Bell className="h-4 w-4" />
             Notifications
+          </Link>
+          <Link
+            href="/profile"
+            className="mt-1 flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#C9D1DC] hover:bg-white/10 hover:text-white"
+          >
+            <UserCircle className="h-4 w-4" />
+            Profile
           </Link>
           <SignOutButton className="mt-1 min-h-11 w-full rounded-lg px-3 text-left text-sm font-medium text-[#C9D1DC] hover:bg-white/10 hover:text-white" />
         </nav>

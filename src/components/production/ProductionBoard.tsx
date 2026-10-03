@@ -6,8 +6,15 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Search } from "lucide-react";
-import { setProductionStatusAction } from "@/app/production/actions";
+import { AlertTriangle, CheckSquare, Search, X } from "lucide-react";
+import { setProductionStatusAction, toggleChecklistItemAction } from "@/app/production/actions";
+import {
+  CHECKLIST_BEFORE,
+  CHECKLIST_NAMES,
+  type ChecklistItem,
+  type ChecklistKind,
+  type ChecklistTick,
+} from "@/lib/jobs/checklists";
 import { PRODUCTION_STAGES, SUPERVISOR_STAGES, type JobStatus } from "@/lib/jobs/status";
 import type { ProductionJob } from "@/lib/jobs/production";
 import { BLUE, NAVY, RED, money } from "@/components/dashboard/parts";
@@ -42,10 +49,14 @@ export function ProductionBoard({
   jobs: initialJobs,
   isAdmin,
   paidShownDays,
+  checklistItems,
+  checklistTicks,
 }: {
   jobs: ProductionJob[];
   isAdmin: boolean;
   paidShownDays: number;
+  checklistItems: ChecklistItem[];
+  checklistTicks: ChecklistTick[];
 }) {
   const router = useRouter();
   // Moves show straight away; the server confirms (or puts it back).
@@ -54,6 +65,29 @@ export function ProductionBoard({
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<JobStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Checklists ──
+  const [ticks, setTicks] = useState(checklistTicks);
+  const [openChecklist, setOpenChecklist] = useState<string | null>(null);
+  const itemsOf = (kind: ChecklistKind) => checklistItems.filter((i) => i.checklist === kind);
+  const tickFor = (jobId: string, itemId: string) => ticks.find((t) => t.job_id === jobId && t.item_id === itemId);
+  const progress = (jobId: string, kind: ChecklistKind) => {
+    const items = itemsOf(kind);
+    return { done: items.filter((i) => tickFor(jobId, i.id)).length, total: items.length };
+  };
+  async function toggleTick(jobId: string, itemId: string, done: boolean) {
+    const before = ticks;
+    setTicks((ts) =>
+      done
+        ? [...ts, { job_id: jobId, item_id: itemId, done_at: new Date().toISOString(), done_by_name: "You" }]
+        : ts.filter((t) => !(t.job_id === jobId && t.item_id === itemId))
+    );
+    const result = await toggleChecklistItemAction(jobId, itemId, done);
+    if (result.error) {
+      setTicks(before);
+      setError(result.error);
+    }
+  }
 
   const canMoveTo = (to: JobStatus, from: JobStatus) =>
     isAdmin || (SUPERVISOR_STAGES.includes(to) && SUPERVISOR_STAGES.includes(from));
@@ -71,6 +105,17 @@ export function ProductionBoard({
     if (!canMoveTo(to, job.status)) {
       setError("Only an admin can move a job to or from Invoiced or Paid.");
       return;
+    }
+    // Starting or finishing a job with its checklist not done asks first.
+    const kind = CHECKLIST_BEFORE[to];
+    if (kind) {
+      const p = progress(job.id, kind);
+      if (p.total > 0 && p.done < p.total) {
+        const ok = window.confirm(
+          `The ${CHECKLIST_NAMES[kind].toLowerCase()} for ${job.name} isn't finished (${p.done} of ${p.total} done). Move it anyway?`
+        );
+        if (!ok) return;
+      }
     }
     setError(null);
     const before = jobs;
@@ -135,6 +180,11 @@ export function ProductionBoard({
           Drag a card to move it, or use Move to. Paid jobs show for {paidShownDays} days.
           {!isAdmin && " Only an admin can move jobs to Invoiced or Paid."}
         </p>
+        {isAdmin && (
+          <Link href="/production/checklists" className="text-sm font-semibold hover:underline" style={{ color: BLUE }}>
+            Edit checklists
+          </Link>
+        )}
       </div>
 
       {error && (
@@ -217,6 +267,29 @@ export function ProductionBoard({
                             <span className="font-semibold text-[#16202E]">{money(Number(j.value))}</span>
                           )}
                         </div>
+                        {checklistItems.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setOpenChecklist(j.id)}
+                            aria-label={`Checklists for ${j.name}`}
+                            className="mt-2 flex w-full flex-wrap items-center gap-1.5 text-left text-xs"
+                          >
+                            <CheckSquare className="h-3.5 w-3.5 text-[#5B6472]" />
+                            {(["pre", "post"] as const).map((k) => {
+                              const p = progress(j.id, k);
+                              if (p.total === 0) return null;
+                              const doneAll = p.done === p.total;
+                              return (
+                                <span
+                                  key={k}
+                                  className={`rounded-full px-2 py-0.5 font-semibold ${doneAll ? "bg-[#E3ECF8] text-[#163A69]" : "bg-[#ECEAE3] text-[#3F4753]"}`}
+                                >
+                                  {k === "pre" ? "Pre" : "Post"} {p.done}/{p.total}
+                                </span>
+                              );
+                            })}
+                          </button>
+                        )}
                         {movable && (
                           <label className="mt-2 flex items-center gap-1.5 text-xs text-[#5B6472]">
                             Move to
@@ -244,6 +317,77 @@ export function ProductionBoard({
           })}
         </div>
       </div>
+
+      {openChecklist &&
+        (() => {
+          const job = jobs.find((j) => j.id === openChecklist);
+          if (!job) return null;
+          return (
+            <div
+              className="fixed inset-0 z-50 flex items-start justify-center bg-black/45 px-4 py-[8vh]"
+              onClick={(e) => e.target === e.currentTarget && setOpenChecklist(null)}
+            >
+              <div role="dialog" aria-modal="true" aria-label={`Checklists for ${job.name}`} className="max-h-[84vh] w-full max-w-md overflow-y-auto rounded-xl bg-white shadow-xl">
+                <div className="flex items-start justify-between gap-3 px-5 py-4 text-white" style={{ background: NAVY }}>
+                  <div>
+                    {job.job_number && <p className="text-xs font-semibold text-white/80">{job.job_number}</p>}
+                    <p className="font-semibold">{job.name}</p>
+                  </div>
+                  <button type="button" onClick={() => setOpenChecklist(null)} aria-label="Close" className="rounded p-1 hover:bg-white/10">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                {(["pre", "post"] as const).map((k) => {
+                  const items = itemsOf(k);
+                  if (items.length === 0) return null;
+                  const p = progress(job.id, k);
+                  return (
+                    <section key={k} aria-label={CHECKLIST_NAMES[k]} className="border-b border-[#EFEDE7] px-5 py-4 last:border-0">
+                      <div className="mb-2 flex items-center justify-between">
+                        <h3 className="font-semibold text-[#16202E]">{CHECKLIST_NAMES[k]}</h3>
+                        <span className="text-sm text-[#5B6472]">
+                          {p.done} of {p.total}
+                        </span>
+                      </div>
+                      <ul className="flex flex-col gap-2">
+                        {items.map((i) => {
+                          const t = tickFor(job.id, i.id);
+                          return (
+                            <li key={i.id}>
+                              <label className="flex cursor-pointer items-start gap-3 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={!!t}
+                                  onChange={(e) => toggleTick(job.id, i.id, e.target.checked)}
+                                  className="mt-0.5 h-4 w-4 accent-[#1F4E8C]"
+                                />
+                                <span>
+                                  <span className={t ? "text-[#5B6472] line-through" : "text-[#16202E]"}>{i.label}</span>
+                                  {t && (
+                                    <span className="block text-xs text-[#8A919C]">
+                                      {t.done_by_name ?? "Ticked"} · {shortDate(t.done_at)}
+                                    </span>
+                                  )}
+                                </span>
+                              </label>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </section>
+                  );
+                })}
+                {isAdmin && (
+                  <p className="px-5 pb-4 text-xs text-[#5B6472]">
+                    <Link href="/production/checklists" className="font-semibold hover:underline" style={{ color: BLUE }}>
+                      Edit the checklist items
+                    </Link>
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }

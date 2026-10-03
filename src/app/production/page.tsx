@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import { loadProductionJobs, PAID_SHOWN_DAYS } from "@/lib/jobs/production";
+import { loadChecklists } from "@/lib/jobs/checklists";
 import { ProductionBoard } from "@/components/production/ProductionBoard";
 import { DashboardShell } from "@/components/dashboard/parts";
 import { ADMIN_NAV, SUPERVISOR_NAV, TopBar } from "@/components/dashboard/TopBar";
@@ -22,6 +23,7 @@ export default async function ProductionPage() {
 
   const supabase = await createClient();
   const jobs = await loadProductionJobs(supabase);
+  const checklists = await loadChecklists(supabase, jobs.map((j) => j.id));
 
   return (
     <DashboardShell
@@ -30,7 +32,13 @@ export default async function ProductionPage() {
       todayKey={nzTodayDateString()}
       title="Production"
     >
-      <ProductionBoard jobs={jobs} isAdmin={isAdmin} paidShownDays={PAID_SHOWN_DAYS} />
+      <ProductionBoard
+        jobs={jobs}
+        isAdmin={isAdmin}
+        paidShownDays={PAID_SHOWN_DAYS}
+        checklistItems={checklists.items}
+        checklistTicks={checklists.ticks}
+      />
     </DashboardShell>
   );
 }

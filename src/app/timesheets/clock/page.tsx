@@ -188,6 +188,9 @@ export default async function ClockPage() {
             Hub
           </Link>
         )}
+        <Link href="/profile" className={pillClass}>
+          Profile
+        </Link>
         <SignOutButton className={pillClass} />
       </div>
     </main>

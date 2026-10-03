@@ -84,6 +84,9 @@ export default async function HubPage() {
               Notifications
             </Link>
           )}
+          <Link href="/profile" className="text-sm font-medium text-muted transition hover:text-ink">
+            Profile
+          </Link>
           <SignOutButton className="text-sm font-medium text-muted transition hover:text-ink" />
         </div>
       </header>
