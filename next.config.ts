@@ -15,6 +15,20 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/**": ["./node_modules/pdfkit/js/standard-fonts/**"],
   },
+  // Private: tell every search engine and AI tool not to index, keep, quote
+  // or train on any page (see also src/app/robots.ts), and stop other sites
+  // showing the Hub inside a frame.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive, nosnippet, noimageindex, noai, noimageai" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

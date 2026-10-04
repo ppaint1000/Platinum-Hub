@@ -33,17 +33,17 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     title: "Pricing and costing",
     items: [
-      { href: "/costing/rates", label: "Rates", description: "Labour, paint, markups, GST and the other standard rates.", who: "admin" },
-      { href: "/costing/production-rates", label: "Production rates", description: "How fast each surface is painted and prepped.", who: "admin" },
-      { href: "/costing/paint-products", label: "Paint products", description: "Paints used on costings, and the default.", who: "admin" },
-      { href: "/costing/resene-prices", label: "Resene paint prices", description: "Prices from the Resene invoices, with hand corrections.", who: "admin" },
-      { href: "/costing/access", label: "Access equipment", description: "Scaffold and machine hire rates.", who: "admin" },
+      { href: "/settings/rates", label: "Rates", description: "Labour, paint, markups, GST and the other standard rates.", who: "admin" },
+      { href: "/settings/production-rates", label: "Production rates", description: "How fast each surface is painted and prepped.", who: "admin" },
+      { href: "/settings/paint-products", label: "Paint products", description: "Paints used on costings, and the default.", who: "admin" },
+      { href: "/settings/resene-prices", label: "Resene paint prices", description: "Prices from the Resene invoices, with hand corrections.", who: "admin" },
+      { href: "/settings/access-equipment", label: "Access equipment", description: "Scaffold and machine hire rates.", who: "admin" },
     ],
   },
   {
     title: "Proposals",
     items: [
-      { href: "/costing/proposal-templates", label: "Proposal templates", description: "Letter, photos, methodology, terms and back pages.", who: "admin" },
+      { href: "/settings/proposal-templates", label: "Proposal templates", description: "Letter, photos, methodology, terms and back pages.", who: "admin" },
     ],
   },
   {

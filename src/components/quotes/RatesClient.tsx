@@ -256,7 +256,7 @@ export function RatesClient({
           <h2 className="text-sm font-semibold text-ink">Paint</h2>
           <p className="mt-1 mb-4 text-xs text-muted">
             The full paint list (Sonyx, X-200, etc.) is managed under{" "}
-            <Link href="/costing/paint-products" className="text-brand-red-dark hover:underline">
+            <Link href="/settings/paint-products" className="text-brand-red-dark hover:underline">
               Paint Products
             </Link>
             . Set the company default here — it&apos;s what every costing line uses when no paint is

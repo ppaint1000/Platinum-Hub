@@ -9,6 +9,7 @@ import { getUnsavedGuard } from "@/lib/quotes/unsavedGuard";
 import { useMcAccess } from "@/components/quotes/McAccess";
 
 const SIBLING_PREFIXES = [
+  "/costing/proposals",
   "/costing/rates",
   "/costing/paint-products",
   "/costing/resene-prices",
@@ -46,7 +47,7 @@ export function CostingSubNav() {
   // Just the costings here (and Site Measures, to go back and forth) - the
   // rates, price lists and proposal templates live in Settings, like
   // PaintScout.
-  const baseTabs = BASE_TABS.slice(0, 1);
+  const baseTabs = [BASE_TABS[0], { href: "/costing/proposals", label: "Proposals" }];
   const quoteMatch = pathname.match(QUOTE_ROUTE);
   const quoteId = quoteMatch ? quoteMatch[1] : null;
 

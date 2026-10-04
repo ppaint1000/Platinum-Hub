@@ -16,6 +16,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Platinum Painters Hub",
   description: "Platinum Painters admin hub",
+  // Private - never in search results or AI tools (see robots.ts).
+  robots: { index: false, follow: false, nocache: true, googleBot: { index: false, follow: false } },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

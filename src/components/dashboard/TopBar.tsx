@@ -68,8 +68,12 @@ export function staffNav(access: {
   salesAuthority?: boolean;
   measures?: boolean;
   costing?: boolean;
+  sales?: boolean;
+  // Painters: just their own things (clock in, timesheet, fuel) - no Hub home.
+  painter?: boolean;
 }): NavItem[] {
-  const items: NavItem[] = [{ href: "/sales/dashboard", label: "My sales", icon: LayoutDashboard }];
+  const items: NavItem[] = [];
+  if (access.sales || access.salesAuthority) items.push({ href: "/sales/dashboard", label: "My sales", icon: LayoutDashboard });
   if (access.salesAuthority) items.push({ href: "/sales", label: "Team sales", icon: TrendingUp });
   if (access.jobs) {
     items.push({ href: "/jobs", label: "Jobs", icon: Briefcase });
@@ -77,10 +81,19 @@ export function staffNav(access: {
   }
   if (access.measures) items.push({ href: "/site-measures", label: "Measures", icon: Ruler });
   if (access.costing) items.push({ href: "/costing", label: "Costing", icon: Calculator });
-  if (access.timesheets) items.push({ href: "/timesheets", label: "Timesheets", icon: Clock });
+  if (access.timesheets) {
+    items.push({ href: "/timesheets/clock", label: "Clock in", icon: Clock });
+    items.push({ href: "/timesheets/timesheet", label: "My timesheet", icon: CalendarX });
+  }
   if (access.orders) items.push({ href: "/orders", label: "Orders", icon: ShoppingCart });
-  if (access.fleet) items.push({ href: "/fleet", label: "Fleet", icon: Truck });
-  items.push({ href: "/hub", label: "All apps", icon: LayoutGrid });
+  if (access.fleet) {
+    items.push(
+      access.painter
+        ? { href: "/fleet/log", label: "Log fuel", icon: Truck }
+        : { href: "/fleet", label: "Fleet", icon: Truck }
+    );
+  }
+  if (!access.painter) items.push({ href: "/hub", label: "All apps", icon: LayoutGrid });
   return items;
 }
 

@@ -39,5 +39,7 @@ export async function navForViewer(): Promise<NavItem[]> {
     salesAuthority: access?.sales_authority,
     measures: access?.measures,
     costing: access?.costing,
+    sales: access?.sales || profile.role === "sales",
+    painter: profile.role === "painter",
   });
 }

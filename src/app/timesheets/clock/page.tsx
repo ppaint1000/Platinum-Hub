@@ -1,10 +1,8 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentProfile } from '@/lib/supabase/profile'
-import { HubLogoLink } from '@/components/HubLogoLink'
-import { SignOutButton } from '@/components/SignOutButton'
+import { HubTopBar } from '@/components/dashboard/HubTopBar'
 import { Watermark } from '@/components/timesheets/Watermark'
 import { ClockWidget } from './clock-widget'
 
@@ -60,14 +58,12 @@ export default async function ClockPage() {
 
   // Painters land here, not the Hub, so anyone with Fleet access gets a
   // direct "Log fuel" button rather than having to find it via Hub -> Fleet.
-  // Sales staff land on their own sales dashboard, so they get a way back.
   const { data: appAccess } = await supabase
     .from('user_app_access')
-    .select('fleet, sales')
+    .select('fleet')
     .eq('user_id', profile.id)
-    .maybeSingle<{ fleet: boolean; sales: boolean }>()
+    .maybeSingle<{ fleet: boolean }>()
   const canLogFuel = profile.role === 'admin' || !!appAccess?.fleet
-  const isSalesStaff = profile.role === 'sales' && !!appAccess?.sales
 
   const [{ data: siteRows }, { data: openEntryRow }, { data: acknowledgements }, { data: extraDocRows }] =
     await Promise.all([
@@ -136,63 +132,30 @@ export default async function ClockPage() {
     : null
 
   return (
-    <main className="relative flex flex-1 flex-col items-center justify-center gap-6 p-4">
-      <Watermark />
-      <div className="absolute inset-x-0 top-6 flex flex-col items-center gap-6 px-6 sm:static sm:inset-auto sm:px-0">
-        <HubLogoLink isAdmin={profile.role === 'admin'} className="block w-full sm:w-[140px]">
-          <Image
-            src="/logo.webp"
-            alt="Platinum Painters"
-            width={140}
-            height={56}
-            priority
-            className="h-auto w-full sm:w-[140px]"
-          />
-        </HubLogoLink>
+    <>
+      <HubTopBar activeHref="/timesheets/clock" />
+      <main className="relative flex flex-1 flex-col items-center justify-center gap-6 p-4">
+        <Watermark />
         <p className="text-sm text-black/60">Signed in as {profile.full_name}</p>
-      </div>
-      <ClockWidget sites={sites} openEntry={openEntry} />
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {isSalesStaff && (
-          <Link href="/sales/dashboard" className={pillClass}>
-            My sales
+        <ClockWidget sites={sites} openEntry={openEntry} />
+        {/* Quick links for the phone - the menu above has the rest. */}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Link href="/timesheets/timesheet" className={pillClass}>
+            My Timesheet
           </Link>
-        )}
-        {(profile.role === 'admin' || profile.role === 'supervisor') && (
-          <Link href="/timesheets/admin" className={pillClass}>
-            Dashboard
+          <Link href="/timesheets/timesheet/weekly" className={pillClass}>
+            Weekly Timesheet
           </Link>
-        )}
-        {(profile.role === "admin" || profile.role === "supervisor") && (
-          <Link href="/production" className={pillClass}>
-            Production
+          <Link href="/timesheets/timesheet/requests" className={pillClass}>
+            Request a Change
           </Link>
-        )}
-        <Link href="/timesheets/timesheet" className={pillClass}>
-          My Timesheet
-        </Link>
-        <Link href="/timesheets/timesheet/weekly" className={pillClass}>
-          Weekly Timesheet
-        </Link>
-        <Link href="/timesheets/timesheet/requests" className={pillClass}>
-          Request a Change
-        </Link>
-        {canLogFuel && (
-          <Link href="/fleet/log" className={pillClass}>
-            Log fuel
-          </Link>
-        )}
-        {/* Painters are kept off the Hub (the proxy sends them back here). */}
-        {profile.role !== 'painter' && (
-          <Link href="/hub" className={pillClass}>
-            Hub
-          </Link>
-        )}
-        <Link href="/profile" className={pillClass}>
-          Profile
-        </Link>
-        <SignOutButton className={pillClass} />
-      </div>
-    </main>
+          {canLogFuel && (
+            <Link href="/fleet/log" className={pillClass}>
+              Log fuel
+            </Link>
+          )}
+        </div>
+      </main>
+    </>
   )
 }

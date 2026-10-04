@@ -1,10 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { SignOutButton } from "@/components/SignOutButton";
-import { HubLogoLink } from "@/components/HubLogoLink";
+import { HubTopBar } from "@/components/dashboard/HubTopBar";
 import { FuelEntryForm } from "@/components/fleet/FuelEntryForm";
 
 export default async function DriverFuelLogPage() {
@@ -54,20 +52,9 @@ export default async function DriverFuelLogPage() {
     (vehicles ?? []).find((v) => v.assigned_driver_id === user?.id)?.id ?? vehicles?.[0]?.id ?? "";
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 py-6">
-      <header className="flex items-center justify-between">
-        <HubLogoLink isAdmin={profile?.role === "admin"} className="block">
-          <Image
-            src="/logo.webp"
-            alt="Platinum Painters"
-            width={140}
-            height={56}
-            priority
-            className="h-8 w-auto"
-          />
-        </HubLogoLink>
-        <SignOutButton className="text-sm font-medium text-muted transition hover:text-ink" />
-      </header>
+    <>
+    <HubTopBar activeHref="/fleet/log" />
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 py-6">
 
       {backLink && (
         <Link
@@ -99,5 +86,6 @@ export default async function DriverFuelLogPage() {
         }))}
       />
     </main>
+    </>
   );
 }
