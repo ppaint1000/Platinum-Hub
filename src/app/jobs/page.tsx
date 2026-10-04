@@ -2,7 +2,6 @@
 // complete/lost), each job showing live profit/margin/hours instead of a
 // bare name and status. Admin-only, see requireAdmin().
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { Panel, SummaryStat } from "@/components/ui";
 import { JobsList, type JobListRow } from "@/components/jobs/JobsList";
@@ -139,19 +138,12 @@ export default async function JobsPage() {
   return (
     <div className="mx-auto w-full max-w-5xl p-8">
       <div className="mb-4 flex items-center justify-between">
-        <Link
-          href="/hub"
-          className="flex items-center gap-1.5 text-sm font-medium text-ink-soft transition hover:text-ink"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to Hub
-        </Link>
         <div className="flex items-center gap-4">
           <Link href="/jobs/hours" className="text-sm font-medium text-accent hover:text-accent-hover">
             Hours to approve
           </Link>
           <Link
-            href="/jobs/lost-report"
+            href="/reports/lost-quotes"
             className="text-sm font-medium text-accent hover:text-accent-hover"
           >
             Lost to report

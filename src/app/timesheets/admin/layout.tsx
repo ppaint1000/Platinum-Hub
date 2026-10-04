@@ -1,7 +1,5 @@
-import Image from 'next/image'
 import { requireAdminOrSupervisor } from '@/lib/timesheets/authGuards'
-import { HubLogoLink } from '@/components/HubLogoLink'
-import { SignOutButton } from '@/components/SignOutButton'
+import { HubTopBar } from '@/components/dashboard/HubTopBar'
 import { AdminNav } from './admin-nav'
 
 export default async function AdminLayout({
@@ -13,17 +11,7 @@ export default async function AdminLayout({
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-black/10 bg-white px-4 py-3">
-        <HubLogoLink isAdmin={profile.role === 'admin'} fallbackHref="/timesheets/admin" className="shrink-0">
-          <Image src="/logo.webp" alt="Platinum Painters" width={90} height={36} priority />
-        </HubLogoLink>
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="min-w-0 truncate text-sm text-black/60">
-            {profile.full_name}
-          </span>
-          <SignOutButton className="shrink-0 text-sm underline" />
-        </div>
-      </header>
+      <HubTopBar activeHref="/timesheets/admin" />
       <div className="border-b border-black/10 md:hidden">
         <AdminNav role={profile.role} />
       </div>

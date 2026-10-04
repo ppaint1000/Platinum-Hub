@@ -123,7 +123,7 @@ export function CostingSubNav() {
 
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-center gap-2 print:hidden">
+      <div className="mb-6 flex flex-wrap items-center gap-2 print:hidden" data-own-unsaved-check>
         {tabs.map((tab) => (
           <Link
             key={tab.href}

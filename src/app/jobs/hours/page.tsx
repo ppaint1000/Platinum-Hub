@@ -6,7 +6,6 @@ import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { groupEntries, loadHoursEntries, loadNoRate } from "@/lib/jobs/hoursApproval";
 import { HoursApproval } from "@/components/jobs/HoursApproval";
 import { DashboardShell } from "@/components/dashboard/parts";
-import { ADMIN_NAV, TopBar } from "@/components/dashboard/TopBar";
 import { dashboardFontClass } from "@/components/dashboard/fonts";
 import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
@@ -27,7 +26,8 @@ export default async function HoursToApprovePage() {
   return (
     <DashboardShell
       fontClass={dashboardFontClass}
-      topBar={<TopBar items={ADMIN_NAV} activeHref="/jobs" />}
+      // The Jobs layout draws the top bar.
+      topBar={null}
       todayKey={nzTodayDateString()}
       title="Hours to approve"
     >

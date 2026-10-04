@@ -203,6 +203,11 @@ export function ClientsList({
   const [salesPersonId, setSalesPersonId] = useState(defaultSalesPerson);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // "+ New → Client" in the top bar opens this straight away (?new=1).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (new URLSearchParams(window.location.search).has("new")) setOpen(true);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

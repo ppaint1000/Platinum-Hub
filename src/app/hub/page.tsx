@@ -63,6 +63,48 @@ export default async function HubPage() {
     toInvoice = await readyToInvoiceCount();
   }
 
+  type Tile = { href: string; icon: React.ReactNode; title: string; description: string; show: boolean };
+  const groups: { title: string; tiles: Tile[] }[] = [
+    {
+      title: "Sales",
+      tiles: [
+        { href: "/dashboard", icon: <LayoutDashboard className="h-5 w-5" />, title: "Dashboard", description: "Sales, job margins, hours and fleet at a glance.", show: isAdmin },
+        { href: "/clients", icon: <Contact className="h-5 w-5" />, title: "Clients", description: "Every client, their contacts, jobs and clock-in sites.", show: isAdmin || !!access?.jobs },
+        { href: "/site-measures", icon: <Ruler className="h-5 w-5" />, title: "Site Measures", description: "Measure up on site, then send it to a costing.", show: isAdmin || !!access?.measures },
+        { href: "/costing", icon: <Calculator className="h-5 w-5" />, title: "Costing and proposals", description: "Price the job and send the customer an online proposal.", show: isAdmin || !!access?.costing },
+        { href: "/sales", icon: <TrendingUp className="h-5 w-5" />, title: "Sales", description: "Quoted and won $ by salesperson, against a monthly budget.", show: isAdmin || !!access?.sales },
+      ],
+    },
+    {
+      title: "Jobs",
+      tiles: [
+        { href: "/jobs", icon: <Briefcase className="h-5 w-5" />, title: "Jobs", description: "Pipeline, budgets, and budget-vs-actual by job.", show: isAdmin || !!access?.jobs },
+        { href: "/production", icon: <Kanban className="h-5 w-5" />, title: "Production board", description: "Won jobs from To be scheduled through to Paid.", show: isAdmin || isSupervisor },
+        { href: "/orders", icon: <ClipboardList className="h-5 w-5" />, title: "Orders", description: "Supplier orders by job, with line items and totals.", show: isAdmin || !!access?.orders },
+        { href: "/jobs/invoices", icon: <Receipt className="h-5 w-5" />, title: "Supplier invoices", description: "Upload supplier invoices and put their lines against jobs.", show: isAdmin || !!access?.jobs },
+      ],
+    },
+    {
+      title: "Team",
+      tiles: [
+        { href: "/timesheets", icon: <Clock className="h-5 w-5" />, title: "Timesheets", description: "Clock in and out, timesheets and sites.", show: isAdmin || !!access?.timesheets },
+        { href: "/absences", icon: <CalendarX className="h-5 w-5" />, title: "Absences", description: "Who's been away and why - sick days, leave and patterns.", show: isAdmin },
+        { href: "/fleet", icon: <Truck className="h-5 w-5" />, title: "Fleet", description: "Vehicles, fuel, servicing, and WOF/rego.", show: isAdmin || !!access?.fleet },
+      ],
+    },
+    {
+      title: "Reports and set-up",
+      tiles: [
+        { href: "/reports", icon: <PieChart className="h-5 w-5" />, title: "Reports", description: "Every report in one place, with charts and export.", show: isAdmin },
+        { href: "/users", icon: <Users className="h-5 w-5" />, title: "Users and access", description: "Add and manage staff, what they can use, and where they land.", show: isAdmin },
+        { href: "/settings", icon: <Settings className="h-5 w-5" />, title: "Settings", description: "Rates, templates, checklists, sites, vehicles - all set-up in one place.", show: true },
+      ],
+    },
+  ];
+  const sections = groups
+    .map((g) => ({ title: g.title, tiles: g.tiles.filter((t) => t.show) }))
+    .filter((g) => g.tiles.length > 0);
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
       <header className="flex items-center justify-between">
@@ -114,126 +156,18 @@ export default async function HubPage() {
         </Link>
       )}
 
-      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {isAdmin && (
-          <AppTile
-            href="/dashboard"
-            icon={<LayoutDashboard className="h-5 w-5" />}
-            title="Dashboard"
-            description="Sales, job margins, hours and fleet at a glance."
-          />
-        )}
-        {isAdmin && (
-          <AppTile
-            href="/absences"
-            icon={<CalendarX className="h-5 w-5" />}
-            title="Absences"
-            description="Who's been away and why - sick days, leave and patterns."
-          />
-        )}
-        {(isAdmin || access?.timesheets) && (
-          <AppTile
-            href="/timesheets"
-            icon={<Clock className="h-5 w-5" />}
-            title="Timesheets"
-            description="Staff clock in/out, leave, and schedules."
-          />
-        )}
-        {(isAdmin || access?.fleet) && (
-          <AppTile
-            href="/fleet"
-            icon={<Truck className="h-5 w-5" />}
-            title="Fleet"
-            description="Vehicles, fuel, servicing, and WOF/rego."
-          />
-        )}
-        {(isAdmin || access?.orders) && (
-          <AppTile
-            href="/orders"
-            icon={<ClipboardList className="h-5 w-5" />}
-            title="Orders"
-            description="Supplier orders by project, with line items and totals."
-          />
-        )}
-        {(isAdmin || access?.jobs) && (
-          <AppTile
-            href="/jobs"
-            icon={<Briefcase className="h-5 w-5" />}
-            title="Jobs"
-            description="Pipeline, budgets, and budget-vs-actual by job."
-          />
-        )}
-        {(isAdmin || isSupervisor) && (
-          <AppTile
-            href="/production"
-            icon={<Kanban className="h-5 w-5" />}
-            title="Production"
-            description="Won jobs from To be scheduled through to Paid."
-          />
-        )}
-        {(isAdmin || access?.jobs) && (
-          <AppTile
-            href="/jobs/invoices"
-            icon={<Receipt className="h-5 w-5" />}
-            title="Supplier invoices"
-            description="Upload supplier invoices and put their lines against jobs."
-          />
-        )}
-        {(isAdmin || access?.jobs) && (
-          <AppTile
-            href="/clients"
-            icon={<Contact className="h-5 w-5" />}
-            title="Clients"
-            description="Customer and contact details behind every job."
-          />
-        )}
-        {(isAdmin || access?.sales) && (
-          <AppTile
-            href="/sales"
-            icon={<TrendingUp className="h-5 w-5" />}
-            title="Sales"
-            description="Quoted and won $ by salesperson, against a monthly budget."
-          />
-        )}
-        {isAdmin && (
-          <AppTile
-            href="/reports"
-            icon={<PieChart className="h-5 w-5" />}
-            title="Reports"
-            description="Sales, jobs, production and activity reports with charts and export."
-          />
-        )}
-        {(isAdmin || access?.costing) && (
-          <AppTile
-            href="/costing"
-            icon={<Calculator className="h-5 w-5" />}
-            title="Costing"
-            description="Job costings."
-          />
-        )}
-        {(isAdmin || access?.measures) && (
-          <AppTile
-            href="/site-measures"
-            icon={<Ruler className="h-5 w-5" />}
-            title="Measures"
-            description="Site measures."
-          />
-        )}
-        {isAdmin && (
-          <AppTile
-            href="/users"
-            icon={<Users className="h-5 w-5" />}
-            title="Users"
-            description="Add, deactivate, or delete staff and set app access."
-          />
-        )}
-        <AppTile
-          href="/settings"
-          icon={<Settings className="h-5 w-5" />}
-          title="Settings"
-          description="Rates, templates, users and access, checklists, sites, vehicles - all set-up in one place."
-        />
-      </div>
+      {/* In the order the work flows, like PaintScout's menu: win the work,
+          run the jobs, look after the team, then reports and set-up. */}
+      {sections.map((sec) => (
+        <section key={sec.title} aria-label={sec.title} className="mt-8">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">{sec.title}</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {sec.tiles.map((t) => (
+              <AppTile key={t.href} href={t.href} icon={t.icon} title={t.title} description={t.description} />
+            ))}
+          </div>
+        </section>
+      ))}
     </main>
   );
 }

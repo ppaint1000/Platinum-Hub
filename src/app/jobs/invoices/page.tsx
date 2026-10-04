@@ -5,7 +5,6 @@
 // invoices are listed here for manual linking; approving individual lines
 // into actual costs happens on the job's own page.
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { Panel } from "@/components/ui";
 import { InvoiceUploadForm } from "@/components/jobs/InvoiceUploadForm";
@@ -136,13 +135,6 @@ export default async function SupplierInvoicesPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl p-8">
-      <Link
-        href="/hub"
-        className="mb-4 flex items-center gap-1.5 text-sm font-medium text-ink-soft transition hover:text-ink"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Back to Hub
-      </Link>
 
       <h1 className="mb-6 text-3xl font-bold text-ink">Supplier Invoices</h1>
 

@@ -220,6 +220,12 @@ export function SiteMeasuresClient({
     setAdding(true);
   }
 
+  // "+ New → Site measure" in the top bar opens the form straight away (?new=1).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (new URLSearchParams(window.location.search).has("new")) openAdd();
+  }, []);
+
   function openEdit(m: SiteMeasure) {
     setForm({
       customer_id: m.customer_id ?? "",

@@ -234,13 +234,6 @@ export default async function JobDetailPage({
     <div className="mx-auto w-full max-w-4xl p-8">
       <div className="mb-4 flex items-center gap-4">
         <Link
-          href="/hub"
-          className="flex items-center gap-1.5 text-sm font-medium text-ink-soft transition hover:text-ink"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to Hub
-        </Link>
-        <Link
           href="/jobs"
           className="flex items-center gap-1.5 text-sm font-medium text-ink-soft transition hover:text-ink"
         >

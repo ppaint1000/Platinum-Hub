@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
@@ -8,13 +7,11 @@ import {
   Wrench,
   ShieldCheck,
   Users,
-  ArrowLeft,
   BarChart3,
   Plus,
 } from "lucide-react";
-import { SignOutButton } from "@/components/SignOutButton";
 import { NavLink } from "@/components/fleet/NavLink";
-import { HubLogoLink } from "@/components/HubLogoLink";
+import { HubTopBar } from "@/components/dashboard/HubTopBar";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 
 const NAV = [
@@ -50,35 +47,10 @@ export default async function FleetAdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
+    <div className="flex min-h-screen flex-col">
+      <HubTopBar activeHref="/fleet" />
+      <div className="flex flex-1 flex-col md:flex-row">
       <nav className="flex flex-col gap-1 border-b border-border bg-surface px-3 py-4 md:w-56 md:flex-none md:border-b-0 md:border-r md:px-3 md:py-5">
-        <div className="flex items-center justify-between px-2 pb-3 md:block md:pb-5">
-          <HubLogoLink isAdmin={profile?.role === "admin"} className="block">
-            <Image
-              src="/logo.webp"
-              alt="Platinum Painters"
-              width={140}
-              height={56}
-              className="h-8 w-auto"
-            />
-          </HubLogoLink>
-          <Link
-            href="/hub"
-            className="flex items-center gap-1 text-xs font-medium text-muted transition hover:text-ink md:hidden"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Hub
-          </Link>
-        </div>
-
-        <Link
-          href="/hub"
-          className="mb-2 hidden items-center gap-1.5 px-2 text-xs font-medium text-muted transition hover:text-ink md:flex"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to Hub
-        </Link>
-
         <div className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible">
           {/* The driver entry form (/fleet/log) lives outside this admin
               layout, so nothing else in the Hub links to it. */}
@@ -97,14 +69,12 @@ export default async function FleetAdminLayout({
           ))}
         </div>
 
-        <div className="mt-auto hidden pt-4 md:block">
-          <SignOutButton className="px-2 text-xs font-medium text-muted transition hover:text-ink" />
-        </div>
       </nav>
 
       <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
         {children}
       </main>
+      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   Bell,
+  Plus,
   Settings,
   Briefcase,
   Calculator,
@@ -21,7 +22,6 @@ import {
   TrendingUp,
   Truck,
   UserCircle,
-  UserCog,
   type LucideIcon,
 } from "lucide-react";
 import { SignOutButton } from "@/components/SignOutButton";
@@ -33,23 +33,21 @@ import { NAVY } from "./parts";
 // group: shown together in the desktop "Costing & Measures" drop-down.
 export type NavItem = { href: string; label: string; icon: LucideIcon; external?: boolean; group?: boolean };
 
-// Admins get every app. Costing and Measures live in the separate Measures
-// app, so they open in a new tab, the same as their Hub tiles.
+// Admins get every app, in the order the work flows.
 export const ADMIN_NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/clients", label: "Clients", icon: Contact },
+  { href: "/site-measures", label: "Measures", icon: Ruler, group: true },
+  { href: "/costing", label: "Costing", icon: Calculator, group: true },
+  { href: "/sales", label: "Sales", icon: TrendingUp },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/production", label: "Production", icon: Kanban },
+  { href: "/orders", label: "Orders", icon: ShoppingCart },
   { href: "/jobs/invoices", label: "Invoices", icon: Receipt },
   { href: "/timesheets/admin", label: "Timesheets", icon: Clock },
   { href: "/absences", label: "Absences", icon: CalendarX },
-  { href: "/clients", label: "Clients", icon: Contact },
-  { href: "/sales", label: "Sales", icon: TrendingUp },
-  { href: "/reports", label: "Reports", icon: PieChart },
-  { href: "/costing", label: "Costing", icon: Calculator, group: true },
-  { href: "/site-measures", label: "Measures", icon: Ruler, group: true },
-  { href: "/orders", label: "Orders", icon: ShoppingCart },
   { href: "/fleet", label: "Fleet", icon: Truck },
-  { href: "/users", label: "Users", icon: UserCog },
+  { href: "/reports", label: "Reports", icon: PieChart },
   { href: "/hub", label: "All apps", icon: LayoutGrid },
 ];
 
@@ -77,13 +75,53 @@ export function staffNav(access: {
     items.push({ href: "/jobs", label: "Jobs", icon: Briefcase });
     items.push({ href: "/clients", label: "Clients", icon: Contact });
   }
-  if (access.costing) items.push({ href: "/costing", label: "Costing", icon: Calculator });
   if (access.measures) items.push({ href: "/site-measures", label: "Measures", icon: Ruler });
+  if (access.costing) items.push({ href: "/costing", label: "Costing", icon: Calculator });
   if (access.timesheets) items.push({ href: "/timesheets", label: "Timesheets", icon: Clock });
   if (access.orders) items.push({ href: "/orders", label: "Orders", icon: ShoppingCart });
   if (access.fleet) items.push({ href: "/fleet", label: "Fleet", icon: Truck });
   items.push({ href: "/hub", label: "All apps", icon: LayoutGrid });
   return items;
+}
+
+const NEW_ITEMS: { needs: string; href: string; label: string }[] = [
+  { needs: "/site-measures", href: "/site-measures?new=1", label: "Site measure" },
+  { needs: "/costing", href: "/costing/new", label: "Costing" },
+  { needs: "/clients", href: "/clients?new=1", label: "Client" },
+  { needs: "/orders", href: "/orders/new", label: "Order" },
+  { needs: "/fleet", href: "/fleet/log", label: "Fuel entry" },
+];
+
+function newItemsFor(items: NavItem[]) {
+  return NEW_ITEMS.filter((n) => items.some((i) => i.href === n.needs));
+}
+
+function NewMenu({ items }: { items: NavItem[] }) {
+  const options = newItemsFor(items);
+  if (options.length === 0) return null;
+  return (
+    <details className="group relative">
+      <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1 rounded-lg bg-[#1F4E8C] px-3 text-sm font-semibold text-white hover:bg-[#2A5FA6] [&::-webkit-details-marker]:hidden">
+        <Plus className="h-4 w-4" aria-hidden />
+        New
+      </summary>
+      <ul
+        className="absolute right-0 top-full z-30 mt-1 flex min-w-44 flex-col gap-0.5 rounded-lg p-2 shadow-lg"
+        style={{ background: NAVY }}
+      >
+        {options.map((o) => (
+          <li key={o.href}>
+            <Link
+              href={o.href}
+              className="flex min-h-10 items-center rounded-lg px-3 text-sm font-medium text-[#C9D1DC] hover:bg-white/10 hover:text-white"
+            >
+              {o.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
 }
 
 const tabClass =
@@ -282,6 +320,7 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
             <NavRow items={items} activeHref={activeHref} alerts={alerts} />
           </nav>
           <div className="flex items-center gap-1">
+            <NewMenu items={items} />
             <Link
               href="/settings"
               aria-label="Settings"
@@ -330,6 +369,20 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
           </span>
         </summary>
         <nav aria-label="Main" className="mt-3 border-t border-[#2A3748] pb-2 pt-3">
+          {newItemsFor(items).length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2 border-b border-[#2A3748] pb-3">
+              {newItemsFor(items).map((o) => (
+                <Link
+                  key={o.href}
+                  href={o.href}
+                  className="flex min-h-10 items-center gap-1 rounded-lg bg-[#1F4E8C] px-3 text-sm font-semibold text-white"
+                >
+                  <Plus className="h-4 w-4" aria-hidden />
+                  {o.label}
+                </Link>
+              ))}
+            </div>
+          )}
           <NavList items={items} activeHref={activeHref} alerts={alerts} />
           <Link
             href="/settings"
