@@ -1,10 +1,13 @@
 // Users — add, deactivate, or delete staff, and set which apps (and which
 // one they land on after signing in) each person can reach. Admin-only.
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { DASHBOARD_THEME } from "@/components/dashboard/parts";
+import { ADMIN_NAV, TopBar } from "@/components/dashboard/TopBar";
+import { dashboardFontClass } from "@/components/dashboard/fonts";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { Panel } from "@/components/ui";
 import { UsersTable, type UserRow, type PayRate } from "@/components/users/UsersTable";
+import type { StaffType } from "@/components/users/UserMore";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NewUserForm } from "@/components/users/NewUserForm";
 import { loadNoRate, type NoRatePerson } from "@/lib/jobs/hoursApproval";
 
@@ -25,7 +28,7 @@ export default async function UsersPage() {
     supabase
       .from("profiles")
       .select(
-        "id, full_name, email, role, is_active, user_app_access(timesheets, fleet, orders, jobs, sales, sales_authority, default_app, measures, costing)"
+        "id, full_name, email, role, is_active, staff_type_id, user_app_access(timesheets, fleet, orders, jobs, sales, sales_authority, default_app, measures, costing)"
       )
       .is("deleted_at", null)
       .order("is_active", { ascending: false })
@@ -56,7 +59,18 @@ export default async function UsersPage() {
       publicHolidays: Number(r.public_holidays),
     });
   }
-  const rows = (profiles ?? []).map((p) => ({ ...p, payRate: rateByUser.get(p.id) ?? null }));
+  // Staff types for the More panel, and who was invited but hasn't signed
+  // in yet (so their invite can be sent again).
+  const [{ data: staffTypes }, { data: authUsers }] = await Promise.all([
+    supabase.from("staff_types").select("id, name").eq("is_active", true).order("name").returns<StaffType[]>(),
+    createAdminClient().auth.admin.listUsers({ perPage: 1000 }),
+  ]);
+  const neverSignedIn = new Set((authUsers?.users ?? []).filter((u) => !u.last_sign_in_at).map((u) => u.id));
+  const rows = (profiles ?? []).map((p) => ({
+    ...p,
+    payRate: rateByUser.get(p.id) ?? null,
+    pending: neverSignedIn.has(p.id),
+  }));
 
   // People with hours on jobs but no hourly rate for those days - their
   // hours cost $0 on jobs until a rate is set (see Jobs → Hours to approve).
@@ -71,23 +85,22 @@ export default async function UsersPage() {
     // Wider than the other admin pages - the table has a dozen columns. On
     // screens narrower than that it scrolls sideways inside the Panel
     // rather than spilling past its border.
-    <div className="mx-auto w-full max-w-7xl p-8">
-      <Link
-        href="/hub"
-        className="mb-4 flex items-center gap-1.5 text-sm font-medium text-ink-soft transition hover:text-ink"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Back to Hub
-      </Link>
+    // The Hub top bar like every other page, but a wider body than most.
+    <div
+      className={`${dashboardFontClass} flex min-h-screen flex-col bg-[#F5F4F0] [font-family:var(--font-body)]`}
+      style={DASHBOARD_THEME}
+    >
+      <TopBar items={ADMIN_NAV} activeHref="/users" />
+      <main className="mx-auto w-full max-w-7xl px-4 py-6 md:px-8 md:py-8">
 
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-ink">Users</h1>
+          <h1 className="text-3xl font-bold text-ink">Users and access</h1>
           <p className="mt-1 text-sm text-ink-soft">
             {rows.length} {rows.length === 1 ? "person" : "people"}
           </p>
         </div>
-        <NewUserForm />
+        <NewUserForm staffTypes={staffTypes ?? []} />
       </div>
 
       {noRate.length > 0 && (
@@ -109,8 +122,9 @@ export default async function UsersPage() {
       )}
 
       <Panel className="overflow-x-auto p-4">
-        <UsersTable users={rows} />
+        <UsersTable users={rows} staffTypes={staffTypes ?? []} />
       </Panel>
+      </main>
     </div>
   );
 }

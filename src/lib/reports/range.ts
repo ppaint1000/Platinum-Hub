@@ -64,8 +64,8 @@ export function inRange(date: string | null | undefined, range: DateRange): bool
   return (!range.from || day >= range.from) && day <= range.to;
 }
 
-// Months the range covers, for monthly charts (at most the last 24).
-export function rangeMonths(range: DateRange, earliest: string | null): { key: string; label: string }[] {
+// Months the range covers, for monthly charts (at most the last `limit`).
+export function rangeMonths(range: DateRange, earliest: string | null, limit = 24): { key: string; label: string }[] {
   const start = (range.from ?? earliest ?? range.to).slice(0, 7);
   const end = range.to.slice(0, 7);
   const months: { key: string; label: string }[] = [];
@@ -85,5 +85,43 @@ export function rangeMonths(range: DateRange, earliest: string | null): { key: s
       y++;
     }
   }
-  return months.slice(-24);
+  return months.slice(-limit);
+}
+
+// Reports that can be shown by month, quarter or year (?by=...). Quarters
+// and years are the sales year, April-March, like the Sales pages.
+export const PERIODS = [
+  { key: "month", label: "Month" },
+  { key: "quarter", label: "Quarter" },
+  { key: "year", label: "Year" },
+] as const;
+
+export type Period = (typeof PERIODS)[number]["key"];
+
+export function parsePeriod(raw: string | undefined): Period {
+  return PERIODS.some((p) => p.key === raw) ? (raw as Period) : "month";
+}
+
+// The period a month ("YYYY-MM") falls in.
+export function periodOf(monthKey: string, period: Period, monthLabel?: string): { key: string; label: string } {
+  const [y, m] = monthKey.split("-").map(Number);
+  const fy = m >= 4 ? y : y - 1;
+  const fyLabel = `${fy}/${pad((fy + 1) % 100)}`;
+  if (period === "year") return { key: `FY${fy}`, label: fyLabel };
+  if (period === "quarter") {
+    const q = Math.floor(((m - 4 + 12) % 12) / 3) + 1;
+    return { key: `${fy}-Q${q}`, label: `Q${q} ${fyLabel}` };
+  }
+  return { key: monthKey, label: monthLabel ?? monthKey };
+}
+
+// The periods the range covers, oldest first (months: at most the last 24).
+export function rangePeriods(range: DateRange, earliest: string | null, period: Period): { key: string; label: string }[] {
+  if (period === "month") return rangeMonths(range, earliest);
+  const seen = new Map<string, string>();
+  for (const mo of rangeMonths(range, earliest, Infinity)) {
+    const p = periodOf(mo.key, period);
+    if (!seen.has(p.key)) seen.set(p.key, p.label);
+  }
+  return [...seen].map(([key, label]) => ({ key, label }));
 }

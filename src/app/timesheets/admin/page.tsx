@@ -20,10 +20,10 @@ export default async function AdminDashboard() {
       </p>
       <div className="flex flex-wrap gap-2">
         <Link
-          href="/timesheets/admin/customers"
+          href="/clients"
           className="rounded-lg bg-gray-300 px-4 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-400"
         >
-          Manage customers
+          Manage clients
         </Link>
         <Link
           href="/timesheets/admin/sites"
@@ -31,12 +31,14 @@ export default async function AdminDashboard() {
         >
           Manage sites
         </Link>
-        <Link
-          href="/timesheets/admin/staff"
-          className="rounded-lg bg-gray-300 px-4 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-400"
-        >
-          Manage staff
-        </Link>
+        {profile.role === 'admin' && (
+          <Link
+            href="/users"
+            className="rounded-lg bg-gray-300 px-4 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-400"
+          >
+            Manage staff
+          </Link>
+          )}
         {profile.role === 'admin' && (
           <Link
             href="/timesheets/admin/reports"

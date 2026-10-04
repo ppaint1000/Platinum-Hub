@@ -215,7 +215,7 @@ export function WinRings({
 // The app-wide colour tokens (buttons, borders, text) switched to the
 // dashboard colours, so shared pieces used inside a dashboard page (forms,
 // buttons) match it.
-const DASHBOARD_THEME = {
+export const DASHBOARD_THEME = {
   "--color-ink": "#16202E",
   "--color-ink-soft": "#5B6472",
   "--color-ink-faint": "#8A919C",

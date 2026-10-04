@@ -41,7 +41,7 @@ export default async function ActivityPage() {
     supabase
       .from('timesheet_entries')
       .select(
-        'id, user_id, clock_in_at, clock_in_lat, clock_in_lng, clock_in_device_id, clock_in_device_label, profiles(full_name), sites(name, customers(name))'
+        'id, user_id, clock_in_at, clock_in_lat, clock_in_lng, clock_in_device_id, clock_in_device_label, profiles(full_name), sites(name, customers:clients(name))'
       )
       .is('clock_out_at', null)
       .order('clock_in_at', { ascending: true })

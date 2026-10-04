@@ -4,6 +4,7 @@ import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendAuthEmail } from "@/lib/timesheets/email/authEmails";
 import {
   defaultAppAllowed,
   defaultAppForRole,
@@ -23,23 +24,34 @@ export async function createUserAction(input: {
   role: Role;
   access: Record<AccessApp, boolean>;
   defaultApp: DefaultApp;
+  staffTypeId?: string | null;
+  // Email them a link to set their own password, instead of showing a
+  // temporary one here.
+  invite?: boolean;
 }) {
   await requireAdmin();
 
   const admin = createAdminClient();
-  const tempPassword = generateTempPassword();
+  let tempPassword: string | null = null;
+  let userId: string;
 
-  const { data: created, error: createError } = await admin.auth.admin.createUser({
-    email: input.email,
-    password: tempPassword,
-    email_confirm: true,
-  });
+  if (input.invite) {
+    const { error, userId: invitedId } = await sendAuthEmail(input.email.trim(), "invite", input.fullName.trim());
+    if (error || !invitedId) return { error: error ?? "Could not send the invite." };
+    userId = invitedId;
+  } else {
+    tempPassword = generateTempPassword();
+    const { data: created, error: createError } = await admin.auth.admin.createUser({
+      email: input.email,
+      password: tempPassword,
+      email_confirm: true,
+    });
 
-  if (createError || !created.user) {
-    return { error: createError?.message ?? "Could not create the login." };
+    if (createError || !created.user) {
+      return { error: createError?.message ?? "Could not create the login." };
+    }
+    userId = created.user.id;
   }
-
-  const userId = created.user.id;
 
   // Supabase already has a trigger that creates a bare profiles row when a
   // new Auth user is made — upsert rather than insert so we fill it in
@@ -50,6 +62,7 @@ export async function createUserAction(input: {
     email: input.email,
     role: input.role,
     is_active: true,
+    staff_type_id: input.staffTypeId || null,
   });
 
   if (profileError) {
@@ -156,6 +169,22 @@ export async function updateDefaultAppAction(userId: string, app: DefaultApp) {
     .update({ default_app: app, updated_at: new Date().toISOString() })
     .eq("user_id", userId);
 
+  if (error) return { error: error.message };
+
+  revalidatePath("/users");
+  return {};
+}
+
+// The person's name and staff type (Painter, Apprentice, Contractor...) -
+// the staff type is only a job classification, not a permission.
+export async function updateUserDetailsAction(userId: string, details: { fullName: string; staffTypeId: string | null }) {
+  const supabase = await requireAdmin();
+  if (!details.fullName.trim()) return { error: "Enter their name." };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ full_name: details.fullName.trim(), staff_type_id: details.staffTypeId || null })
+    .eq("id", userId);
   if (error) return { error: error.message };
 
   revalidatePath("/users");

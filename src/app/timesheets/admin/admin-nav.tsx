@@ -13,9 +13,9 @@ const links = [
   { href: '/timesheets/admin/reports', label: 'Reports', adminOnly: true },
   { href: '/timesheets/admin/reports/by-job', label: 'Hours by Job', adminOnly: true },
   { href: '/absences', label: 'Absences', adminOnly: true },
-  { href: '/timesheets/admin/customers', label: 'Customers' },
+  { href: '/clients', label: 'Clients', adminOnly: true },
   { href: '/timesheets/admin/sites', label: 'Sites' },
-  { href: '/timesheets/admin/staff', label: 'Staff' },
+  { href: '/users', label: 'Staff (Users)', adminOnly: true },
   { href: '/timesheets/admin/staff-types', label: 'Manage Staff Types', adminOnly: true },
   { href: '/hub', label: 'Hub' },
 ]

@@ -16,6 +16,7 @@ import { DEFAULT_APP_OPTIONS, defaultAppAllowed, type AccessApp, type DefaultApp
 import { LedgerTable } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
 import { TempPasswordReveal } from "./TempPasswordReveal";
+import { UserMore, type StaffType } from "./UserMore";
 
 export type PayRate = {
   employmentType: "contractor" | "employee";
@@ -44,6 +45,9 @@ export type UserRow = {
     costing: boolean;
   } | null;
   payRate: PayRate | null;
+  staff_type_id: string | null;
+  // Invited, hasn't signed in yet.
+  pending: boolean;
 };
 
 const APPS: { key: AccessApp; label: string }[] = [
@@ -116,7 +120,7 @@ function defaultEffectiveFrom(hasExistingRate: boolean): string {
   return hasExistingRate ? new Date().toISOString().slice(0, 10) : "2020-01-01";
 }
 
-export function UsersTable({ users }: { users: UserRow[] }) {
+export function UsersTable({ users, staffTypes }: { users: UserRow[]; staffTypes: StaffType[] }) {
   const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
 
   return (
@@ -144,9 +148,10 @@ export function UsersTable({ users }: { users: UserRow[] }) {
           "Pay rate",
           "",
         ]}
+        align={["left", "left", "center", "center", "center", "center", "center", "center", "center", "center", "left", "left", "left", "right"]}
       >
         {users.map((u) => (
-          <UserRowItem key={u.id} user={u} onPasswordRevealed={setRevealedPassword} />
+          <UserRowItem key={u.id} user={u} staffTypes={staffTypes} onPasswordRevealed={setRevealedPassword} />
         ))}
       </LedgerTable>
     </div>
@@ -155,11 +160,15 @@ export function UsersTable({ users }: { users: UserRow[] }) {
 
 function UserRowItem({
   user,
+  staffTypes,
   onPasswordRevealed,
 }: {
   user: UserRow;
+  staffTypes: StaffType[];
   onPasswordRevealed: (password: string) => void;
 }) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const staffType = staffTypes.find((t) => t.id === user.staff_type_id)?.name;
   const [isPending, startTransition] = useTransition();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
@@ -242,8 +251,14 @@ function UserRowItem({
     <Fragment>
       <tr className={user.is_active ? undefined : "opacity-50"}>
         <td className="py-2 text-ink">
-          <div className="font-medium">{user.full_name}</div>
+          <div className="font-medium">
+            {user.full_name}
+            {staffType && <span className="font-normal text-ink-soft"> · {staffType}</span>}
+          </div>
           <div className="text-sm text-ink-soft">{user.email}</div>
+          {user.pending && user.is_active && (
+            <div className="text-xs text-amber-700">Invited - hasn&apos;t signed in yet</div>
+          )}
         </td>
         <td className="py-2 pl-4">
           <select
@@ -338,6 +353,13 @@ function UserRowItem({
           <div className="flex justify-end gap-3">
             <button
               type="button"
+              onClick={() => setMoreOpen((v) => !v)}
+              className="text-sm font-medium whitespace-nowrap text-accent hover:text-accent-hover"
+            >
+              {moreOpen ? "Close" : "More"}
+            </button>
+            <button
+              type="button"
               disabled={isPending}
               onClick={resetPassword}
               className="text-sm font-medium whitespace-nowrap text-accent hover:text-accent-hover"
@@ -356,6 +378,13 @@ function UserRowItem({
           </div>
         </td>
       </tr>
+      {moreOpen && (
+        <tr>
+          <td colSpan={14} className="bg-background p-4">
+            <UserMore user={user} staffTypes={staffTypes} />
+          </td>
+        </tr>
+      )}
       {rateOpen && (
         <tr>
           <td colSpan={12} className="bg-background p-4">

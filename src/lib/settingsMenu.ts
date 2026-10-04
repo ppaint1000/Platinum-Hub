@@ -26,8 +26,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     title: "People and access",
     items: [
-      { href: "/users", label: "Users and access", description: "Add staff, roles, which apps each person uses, pay rates.", who: "admin" },
-      { href: "/timesheets/admin/staff", label: "Timesheet staff", description: "Invite painters, staff types, passwords, active or not.", who: "staff" },
+      { href: "/users", label: "Users and access", description: "Add and manage staff: roles, apps, landing page, pay rates, invites and passwords.", who: "admin" },
       { href: "/timesheets/admin/staff-types", label: "Staff types", description: "The kinds of staff (painter, apprentice…).", who: "admin" },
     ],
   },
@@ -57,8 +56,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     title: "Timesheets",
     items: [
-      { href: "/timesheets/admin/sites", label: "Sites", description: "Where painters clock in, linked to jobs.", who: "staff" },
-      { href: "/timesheets/admin/customers", label: "Timesheet customers", description: "The customers the sites belong to.", who: "staff" },
+      { href: "/timesheets/admin/sites", label: "Sites", description: "Where painters clock in - each belongs to a client and a job.", who: "staff" },
     ],
   },
   {

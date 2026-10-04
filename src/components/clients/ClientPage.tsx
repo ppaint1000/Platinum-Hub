@@ -103,11 +103,15 @@ const EVENT_COLOR: Record<Event["kind"], string> = {
   created: "#5B6472",
 };
 
+// A clock-in site belonging to this client (Timesheets → Sites).
+export type ClientSite = { id: string; name: string; address: string | null; is_active: boolean };
+
 export function ClientPage({
   client,
   contacts,
   jobs,
   notes,
+  sites = [],
   salesTeam,
   canChangeSalesPerson,
 }: {
@@ -115,11 +119,12 @@ export function ClientPage({
   contacts: ContactRow[];
   jobs: ClientJob[];
   notes: ClientNote[];
+  sites?: ClientSite[];
   salesTeam: { id: string; name: string }[];
   canChangeSalesPerson: boolean;
 }) {
   const [view, setView] = useState<"overview" | "timeline">("overview");
-  const [tab, setTab] = useState<"details" | "contacts" | "jobs">("details");
+  const [tab, setTab] = useState<"details" | "contacts" | "jobs" | "sites">("details");
   const [editing, setEditing] = useState(false);
   const [plusOpen, setPlusOpen] = useState(false);
   const noteRef = useRef<HTMLTextAreaElement>(null);
@@ -281,6 +286,7 @@ export function ClientPage({
                 ["details", "Details"],
                 ["contacts", `Contacts (${contacts.length})`],
                 ["jobs", `Jobs (${jobs.length})`],
+                ["sites", `Sites (${sites.length})`],
               ] as const
             ).map(([k, label]) => (
               <button
@@ -334,6 +340,31 @@ export function ClientPage({
             )}
 
             {tab === "jobs" && <JobsList jobs={jobs} />}
+
+            {tab === "sites" &&
+              (sites.length === 0 ? (
+                <p className="text-sm text-ink-soft">
+                  No clock-in sites for this client.{" "}
+                  <Link href="/timesheets/admin/sites" className="underline">
+                    Add one on Sites
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <ul className="divide-y divide-line">
+                  {sites.map((s) => (
+                    <li key={s.id} className="flex items-center justify-between gap-3 py-2">
+                      <div>
+                        <Link href={`/timesheets/admin/sites/${s.id}`} className="font-medium text-ink underline">
+                          {s.name}
+                        </Link>
+                        {s.address && <p className="text-sm text-ink-soft">{s.address}</p>}
+                      </div>
+                      <span className="text-xs text-ink-soft">{s.is_active ? "Active" : "Archived"}</span>
+                    </li>
+                  ))}
+                </ul>
+              ))}
           </div>
         </div>
       ) : (

@@ -14,6 +14,7 @@ import {
 import { Button, Panel } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
 import { TempPasswordReveal } from "./TempPasswordReveal";
+import type { StaffType } from "./UserMore";
 
 const APPS: { key: AccessApp; label: string }[] = [
   { key: "timesheets", label: "Timesheets" },
@@ -24,7 +25,7 @@ const APPS: { key: AccessApp; label: string }[] = [
 ];
 
 
-export function NewUserForm() {
+export function NewUserForm({ staffTypes }: { staffTypes: StaffType[] }) {
   const [open, setOpen] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -34,6 +35,10 @@ export function NewUserForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [staffTypeId, setStaffTypeId] = useState("");
+  // Email them a link to set their own password, or show a temporary one.
+  const [invite, setInvite] = useState(true);
+  const [notice, setNotice] = useState<string | null>(null);
 
   function changeRole(next: Role) {
     setRole(next);
@@ -55,6 +60,7 @@ export function NewUserForm() {
   function resetForm() {
     setFullName("");
     setEmail("");
+    setStaffTypeId("");
     changeRole("painter");
   }
 
@@ -63,7 +69,8 @@ export function NewUserForm() {
     setSaving(true);
     setError(null);
 
-    const result = await createUserAction({ fullName, email, role, access, defaultApp });
+    setNotice(null);
+    const result = await createUserAction({ fullName, email, role, access, defaultApp, staffTypeId: staffTypeId || null, invite });
     setSaving(false);
 
     if (result.error) {
@@ -71,6 +78,7 @@ export function NewUserForm() {
       return;
     }
     if (result.tempPassword) setTempPassword(result.tempPassword);
+    else setNotice(`Invite emailed to ${email.trim()} - they set their own password from the link.`);
     resetForm();
     setOpen(false);
   }
@@ -85,6 +93,7 @@ export function NewUserForm() {
         </div>
       )}
 
+      {notice && !open && <p className="mb-2 max-w-sm text-sm text-green-700">{notice}</p>}
       {!open ? (
         <Button onClick={() => setOpen(true)}>Add user</Button>
       ) : (
@@ -122,6 +131,23 @@ export function NewUserForm() {
                 <option value="sales">Sales</option>
               </select>
             </div>
+            {staffTypes.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-ink">Staff type</label>
+                <select
+                  value={staffTypeId}
+                  onChange={(e) => setStaffTypeId(e.target.value)}
+                  className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
+                >
+                  <option value="">None</option>
+                  {staffTypes.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <span className="block text-sm font-medium text-ink">Access</span>
               <div className="mt-1 flex flex-wrap gap-3">
@@ -151,6 +177,18 @@ export function NewUserForm() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <span className="block text-sm font-medium text-ink">Signing in</span>
+              <label className="mt-1 flex items-center gap-2 text-sm text-ink-soft">
+                <input type="radio" checked={invite} onChange={() => setInvite(true)} />
+                Email them an invite link to set their own password
+              </label>
+              <label className="mt-1 flex items-center gap-2 text-sm text-ink-soft">
+                <input type="radio" checked={!invite} onChange={() => setInvite(false)} />
+                Give me a temporary password to pass on
+              </label>
             </div>
 
             {error && (

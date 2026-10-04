@@ -48,21 +48,21 @@ async function uploadSiteDocument(
 export async function createSite(formData: FormData) {
   await requireAdminOrSupervisor()
 
-  const customer_id = formData.get('customer_id')
+  const client_id = formData.get('client_id')
   const name = formData.get('name')
   const address = formData.get('address')
   const contact_person = formData.get('contact_person')
   const extentOfWork = formData.get('extent_of_work')
   const safetyPlan = formData.get('safety_plan')
 
-  if (typeof customer_id !== 'string' || !customer_id) return
+  if (typeof client_id !== 'string' || !client_id) return
   if (typeof name !== 'string' || !name.trim()) return
 
   const supabase = await createClient()
   const { data: site } = await supabase
     .from('sites')
     .insert({
-      customer_id,
+      client_id,
       name: name.trim(),
       address: typeof address === 'string' && address.trim() ? address.trim() : null,
       contact_person:
@@ -81,11 +81,11 @@ export async function createSite(formData: FormData) {
       await uploadSiteDocument(supabase, site.id, 'safety-plan', safetyPlan)
     }
 
-    await createLinkedJobForSite(site.id, name.trim())
+    await createLinkedJobForSite(site.id, name.trim(), client_id)
   }
 
   revalidatePath('/timesheets/admin/sites')
-  revalidatePath('/timesheets/admin/customers/[id]', 'page')
+  revalidatePath('/clients/[id]', 'page')
 }
 
 // Every site needs a matching Hub job. Inserted as 'won' first so the
@@ -93,12 +93,12 @@ export async function createSite(formData: FormData) {
 // immediately clockable — see sites_jobs_link_schema.sql. Now that this runs
 // inside the Hub itself, this is a same-app service-role write to the same
 // jobs table Jobs/Orders/Sales already read — not a cross-app call anymore.
-async function createLinkedJobForSite(siteId: string, siteName: string) {
+async function createLinkedJobForSite(siteId: string, siteName: string, clientId: string) {
   const admin = createAdminClient()
 
   const { data: job, error: insertError } = await admin
     .from('jobs')
-    .insert({ name: siteName, status: 'won' })
+    .insert({ name: siteName, status: 'won', client_id: clientId })
     .select('id')
     .single()
   if (insertError || !job) return
@@ -110,7 +110,7 @@ async function createLinkedJobForSite(siteId: string, siteName: string) {
 export async function updateSite(siteId: string, formData: FormData) {
   await requireAdmin()
 
-  const customer_id = formData.get('customer_id')
+  const client_id = formData.get('client_id')
   const name = formData.get('name')
   const address = formData.get('address')
   const contact_person = formData.get('contact_person')
@@ -120,14 +120,14 @@ export async function updateSite(siteId: string, formData: FormData) {
   const removeExtentOfWork = formData.get('remove_extent_of_work') === 'on'
   const removeSafetyPlan = formData.get('remove_safety_plan') === 'on'
 
-  if (typeof customer_id !== 'string' || !customer_id) return
+  if (typeof client_id !== 'string' || !client_id) return
   if (typeof name !== 'string' || !name.trim()) return
 
   const supabase = await createClient()
   await supabase
     .from('sites')
     .update({
-      customer_id,
+      client_id,
       name: name.trim(),
       address: typeof address === 'string' && address.trim() ? address.trim() : null,
       contact_person:

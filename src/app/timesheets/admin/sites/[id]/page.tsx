@@ -19,11 +19,11 @@ export default async function EditSitePage({
       supabase
         .from('sites')
         .select(
-          'id, customer_id, name, address, contact_person, job_id, extent_of_work_filename, safety_plan_filename'
+          'id, client_id, name, address, contact_person, job_id, extent_of_work_filename, safety_plan_filename'
         )
         .eq('id', id)
         .single(),
-      supabase.from('customers').select('id, name').order('name'),
+      supabase.from('clients').select('id, name').order('name'),
       supabase
         .from('site_documents')
         .select('id, name')
@@ -45,13 +45,13 @@ export default async function EditSitePage({
       {canEdit ? (
         <form id="site-form" action={updateSite.bind(null, site.id)} className="space-y-3">
           <div className="space-y-1">
-            <label htmlFor="customer_id" className="text-sm font-medium">
-              Customer
+            <label htmlFor="client_id" className="text-sm font-medium">
+              Client
             </label>
             <select
-              id="customer_id"
-              name="customer_id"
-              defaultValue={site.customer_id}
+              id="client_id"
+              name="client_id"
+              defaultValue={site.client_id ?? ''}
               required
               className="w-full rounded-md border border-black/20 px-3 py-2"
             >

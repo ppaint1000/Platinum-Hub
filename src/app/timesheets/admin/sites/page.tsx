@@ -27,15 +27,11 @@ export default async function SitesPage() {
       supabase
         .from('sites')
         .select(
-          'id, name, address, is_active, extent_of_work_filename, safety_plan_filename, customers(name)'
+          'id, name, address, is_active, extent_of_work_filename, safety_plan_filename, customers:clients(name)'
         )
         .order('is_active', { ascending: false })
         .order('name', { ascending: true }),
-      supabase
-        .from('customers')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name'),
+      supabase.from('clients').select('id, name').order('name'),
       supabase.from('timesheet_entries').select('site_id'),
       supabase.from('site_documents').select('id, site_id, name').order('created_at'),
     ])
@@ -65,7 +61,7 @@ export default async function SitesPage() {
       <div>
         <h1 className="text-2xl font-semibold">Sites</h1>
         <p className="text-sm text-black/60">
-          Belong to a customer. Painters can only clock in against active sites.
+          Each site belongs to a client (Clients). Painters can only clock in against active sites.
         </p>
       </div>
 
@@ -73,23 +69,23 @@ export default async function SitesPage() {
         <h2 className="font-medium">Add a site</h2>
         {(customers ?? []).length === 0 ? (
           <p className="text-sm text-black/60">
-            Add an active customer first before adding a site.
+            Add the client on the Clients page first, then add the site.
           </p>
         ) : (
           <>
             <div className="space-y-1">
-              <label htmlFor="customer_id" className="text-sm font-medium">
-                Customer
+              <label htmlFor="client_id" className="text-sm font-medium">
+                Client
               </label>
               <select
-                id="customer_id"
-                name="customer_id"
+                id="client_id"
+                name="client_id"
                 required
                 defaultValue=""
                 className="w-full rounded-md border border-black/20 px-3 py-2"
               >
                 <option value="" disabled>
-                  Select a customer…
+                  Select a client…
                 </option>
                 {(customers ?? []).map((c) => (
                   <option key={c.id} value={c.id}>

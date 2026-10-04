@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronDown, ChevronUp, Download } from "lucide-react";
 import type { Cell, CellFormat, Report } from "@/lib/reports/build";
-import { RANGES, type DateRange } from "@/lib/reports/range";
+import { PERIODS, RANGES, type DateRange } from "@/lib/reports/range";
 import { ColumnChart, DonutChart, HBarChart, LineChart } from "./charts";
 
 const PAGE = 50;
@@ -93,13 +93,30 @@ export function ReportView({ report, range }: { report: Report; range: DateRange
             {report.dateBasis ? ` · by ${report.dateBasis.toLowerCase()}` : ""}
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-3">
+        {report.period && (
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-[#5B6472]">Show by</span>
+            <select
+              value={report.period}
+              onChange={(e) => router.push(`/reports/${report.slug}?range=${range.key}&by=${e.target.value}`)}
+              className="rounded-lg border border-[#E3E1DA] bg-white px-3 py-2 text-sm text-[#16202E]"
+            >
+              {PERIODS.map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="flex items-center gap-2 text-sm">
           <span className="text-[#5B6472]">Date range</span>
           <select
             value={range.key}
             onChange={(e) => {
               setPage(0);
-              router.push(`/reports/${report.slug}?range=${e.target.value}`);
+              router.push(`/reports/${report.slug}?range=${e.target.value}${report.period ? `&by=${report.period}` : ""}`);
             }}
             className="rounded-lg border border-[#E3E1DA] bg-white px-3 py-2 text-sm text-[#16202E]"
           >
@@ -110,6 +127,7 @@ export function ReportView({ report, range }: { report: Report; range: DateRange
             ))}
           </select>
         </label>
+        </div>
       </div>
 
       {report.charts.length > 0 && (

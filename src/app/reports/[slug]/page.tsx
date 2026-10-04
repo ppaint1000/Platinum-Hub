@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { loadReportJobs } from "@/lib/reports/load";
 import { buildReport, REPORT_GROUPS } from "@/lib/reports/build";
-import { parseRange } from "@/lib/reports/range";
+import { parsePeriod, parseRange } from "@/lib/reports/range";
 import { ReportView } from "@/components/reports/ReportView";
 import { DashboardShell } from "@/components/dashboard/parts";
 import { ADMIN_NAV, TopBar } from "@/components/dashboard/TopBar";
@@ -22,12 +22,12 @@ export default async function ReportPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; by?: string }>;
 }) {
-  const [{ slug }, { range: rangeParam }] = await Promise.all([params, searchParams]);
+  const [{ slug }, { range: rangeParam, by }] = await Promise.all([params, searchParams]);
   const supabase = await requireAdmin();
   const range = parseRange(rangeParam);
-  const report = buildReport(slug, await loadReportJobs(supabase), range);
+  const report = buildReport(slug, await loadReportJobs(supabase), range, parsePeriod(by));
   if (!report) notFound();
 
   return (

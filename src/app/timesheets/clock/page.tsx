@@ -74,7 +74,7 @@ export default async function ClockPage() {
       admin
         .from('sites')
         .select(
-          'id, name, extent_of_work_filename, safety_plan_filename, customers(name), jobs!inner(status, work_order_url)'
+          'id, name, extent_of_work_filename, safety_plan_filename, customers:clients(name), jobs!inner(status, work_order_url)'
         )
         .eq('is_active', true)
         .eq('jobs.status', 'in_progress')
@@ -83,7 +83,7 @@ export default async function ClockPage() {
       supabase
         .from('timesheet_entries')
         .select(
-          'id, clock_in_at, sites(id, name, extent_of_work_filename, safety_plan_filename, customers(name))'
+          'id, clock_in_at, sites(id, name, extent_of_work_filename, safety_plan_filename, customers:clients(name))'
         )
         .eq('user_id', profile.id)
         .is('clock_out_at', null)

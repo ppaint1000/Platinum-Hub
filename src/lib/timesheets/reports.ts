@@ -65,7 +65,7 @@ export async function getReportEntries(
   let query = supabase
     .from('timesheet_entries')
     .select(
-      'id, user_id, site_id, clock_in_at, clock_out_at, break_minutes, notes, clock_in_lat, clock_in_lng, clock_out_lat, clock_out_lng, clock_in_device_id, clock_in_device_label, clock_out_device_id, clock_out_device_label, profiles(full_name), sites(name, customers(name))'
+      'id, user_id, site_id, clock_in_at, clock_out_at, break_minutes, notes, clock_in_lat, clock_in_lng, clock_out_lat, clock_out_lng, clock_in_device_id, clock_in_device_label, clock_out_device_id, clock_out_device_label, profiles(full_name), sites(name, customers:clients(name))'
     )
     .order('clock_in_at', { ascending: false })
 

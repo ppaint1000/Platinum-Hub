@@ -92,9 +92,12 @@ export function SummaryStat({ label, value }: { label: string; value: string }) 
 // --- LedgerTable: spreadsheet-style rules instead of a boxed "card table".
 export function LedgerTable({
   headers,
+  align,
   children,
 }: {
   headers: string[];
+  // Each heading lined up with its column (default: first left, rest right).
+  align?: ("left" | "center" | "right")[];
   children: React.ReactNode;
 }) {
   return (
@@ -102,7 +105,12 @@ export function LedgerTable({
       <thead>
         <tr className="border-b border-line text-left text-ink-soft">
           {headers.map((h, i) => (
-            <th key={h} className={`py-2 font-medium ${i > 0 ? "text-right pl-4" : ""}`}>
+            <th
+              key={h}
+              className={`py-2 font-medium ${i > 0 ? "pl-4" : ""} ${
+                { left: "text-left", center: "text-center", right: "text-right" }[align?.[i] ?? (i > 0 ? "right" : "left")]
+              }`}
+            >
               {h}
             </th>
           ))}

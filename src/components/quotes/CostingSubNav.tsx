@@ -43,8 +43,10 @@ export function CostingSubNav() {
   const pathname = usePathname();
   const router = useRouter();
   const access = useMcAccess();
-  // The rates, price lists and proposal templates are admin-only.
-  const baseTabs = access.isAdmin ? BASE_TABS : BASE_TABS.slice(0, 1);
+  // Just the costings here (and Site Measures, to go back and forth) - the
+  // rates, price lists and proposal templates live in Settings, like
+  // PaintScout.
+  const baseTabs = BASE_TABS.slice(0, 1);
   const quoteMatch = pathname.match(QUOTE_ROUTE);
   const quoteId = quoteMatch ? quoteMatch[1] : null;
 
@@ -136,6 +138,15 @@ export function CostingSubNav() {
             {tab.label}
           </Link>
         ))}
+        {access.isAdmin && !backId && (
+          <Link
+            href="/settings#pricing-and-costing"
+            onClick={(e) => onTabClick(e, "/settings")}
+            className={`${buttonBase} ml-auto border-border bg-surface text-muted hover:bg-background hover:text-ink`}
+          >
+            Rates &amp; settings
+          </Link>
+        )}
         {backId && (
           <Link
             href={`/costing/${backId}`}

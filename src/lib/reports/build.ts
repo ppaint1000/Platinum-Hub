@@ -4,7 +4,7 @@
 import { nzDateKey } from "@/lib/timesheets/formatNZ";
 import { jobStatusLabel } from "@/design/tailwind.tokens";
 import { PRODUCTION_STAGES, isWonStatus } from "@/lib/jobs/status";
-import { inRange, rangeMonths, type DateRange } from "./range";
+import { inRange, periodOf, rangeMonths, rangePeriods, type DateRange, type Period } from "./range";
 import type { ReportJob } from "./load";
 import type { Format } from "@/components/reports/charts";
 
@@ -29,6 +29,8 @@ export type Report = {
   summary: { label: string; value: string }[];
   columns: Column[];
   rows: ReportRow[];
+  // Set on reports that can be shown by month, quarter or year.
+  period?: Period;
 };
 
 export type ReportGroup = { title: string; reports: { slug: string; title: string; description: string }[] };
@@ -71,7 +73,6 @@ export const OTHER_REPORT_GROUPS: { title: string; reports: { href: string; titl
       { href: "/sales/budgets", title: "Sales Budgets", description: "Quoted and won against each salesperson's budget." },
       { href: "/clients/dashboard", title: "Clients Dashboard", description: "Quoted, won, lost and win rate across clients." },
       { href: "/clients/report", title: "Win Rate by Client", description: "Each client's quotes, wins and losses." },
-      { href: "/jobs/lost-report", title: "Lost To by Month", description: "Who we lose work to, month by month." },
     ],
   },
   {
@@ -140,7 +141,7 @@ const C = {
 
 // ── Reports ────────────────────────────────────────────────────────────
 
-export function buildReport(slug: string, all: ReportJob[], range: DateRange): Report | null {
+export function buildReport(slug: string, all: ReportJob[], range: DateRange, period: Period = "month"): Report | null {
   const meta = REPORT_GROUPS.flatMap((g) => g.reports).find((r) => r.slug === slug);
   if (!meta) return null;
   const base = { slug, title: meta.title, description: meta.description };
@@ -325,7 +326,18 @@ export function buildReport(slug: string, all: ReportJob[], range: DateRange): R
 
     case "lost-quotes": {
       const jobs = all.filter((j) => isLost(j) && inRange(j.lost_at, range));
-      const months = rangeMonths(range, earliest(jobs.map((j) => j.lost_at)));
+      // By month, quarter or sales year (the "Show by" switch).
+      const periods = rangePeriods(range, earliest(jobs.map((j) => j.lost_at)), period);
+      const periodName = period === "month" ? "Month" : period === "quarter" ? "Quarter" : "Year";
+      const byPeriod = (items: { date: string; value: number }[]) => {
+        const index = new Map(periods.map((p, i) => [p.key, i]));
+        const out = periods.map(() => 0);
+        for (const it of items) {
+          const i = index.get(periodOf(monthOf(it.date), period).key);
+          if (i !== undefined) out[i] += it.value;
+        }
+        return out;
+      };
       const lostTo = [...groupBy(jobs, (j) => j.lost_to?.trim() || NONE)]
         .map(([label, js]) => ({ label, count: js.length, value: sum(js.map((j) => j.value)) }))
         .sort((a, b) => b.count - a.count || b.value - a.value);
@@ -336,8 +348,34 @@ export function buildReport(slug: string, all: ReportJob[], range: DateRange): R
         charts: [
           { kind: "hbar", title: "Lost To", data: lostTo.map((l) => ({ label: l.label, value: l.count, sub: money(l.value) })), format: "count", colour: "#B91C1C" },
           { kind: "hbar", title: "Value Lost by Who We Lost To", data: [...lostTo].sort((a, b) => b.value - a.value).map((l) => ({ label: l.label, value: l.value })), format: "money", colour: "#B91C1C" },
-          { kind: "columns", title: "Lost by Month", months, series: [{ name: "Lost $", values: byMonth(months, jobs.map((j) => ({ date: j.lost_at!, value: j.value }))), colour: "#B91C1C" }], format: "money" },
+          { kind: "columns", title: `Lost by ${periodName}`, months: periods, series: [{ name: "Lost $", values: byPeriod(jobs.map((j) => ({ date: j.lost_at!, value: j.value }))), colour: "#B91C1C" }], format: "money" },
+          {
+            kind: "columns",
+            title: `Who We Lost To, by ${periodName}`,
+            months: periods,
+            // The five we lose most to, and everyone else together.
+            series: [
+              ...lostTo
+                .filter((l) => l.label !== NONE)
+                .slice(0, 5)
+                .map((l) => ({
+                  name: l.label,
+                  values: byPeriod(jobs.filter((j) => (j.lost_to?.trim() || NONE) === l.label).map((j) => ({ date: j.lost_at!, value: j.value }))),
+                })),
+              {
+                name: "Others / not recorded",
+                values: byPeriod(
+                  jobs
+                    .filter((j) => !lostTo.filter((l) => l.label !== NONE).slice(0, 5).some((l) => l.label === (j.lost_to?.trim() || NONE)))
+                    .map((j) => ({ date: j.lost_at!, value: j.value }))
+                ),
+                colour: "#9AA3AF",
+              },
+            ],
+            format: "money",
+          },
         ],
+        period,
         summary: [
           { label: "Lost", value: String(jobs.length) },
           { label: "Value lost", value: money(sum(jobs.map((j) => j.value))) },

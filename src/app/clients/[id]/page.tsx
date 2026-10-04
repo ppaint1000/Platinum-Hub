@@ -1,7 +1,7 @@
 // One client: details, contacts, jobs and a timeline (see ClientPage).
 import { notFound } from "next/navigation";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
-import { ClientPage, type ClientJob, type ClientNote, type ClientPageRow } from "@/components/clients/ClientPage";
+import { ClientPage, type ClientJob, type ClientNote, type ClientPageRow, type ClientSite } from "@/components/clients/ClientPage";
 import type { ContactRow } from "@/components/clients/ClientDetail";
 import { fetchSalesTeam } from "@/lib/jobs/salesTeam";
 import { getCurrentProfile } from "@/lib/supabase/profile";
@@ -33,7 +33,7 @@ export default async function ClientDetailPage({
 
   if (!client) notFound();
 
-  const [{ data: contacts }, { data: jobs }, { data: noteRows }, salesTeam, profile] = await Promise.all([
+  const [{ data: contacts }, { data: jobs }, { data: noteRows }, salesTeam, profile, { data: sites }] = await Promise.all([
     supabase
       .from("client_contacts")
       .select("id, name, email, phone, job_id")
@@ -56,6 +56,14 @@ export default async function ClientDetailPage({
       .returns<NoteRow[]>(),
     fetchSalesTeam(supabase),
     getCurrentProfile(),
+    // Where painters clock in for this client (Settings → Sites).
+    supabase
+      .from("sites")
+      .select("id, name, address, is_active")
+      .eq("client_id", id)
+      .order("is_active", { ascending: false })
+      .order("name")
+      .returns<ClientSite[]>(),
   ]);
 
   const notes: ClientNote[] = (noteRows ?? []).map((n) => ({
@@ -77,6 +85,7 @@ export default async function ClientDetailPage({
         contacts={contacts ?? []}
         jobs={jobs ?? []}
         notes={notes}
+        sites={sites ?? []}
         salesTeam={salesTeam}
         canChangeSalesPerson={profile.role === "admin"}
       />
