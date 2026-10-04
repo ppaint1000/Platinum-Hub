@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { proposalCodeCookie } from "@/lib/quotes/proposalCode";
 import { notifyHubProposal } from "@/lib/quotes/hubNotify";
 
 type Row = {
@@ -26,7 +27,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const supabase = await createClient();
-  const { data } = await supabase.rpc("proposal_by_token", { p_token: token });
+  const code = request.cookies.get(proposalCodeCookie(token))?.value ?? null;
+  const { data } = await supabase.rpc("proposal_by_token", { p_token: token, p_code: code });
   if (!data) return NextResponse.json({ error: "Not found." }, { status: 404 });
   const row = data as Row;
   if (event === "accepted" && !row.proposal.accepted_at) {

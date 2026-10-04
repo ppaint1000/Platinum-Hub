@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 
 const HEARTBEAT_MS = 15000;
 
-export function ViewTracker({ token }: { token: string }) {
+export function ViewTracker({ token, code }: { token: string; code: string | null }) {
   useEffect(() => {
     const supabase = createClient();
     const viewId = crypto.randomUUID();
@@ -23,6 +23,7 @@ export function ViewTracker({ token }: { token: string }) {
         p_view_id: viewId,
         p_seconds: Math.round(seconds),
         p_user_agent: navigator.userAgent,
+        p_code: code,
       });
     };
 
@@ -52,7 +53,7 @@ export function ViewTracker({ token }: { token: string }) {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [token]);
+  }, [token, code]);
 
   return null;
 }

@@ -59,11 +59,12 @@ export async function updateSession(request: NextRequest) {
   // secret each route verifies itself, see src/lib/integrations/quotesWebhook.ts.
   const isIntegrationWebhook = path.startsWith("/api/integrations/");
 
-  // A customer's proposal link (/p/<token>), the crew's work order link
-  // (/w/<token>) and the proposal page reporting a view or acceptance: no
-  // sign-in - the long random token is the key (checked in the database).
+  // A customer's proposal link (/p/<token>) and the proposal page reporting
+  // a view or acceptance: no sign-in - the link plus the proposal's 6-digit
+  // code is the key (checked in the database). Work order links (/w/) need a
+  // Hub sign-in like everything else.
   const isTokenLink =
-    path.startsWith("/p/") || path.startsWith("/w/") || /^\/api\/proposals\/[^/]+\/(viewed|accepted)$/.test(path);
+    path.startsWith("/p/") || /^\/api\/proposals\/[^/]+\/(viewed|accepted)$/.test(path);
 
   if (isPublicAsset || isIntegrationWebhook || isTokenLink) return response;
 

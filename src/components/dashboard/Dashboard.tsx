@@ -63,6 +63,7 @@ export function Dashboard({
           <span aria-hidden>→</span>
         </Link>
       )}
+      <Rings data={data} />
       <Headlines data={data} />
       <JobsSection jobs={data.jobs} />
       <div className="grid gap-6 md:gap-8 lg:grid-cols-2">
@@ -71,6 +72,64 @@ export function Dashboard({
       </div>
       <FleetSection vehicles={data.vehicles} />
     </DashboardShell>
+  );
+}
+
+// ── 0. The business at a glance, as percentages ─────────────────────────
+
+function Rings({ data }: { data: DashboardData }) {
+  const ratio = (a: number, b: number) => (b > 0 ? a / b : null);
+  const budgeted = data.jobs.filter((j) => j.hoursBudget !== null);
+  const rings: { value: number | null; label: string; sub: string; href: string }[] = [
+    {
+      value: data.quoted.winRate,
+      label: `Win rate · ${data.monthLabel}`,
+      sub: "Won ÷ decided this month",
+      href: "/reports/won-quotes",
+    },
+    {
+      value: data.sales.countWinRate6,
+      label: "Win rate · 6 months",
+      sub: `${data.sales.wonCount6} won · ${data.sales.lostCount6} lost`,
+      href: "/reports/lost-quotes",
+    },
+    {
+      value: data.sales.winRate6,
+      label: "Dollars won · 6 months",
+      sub: "$ won ÷ $ quoted",
+      href: "/sales",
+    },
+    {
+      value: data.forecastMargin,
+      label: "Forecast margin",
+      sub: `Target ${MARGIN_TARGET * 100}%`,
+      href: "/reports/job-costing",
+    },
+    {
+      value: ratio(budgeted.filter((j) => !j.overHours).length, budgeted.length),
+      label: "Jobs on hours budget",
+      sub: `${budgeted.filter((j) => j.overHours).length} over hours`,
+      href: "/jobs",
+    },
+    {
+      value: ratio(data.hours.logged, data.hours.rosteredToDate),
+      label: "Hours · this week",
+      sub: `${hrs(data.hours.logged)} of ${hrs(data.hours.rosteredToDate)} h so far`,
+      href: "/timesheets/admin/reports",
+    },
+  ];
+  return (
+    <section aria-label="At a glance">
+      <Card className="p-4">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 lg:grid-cols-6">
+          {rings.map((r) => (
+            <Link key={r.label} href={r.href} className="rounded-lg py-1 transition hover:bg-[#F5F4F0]">
+              <Ring value={r.value} label={r.label} sub={r.sub} size={84} />
+            </Link>
+          ))}
+        </div>
+      </Card>
+    </section>
   );
 }
 

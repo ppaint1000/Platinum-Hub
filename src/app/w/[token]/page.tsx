@@ -1,5 +1,5 @@
-// The crew's work order link: /w/<token>. No sign-in - the token is the key,
-// checked by the work_order_by_token database function. Opened from the
+// The crew's work order link: /w/<token>. Signed-in staff only (the crew
+// open it from the clock-in page); work_order_by_token checks the token. Opened from the
 // Hub's clock-in page for the job's site. No prices are ever sent here.
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";

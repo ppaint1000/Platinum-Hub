@@ -48,7 +48,6 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/absences", label: "Absences", icon: CalendarX },
   { href: "/fleet", label: "Fleet", icon: Truck },
   { href: "/reports", label: "Reports", icon: PieChart },
-  { href: "/hub", label: "All apps", icon: LayoutGrid },
 ];
 
 // Supervisors: the Production board and their timesheets.
@@ -138,7 +137,7 @@ function NewMenu({ items }: { items: NavItem[] }) {
 }
 
 const tabClass =
-  "flex items-center border-b-[3px] px-3 pt-[3px] text-sm font-medium whitespace-nowrap transition";
+  "flex items-center border-b-[3px] px-2 pt-[3px] text-[13px] font-medium whitespace-nowrap transition 2xl:px-3 2xl:text-sm";
 const tabIdle = "border-transparent text-[#C9D1DC] hover:bg-white/10 hover:text-white";
 
 // Tabs that need attention (e.g. Absences with someone still needing a
@@ -204,7 +203,7 @@ function MeasuresDropdown({ items }: { items: NavItem[] }) {
     <li className="relative flex">
       <details className="group flex">
         <summary className={`${tabClass} ${tabIdle} cursor-pointer list-none gap-1 group-open:bg-white/10 group-open:text-white [&::-webkit-details-marker]:hidden`}>
-          Costing &amp; Measures
+          Costing
           <ChevronDown className="h-4 w-4 transition group-open:rotate-180" aria-hidden />
         </summary>
         <ul
@@ -294,7 +293,8 @@ function breakpointFor(items: NavItem[]) {
   const tabs = items.filter((item) => !item.group).length + (items.some((item) => item.group) ? 1 : 0);
   if (tabs <= 5) return BREAKPOINTS.md;
   if (tabs <= 8) return BREAKPOINTS.lg;
-  if (tabs <= 11) return BREAKPOINTS.xl;
+  // The admin menu (12 tabs, compact) fits across the top of a normal PC screen.
+  if (tabs <= 12) return BREAKPOINTS.xl;
   return BREAKPOINTS["2xl"];
 }
 
@@ -325,7 +325,7 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
     <header className="sticky top-0 z-20 text-white shadow-sm" style={{ background: NAVY }}>
       {/* Wide enough for the row of tabs */}
       <div className={breakpoint.row}>
-        <div className="mx-auto flex h-16 max-w-6xl 2xl:max-w-[92rem] items-stretch gap-6">
+        <div className="mx-auto flex h-16 max-w-[92rem] items-stretch gap-4 2xl:gap-6">
           <div className="flex items-center">
             <Logo href={home} className="w-28" />
           </div>
@@ -364,7 +364,7 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
             >
               <UserCircle className="h-5 w-5" />
             </Link>
-            <SignOutButton className="min-h-10 whitespace-nowrap rounded-lg px-3 text-sm font-medium text-[#C9D1DC] hover:bg-white/10 hover:text-white" />
+            <SignOutButton className="min-h-10 whitespace-nowrap rounded-lg px-2 text-[13px] font-medium text-[#C9D1DC] hover:bg-white/10 hover:text-white 2xl:px-3 2xl:text-sm" />
           </div>
         </div>
       </div>

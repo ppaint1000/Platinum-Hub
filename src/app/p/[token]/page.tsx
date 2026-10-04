@@ -1,14 +1,17 @@
-// The customer's proposal link: /p/<token>. No sign-in - the token is the
-// key, checked by the proposal_by_token database function. ?preview=1 is
-// staff looking at it from the costing: not counted as the customer viewing.
+// The customer's proposal link: /p/<token>. No sign-in, but the customer
+// types the proposal's 6-digit code once (kept in a cookie) - the database
+// checks it (proposal_by_token). Staff who can see the costing get straight
+// in. ?preview=1 is staff looking from the costing: not counted as a view.
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { ProposalDocument, type ProposalData } from "@/components/proposals/ProposalDocument";
 import { ProposalAcceptance, type AcceptedRecord } from "@/components/proposals/ProposalAcceptance";
 import { ViewTracker } from "@/components/proposals/ViewTracker";
 import { PrintButton } from "@/components/quotes/PrintButton";
 import { withTemplateDefaults, type SettingsRow } from "@/lib/quotes/proposalDefaults";
+import { proposalCodeCookie } from "@/lib/quotes/proposalCode";
+import { CodeForm } from "./CodeForm";
 
 export const metadata: Metadata = {
   title: "Painting proposal · Platinum Painters",
@@ -29,8 +32,9 @@ export default async function ProposalLinkPage({
   const { token } = await params;
   const { preview } = await searchParams;
   const supabase = await createClient();
-  const { data } = await supabase.rpc("proposal_by_token", { p_token: token });
-  if (!data) notFound();
+  const code = (await cookies()).get(proposalCodeCookie(token))?.value ?? null;
+  const { data } = await supabase.rpc("proposal_by_token", { p_token: token, p_code: code });
+  if (!data) return <CodeForm token={token} />;
 
   const row = data as Row;
   // Until the company templates are saved, the standard wording is used.
@@ -52,7 +56,7 @@ export default async function ProposalLinkPage({
 
   return (
     <div className="min-h-screen bg-background">
-      {!isPreview && <ViewTracker token={token} />}
+      {!isPreview && <ViewTracker token={token} code={code} />}
       <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-border bg-white/95 px-4 py-2.5 backdrop-blur print:hidden">
         <p className="text-sm font-semibold text-ink">
           {isPreview ? "Preview — this is what the customer sees" : "Painting proposal"}
@@ -70,7 +74,7 @@ export default async function ProposalLinkPage({
         data={row}
         acceptance={
           <div id="accept">
-            <ProposalAcceptance token={token} pricing={p.pricing} accepted={accepted} preview={isPreview} />
+            <ProposalAcceptance token={token} code={code} pricing={p.pricing} accepted={accepted} preview={isPreview} />
           </div>
         }
       />

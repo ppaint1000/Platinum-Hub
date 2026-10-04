@@ -9,6 +9,7 @@ type Row = {
   id: string;
   quote_id: string;
   token: string;
+  access_code: string | null;
   sent_at: string | null;
   last_viewed_at: string | null;
   view_count: number;
@@ -33,7 +34,7 @@ export default async function ProposalsPage() {
   const { data } = await supabase
     .from("proposals")
     .select(
-      "id, quote_id, token, sent_at, last_viewed_at, view_count, accepted_at, accepted_name, accepted_total, pricing, updated_at, quotes(location, project, customers:clients(name))"
+      "id, quote_id, token, access_code, sent_at, last_viewed_at, view_count, accepted_at, accepted_name, accepted_total, pricing, updated_at, quotes(location, project, customers:clients(name))"
     )
     .order("updated_at", { ascending: false })
     .returns<Row[]>();
@@ -64,6 +65,7 @@ export default async function ProposalsPage() {
                 <th className="hidden px-5 py-3 md:table-cell">Sent</th>
                 <th className="hidden px-5 py-3 md:table-cell">Last opened</th>
                 <th className="px-5 py-3 text-right">Total</th>
+                <th className="hidden px-5 py-3 lg:table-cell">Code</th>
                 <th className="px-5 py-3" />
               </tr>
             </thead>
@@ -84,6 +86,7 @@ export default async function ProposalsPage() {
                     <td className="whitespace-nowrap px-5 py-3 text-right font-medium">
                       {total === null ? "—" : `${fmtCurrency(total)} + GST`}
                     </td>
+                    <td className="hidden whitespace-nowrap px-5 py-3 font-mono text-muted lg:table-cell">{p.access_code ?? "—"}</td>
                     <td className="whitespace-nowrap px-5 py-3 text-right">
                       <Link href={`/costing/${p.quote_id}/proposal`} className="font-semibold text-brand-red-dark hover:underline">
                         Open

@@ -12,6 +12,8 @@ import { isLockedSection, sectionLabel, type SectionChoice } from "@/lib/quotes/
 export type BuilderProposal = {
   id: string | null;
   token: string | null;
+  // The 6-digit code the customer needs to open their link.
+  access_code?: string | null;
   proposal_date: string;
   recipient_name: string | null;
   recipient_company: string | null;
@@ -105,9 +107,9 @@ export function ProposalBuilder({
     JSON.stringify([p.pricing.items.map((i) => [i.key, i.price]), p.pricing.options.map((o) => [o.key, o.price])]) !==
       JSON.stringify([pricing.items.map((i) => [i.key, i.price]), pricing.options.map((o) => [o.key, o.price])]);
 
-  async function save(): Promise<{ id: string; token: string } | null> {
+  async function save(): Promise<{ id: string; token: string; access_code?: string | null } | null> {
     setMessage(null);
-    if (locked) return p.id && p.token ? { id: p.id, token: p.token } : null;
+    if (locked) return p.id && p.token ? { id: p.id, token: p.token, access_code: p.access_code } : null;
     setSaving(true);
     const supabase = createClient();
     const payload = {
@@ -136,14 +138,14 @@ export function ProposalBuilder({
     const { data, error } = await supabase
       .from("proposals")
       .upsert(payload, { onConflict: "quote_id" })
-      .select("id, token")
+      .select("id, token, access_code")
       .single();
     setSaving(false);
     if (error || !data) {
       setMessage({ kind: "error", text: "Couldn't save — " + (error?.message ?? "try again.") });
       return null;
     }
-    setP((prev) => ({ ...prev, id: data.id, token: data.token, pricing }));
+    setP((prev) => ({ ...prev, id: data.id, token: data.token, access_code: data.access_code, pricing }));
     setMessage({ kind: "ok", text: "Saved." });
     router.refresh();
     return data;
@@ -153,10 +155,14 @@ export function ProposalBuilder({
     const saved = await save();
     if (!saved) return;
     const url = `${window.location.origin}/p/${saved.token}`;
+    // The link and its code together, ready to paste into the email.
+    const text = saved.access_code
+      ? `Your painting proposal: ${url}\nYour code to open it: ${saved.access_code}`
+      : url;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(text);
     } catch {
-      window.prompt("Copy the customer's link:", url);
+      window.prompt("Copy the customer's link and code:", text);
     }
     const res = await fetch("/api/proposals/sent", {
       method: "POST",
@@ -168,8 +174,8 @@ export function ProposalBuilder({
     setMessage({
       kind: "ok",
       text: result?.hub?.ok
-        ? "Link copied — paste it into your email to the customer. The admins have been emailed a reminder."
-        : "Link copied — paste it into your email to the customer. (The Hub reminder email couldn't be sent.)",
+        ? "Link and code copied — paste them into your email to the customer. The admins have been emailed a reminder."
+        : "Link and code copied — paste them into your email to the customer. (The Hub reminder email couldn't be sent.)",
     });
   }
 
@@ -232,6 +238,11 @@ export function ProposalBuilder({
             <Copy className="h-4 w-4" />
             Copy link
           </button>
+          {p.access_code && (
+            <span className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted" title="The customer types this to open their link">
+              Code <span className="font-mono font-semibold tracking-wider text-ink">{p.access_code}</span>
+            </span>
+          )}
           {!locked && (
             <button
               onClick={save}

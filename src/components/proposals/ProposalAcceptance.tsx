@@ -23,11 +23,14 @@ const inputClass =
 
 export function ProposalAcceptance({
   token,
+  code = null,
   pricing,
   accepted,
   preview = false,
 }: {
   token: string;
+  // The customer's 6-digit code (from their cookie).
+  code?: string | null;
   pricing: ProposalPricing;
   accepted: AcceptedRecord | null;
   // Staff preview: shows the form, but it can't be submitted.
@@ -80,6 +83,7 @@ export function ProposalAcceptance({
       p_options: [...chosen],
       p_total: total,
       p_user_agent: navigator.userAgent,
+      p_code: code,
     });
     const result = data as { ok: boolean; error?: string } | null;
     if (rpcError || !result?.ok) {
