@@ -24,6 +24,8 @@ import {
   pct,
 } from "./parts";
 import { ADMIN_NAV, TopBar } from "./TopBar";
+import { ThisWeekSection, WorkflowSection } from "./Workflow";
+import type { WorkflowData } from "@/lib/dashboard/workflow";
 
 const hrs = (n: number) => (Math.round(n * 10) / 10).toLocaleString("en-NZ");
 
@@ -37,10 +39,12 @@ function inDays(days: number) {
 
 export function Dashboard({
   data,
+  workflow,
   fontClass,
   pendingAbsences = 0,
 }: {
   data: DashboardData;
+  workflow: WorkflowData;
   fontClass: string;
   pendingAbsences?: number;
 }) {
@@ -64,7 +68,9 @@ export function Dashboard({
         </Link>
       )}
       <Rings data={data} />
+      <WorkflowSection w={workflow} />
       <Headlines data={data} />
+      <ThisWeekSection w={workflow} />
       <JobsSection jobs={data.jobs} />
       <div className="grid gap-6 md:gap-8 lg:grid-cols-2">
         <SalesSection data={data} />

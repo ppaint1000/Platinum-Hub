@@ -66,6 +66,16 @@ export const EMAIL_NOTIFICATIONS: EmailNotification[] = [
     defaultScope: { admin: "all", sales: "mine" },
   },
   {
+    key: "proposal_follow_up",
+    group: "Quotes & proposals",
+    label: "When a proposal needs following up",
+    description: "Sent but not opened after 3 days, or opened but not accepted after 7 days - once each.",
+    audiences: ["admin", "sales"],
+    defaultOn: { admin: true, sales: true },
+    options: MINE_ALL,
+    defaultScope: { admin: "all", sales: "mine" },
+  },
+  {
     key: "job_completed",
     group: "Jobs & production",
     label: "When a job is completed",

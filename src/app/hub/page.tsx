@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   Settings,
+  Inbox,
   Clock,
   Truck,
   ClipboardList,
@@ -69,6 +70,7 @@ export default async function HubPage() {
       title: "Sales",
       tiles: [
         { href: "/dashboard", icon: <LayoutDashboard className="h-5 w-5" />, title: "Dashboard", description: "Sales, job margins, hours and fleet at a glance.", show: isAdmin },
+        { href: "/requests", icon: <Inbox className="h-5 w-5" />, title: "Requests", description: "New enquiries from the website or a call - turn them into site measures.", show: isAdmin || !!access?.measures || !!access?.costing },
         { href: "/clients", icon: <Contact className="h-5 w-5" />, title: "Clients", description: "Every client, their contacts, jobs and clock-in sites.", show: isAdmin || !!access?.jobs },
         { href: "/site-measures", icon: <Ruler className="h-5 w-5" />, title: "Site Measures", description: "Measure up on site, then send it to a costing.", show: isAdmin || !!access?.measures },
         { href: "/costing", icon: <Calculator className="h-5 w-5" />, title: "Costing and proposals", description: "Price the job and send the customer an online proposal.", show: isAdmin || !!access?.costing },

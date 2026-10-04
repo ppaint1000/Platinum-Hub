@@ -27,7 +27,7 @@ export async function navForViewer(): Promise<NavItem[]> {
   if (profile.role === "supervisor") {
     // Plus Costing / Measures if ticked for them, before "All apps".
     const extra = staffNav({ measures: access?.measures, costing: access?.costing }).filter(
-      (i) => i.href === "/costing" || i.href === "/site-measures"
+      (i) => i.href === "/costing" || i.href === "/site-measures" || i.href === "/requests"
     );
     return [...SUPERVISOR_NAV.slice(0, -1), ...extra, SUPERVISOR_NAV[SUPERVISOR_NAV.length - 1]];
   }

@@ -7,6 +7,13 @@ export type McAccess = { isAdmin: boolean; measures: boolean; costing: boolean; 
 // the Users page (who then only see their own - the database enforces
 // that). Sends anyone without `app` back to the Hub.
 export async function requireMcAccess(app: "measures" | "costing" | "admin"): Promise<McAccess> {
+  const access = await getMcAccess();
+  if (app === "admin" ? !access.isAdmin : !access[app]) redirect(app === "admin" ? "/costing" : "/hub");
+  return access;
+}
+
+// The same, without sending anyone away.
+export async function getMcAccess(): Promise<McAccess> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -26,7 +33,6 @@ export async function requireMcAccess(app: "measures" | "costing" | "admin"): Pr
     costing: isAdmin || !!flags?.costing,
     jobs: isAdmin || !!flags?.jobs,
   };
-  if (app === "admin" ? !isAdmin : !access[app]) redirect(app === "admin" ? "/costing" : "/hub");
   return access;
 }
 

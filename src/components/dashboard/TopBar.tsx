@@ -1,8 +1,10 @@
 import { Fragment } from "react";
+import { after } from "next/server";
 import Image from "next/image";
 import Link from "next/link";
 import {
   Bell,
+  Inbox,
   Plus,
   Settings,
   Briefcase,
@@ -28,6 +30,7 @@ import { SignOutButton } from "@/components/SignOutButton";
 import { pendingAbsenceCount } from "@/lib/absences/check";
 import { hoursAlertCounts } from "@/lib/jobs/hoursApproval";
 import { readyToInvoiceCount, runAutoOnHold } from "@/lib/jobs/production";
+import { runProposalFollowUps } from "@/lib/quotes/proposalFollowUps";
 import { NAVY } from "./parts";
 
 // group: shown together in the desktop "Costing & Measures" drop-down.
@@ -37,6 +40,7 @@ export type NavItem = { href: string; label: string; icon: LucideIcon; external?
 export const ADMIN_NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/clients", label: "Clients", icon: Contact },
+  { href: "/requests", label: "Requests", icon: Inbox, group: true },
   { href: "/site-measures", label: "Measures", icon: Ruler, group: true },
   { href: "/costing", label: "Costing", icon: Calculator, group: true },
   { href: "/sales", label: "Sales", icon: TrendingUp },
@@ -78,6 +82,7 @@ export function staffNav(access: {
     items.push({ href: "/jobs", label: "Jobs", icon: Briefcase });
     items.push({ href: "/clients", label: "Clients", icon: Contact });
   }
+  if (access.measures || access.costing) items.push({ href: "/requests", label: "Requests", icon: Inbox });
   if (access.measures) items.push({ href: "/site-measures", label: "Measures", icon: Ruler });
   if (access.costing) items.push({ href: "/costing", label: "Costing", icon: Calculator });
   if (access.timesheets) {
@@ -97,6 +102,7 @@ export function staffNav(access: {
 }
 
 const NEW_ITEMS: { needs: string; href: string; label: string }[] = [
+  { needs: "/requests", href: "/requests?new=1", label: "Request" },
   { needs: "/site-measures", href: "/site-measures?new=1", label: "Site measure" },
   { needs: "/costing", href: "/costing/new", label: "Costing" },
   { needs: "/clients", href: "/clients?new=1", label: "Client" },
@@ -203,7 +209,7 @@ function MeasuresDropdown({ items }: { items: NavItem[] }) {
     <li className="relative flex">
       <details className="group flex">
         <summary className={`${tabClass} ${tabIdle} cursor-pointer list-none gap-1 group-open:bg-white/10 group-open:text-white [&::-webkit-details-marker]:hidden`}>
-          Costing
+          Quoting
           <ChevronDown className="h-4 w-4 transition group-open:rotate-180" aria-hidden />
         </summary>
         <ul
@@ -313,6 +319,8 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
   if (isAdminBar) {
     // Quotes undecided for 8 months go On Hold before anything is counted.
     await runAutoOnHold();
+    // Proposal follow-up reminders, after the page is sent - never holds it up.
+    after(runProposalFollowUps);
     const [absences, hours, toInvoice] = await Promise.all([
       pendingAbsenceCount(),
       hoursAlertCounts(),
