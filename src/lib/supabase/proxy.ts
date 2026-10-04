@@ -52,7 +52,8 @@ export async function updateSession(request: NextRequest) {
   // /accept-invite is the same story, one step earlier — it hasn't
   // exchanged anything yet, it's the page that does that on a real click.
   const isAlwaysPublic = path === "/reset-password" || path === "/accept-invite";
-  const isPublicAsset = path.startsWith("/_next") || path.startsWith("/favicon");
+  // robots.txt tells crawlers and AI tools to stay out, so it must be readable without signing in.
+  const isPublicAsset = path.startsWith("/_next") || path.startsWith("/favicon") || path === "/robots.txt";
   // Server-to-server webhook from Measures (a separate app/Supabase
   // project — no Hub session cookie to check here). Auth is the shared
   // secret each route verifies itself, see src/lib/integrations/quotesWebhook.ts.
