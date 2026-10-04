@@ -9,6 +9,7 @@ import {
   Settings,
   Briefcase,
   Calculator,
+  CalendarDays,
   CalendarX,
   ChevronDown,
   Clock,
@@ -24,6 +25,7 @@ import {
   TrendingUp,
   Truck,
   UserCircle,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { SignOutButton } from "@/components/SignOutButton";
@@ -31,25 +33,29 @@ import { pendingAbsenceCount } from "@/lib/absences/check";
 import { hoursAlertCounts } from "@/lib/jobs/hoursApproval";
 import { readyToInvoiceCount, runAutoOnHold } from "@/lib/jobs/production";
 import { runProposalFollowUps } from "@/lib/quotes/proposalFollowUps";
+import { runBookingReminders } from "@/lib/schedule/customerEmails";
+import { runClientReminders } from "@/lib/reminders/clientReminders";
 import { NAVY } from "./parts";
 
-// group: shown together in the desktop "Costing & Measures" drop-down.
-export type NavItem = { href: string; label: string; icon: LucideIcon; external?: boolean; group?: boolean };
+// group: shown together in a desktop drop-down tab with that name.
+export type NavItem = { href: string; label: string; icon: LucideIcon; external?: boolean; group?: string };
 
 // Admins get every app, in the order the work flows.
 export const ADMIN_NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/clients", label: "Clients", icon: Contact },
-  { href: "/requests", label: "Requests", icon: Inbox, group: true },
-  { href: "/site-measures", label: "Measures", icon: Ruler, group: true },
-  { href: "/costing", label: "Costing", icon: Calculator, group: true },
+  { href: "/requests", label: "Requests", icon: Inbox, group: "Quoting" },
+  { href: "/site-measures", label: "Measures", icon: Ruler, group: "Quoting" },
+  { href: "/costing", label: "Costing", icon: Calculator, group: "Quoting" },
   { href: "/sales", label: "Sales", icon: TrendingUp },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/production", label: "Production", icon: Kanban },
-  { href: "/orders", label: "Orders", icon: ShoppingCart },
-  { href: "/jobs/invoices", label: "Invoices", icon: Receipt },
-  { href: "/timesheets/admin", label: "Timesheets", icon: Clock },
-  { href: "/absences", label: "Absences", icon: CalendarX },
+  { href: "/schedule", label: "Schedule", icon: CalendarDays },
+  { href: "/orders", label: "Orders", icon: ShoppingCart, group: "Suppliers" },
+  { href: "/jobs/invoices", label: "Invoices", icon: Receipt, group: "Suppliers" },
+  { href: "/timesheets/admin", label: "Timesheets", icon: Clock, group: "Team" },
+  { href: "/absences", label: "Absences", icon: CalendarX, group: "Team" },
+  { href: "/users", label: "Users", icon: Users, group: "Team" },
   { href: "/fleet", label: "Fleet", icon: Truck },
   { href: "/reports", label: "Reports", icon: PieChart },
 ];
@@ -57,6 +63,7 @@ export const ADMIN_NAV: NavItem[] = [
 // Supervisors: the Production board and their timesheets.
 export const SUPERVISOR_NAV: NavItem[] = [
   { href: "/production", label: "Production", icon: Kanban },
+  { href: "/schedule", label: "Schedule", icon: CalendarDays },
   { href: "/timesheets/admin", label: "Timesheets", icon: Clock },
   { href: "/hub", label: "All apps", icon: LayoutGrid },
 ];
@@ -160,17 +167,25 @@ function AlertCount({ count }: { count: number }) {
   );
 }
 
-// Desktop: one row of links across the top bar, Xero style. Costing and
-// Measures sit together in a drop-down tab,
-// listed the same way as the phone menu.
+// Desktop: one row of links across the top bar, Xero style. Grouped items
+// (Quoting, Suppliers) sit together in a drop-down tab where the group's
+// first item would be; the phone menu lists them all.
 function NavRow({ items, activeHref, alerts }: { items: NavItem[]; activeHref: string; alerts: Alerts }) {
-  const inRow = items.filter((item) => !item.group);
-  const measures = items.filter((item) => item.group);
-  const dropdownAfter = items.findIndex((item) => item.group) - 1;
-
   return (
     <ul className="flex h-full items-stretch">
-      {inRow.map((item) => {
+      {items.map((item, i) => {
+        if (item.group) {
+          if (items.findIndex((x) => x.group === item.group) !== i) return null;
+          return (
+            <GroupDropdown
+              key={item.group}
+              label={item.group}
+              items={items.filter((x) => x.group === item.group)}
+              activeHref={activeHref}
+              alerts={alerts}
+            />
+          );
+        }
         const active = item.href === activeHref;
         const alert = alerts[item.href] ?? 0;
         return (
@@ -196,7 +211,6 @@ function NavRow({ items, activeHref, alerts }: { items: NavItem[]; activeHref: s
                 </Link>
               )}
             </li>
-            {dropdownAfter >= 0 && item === items[dropdownAfter] && <MeasuresDropdown items={measures} />}
           </Fragment>
         );
       })}
@@ -204,12 +218,31 @@ function NavRow({ items, activeHref, alerts }: { items: NavItem[]; activeHref: s
   );
 }
 
-function MeasuresDropdown({ items }: { items: NavItem[] }) {
+function GroupDropdown({
+  label,
+  items,
+  activeHref,
+  alerts,
+}: {
+  label: string;
+  items: NavItem[];
+  activeHref: string;
+  alerts: Alerts;
+}) {
+  const active = items.some((item) => item.href === activeHref);
+  // Anything inside needing attention shows on the drop-down tab too.
+  const alert = items.reduce((n, item) => n + (alerts[item.href] ?? 0), 0);
   return (
     <li className="relative flex">
       <details className="group flex">
-        <summary className={`${tabClass} ${tabIdle} cursor-pointer list-none gap-1 group-open:bg-white/10 group-open:text-white [&::-webkit-details-marker]:hidden`}>
-          Quoting
+        <summary
+          aria-label={alert > 0 ? `${label} - ${alert} need${alert === 1 ? "s" : ""} attention` : undefined}
+          className={`${
+            alert > 0 ? alertTab : `${tabClass} ${active ? "border-white text-white" : tabIdle}`
+          } cursor-pointer list-none gap-1 group-open:bg-white/10 group-open:text-white [&::-webkit-details-marker]:hidden`}
+        >
+          {label}
+          {alert > 0 && <AlertCount count={alert} />}
           <ChevronDown className="h-4 w-4 transition group-open:rotate-180" aria-hidden />
         </summary>
         <ul
@@ -218,6 +251,7 @@ function MeasuresDropdown({ items }: { items: NavItem[] }) {
         >
           {items.map((item) => {
             const Icon = item.icon;
+            const count = alerts[item.href] ?? 0;
             return (
               <li key={item.href}>
                 <Link
@@ -226,6 +260,11 @@ function MeasuresDropdown({ items }: { items: NavItem[] }) {
                 >
                   <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden />
                   {item.label}
+                  {count > 0 && (
+                    <span className="ml-auto">
+                      <AlertCount count={count} />
+                    </span>
+                  )}
                 </Link>
               </li>
             );
@@ -296,7 +335,7 @@ const BREAKPOINTS = {
 };
 
 function breakpointFor(items: NavItem[]) {
-  const tabs = items.filter((item) => !item.group).length + (items.some((item) => item.group) ? 1 : 0);
+  const tabs = items.filter((item) => !item.group).length + new Set(items.map((item) => item.group).filter(Boolean)).size;
   if (tabs <= 5) return BREAKPOINTS.md;
   if (tabs <= 8) return BREAKPOINTS.lg;
   // The admin menu (12 tabs, compact) fits across the top of a normal PC screen.
@@ -316,11 +355,16 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
   // Also: timesheet hours waiting to go on jobs (Jobs), and people with
   // job hours but no hourly rate (Users).
   let alerts: Alerts = {};
+  // Proposal follow-ups and customer reminders, and the day-before booking
+  // reminders, after the page is sent - never holds it up. Any signed-in
+  // page load runs them (painters clock in every morning), each at most
+  // every 15 minutes.
+  after(runProposalFollowUps);
+  after(runBookingReminders);
+  after(runClientReminders);
   if (isAdminBar) {
     // Quotes undecided for 8 months go On Hold before anything is counted.
     await runAutoOnHold();
-    // Proposal follow-up reminders, after the page is sent - never holds it up.
-    after(runProposalFollowUps);
     const [absences, hours, toInvoice] = await Promise.all([
       pendingAbsenceCount(),
       hoursAlertCounts(),

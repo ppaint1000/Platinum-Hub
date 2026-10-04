@@ -2,7 +2,10 @@
 // turned it on - Notifications page) is emailed when a sent proposal
 //  - hasn't been opened 3 days after it was sent, or
 //  - was opened but hasn't been accepted 7 days after it was last opened.
-// Each reminder goes once per proposal. Runs when an admin opens a Hub page
+// Each reminder goes once per proposal.
+// The customer also gets one polite reminder (with their link and code) a
+// set number of days after it was sent, if they haven't accepted or
+// declined and it hasn't expired (Settings → Proposal templates). Runs when an admin opens a Hub page
 // (like the absence check), at most every 15 minutes per server.
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/mailer";
@@ -22,7 +25,12 @@ type Row = {
   sent_at: string | null;
   last_viewed_at: string | null;
   view_count: number;
-  quotes: { location: string | null; owner_id: string | null; customers: { name: string } | null } | null;
+  expires_on?: string | null;
+  quotes: {
+    location: string | null;
+    owner_id: string | null;
+    customers: { name: string; email?: string | null } | null;
+  } | null;
 };
 
 const daysAgoIso = (days: number) => new Date(Date.now() - days * 86400000).toISOString();
@@ -44,6 +52,7 @@ export async function runProposalFollowUps(): Promise<void> {
         .is("accepted_at", null)
         .eq("view_count", 0)
         .is("reminded_unopened_at", null)
+        .is("declined_at", null)
         .lt("sent_at", daysAgoIso(UNOPENED_DAYS))
         .returns<Row[]>(),
       admin
@@ -52,12 +61,14 @@ export async function runProposalFollowUps(): Promise<void> {
         .gt("view_count", 0)
         .is("accepted_at", null)
         .is("reminded_followup_at", null)
+        .is("declined_at", null)
         .lt("last_viewed_at", daysAgoIso(FOLLOW_UP_DAYS))
         .returns<Row[]>(),
     ]);
 
     for (const p of unopened ?? []) await remind(p, "unopened");
     for (const p of stale ?? []) await remind(p, "followup");
+    await remindCustomers();
   } catch (e) {
     console.error("[proposal follow-ups]", e);
   }
@@ -100,4 +111,73 @@ async function remind(p: Row, kind: "unopened" | "followup") {
         };
 
   await sendEmail({ to, fromName: "Platinum Painters Hub", ...email });
+}
+
+// The customer's reminder: once, N days after sending (0 = off).
+async function remindCustomers() {
+  const admin = createAdminClient();
+  const { data: settings } = await admin
+    .from("proposal_settings")
+    .select("customer_reminder_days")
+    .maybeSingle<{ customer_reminder_days: number | null }>();
+  const days = settings?.customer_reminder_days ?? 7;
+  if (days <= 0) return;
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Pacific/Auckland" });
+
+  const { data: due } = await admin
+    .from("proposals")
+    .select("id, token, access_code, quote_id, sent_at, last_viewed_at, view_count, expires_on, quotes(location, owner_id, customers:clients(name, email))")
+    .not("sent_at", "is", null)
+    .is("accepted_at", null)
+    .is("declined_at", null)
+    .is("customer_reminded_at", null)
+    .lt("sent_at", daysAgoIso(days))
+    // Not proposals sent long ago (before this started) - only recent ones.
+    .gt("sent_at", daysAgoIso(days + 14))
+    .returns<Row[]>();
+
+  for (const p of due ?? []) {
+    if (p.expires_on && p.expires_on < today) continue;
+    const to = p.quotes?.customers?.email?.trim();
+    if (!to) continue;
+    const { data: claimed } = await admin
+      .from("proposals")
+      .update({ customer_reminded_at: new Date().toISOString() })
+      .eq("id", p.id)
+      .is("customer_reminded_at", null)
+      .select("id");
+    if (!claimed?.length) continue;
+
+    const name = p.quotes?.customers?.name?.trim().split(/s+/)[0] || "there";
+    const job = p.quotes?.location?.trim();
+    const until = p.expires_on
+      ? new Date(`${p.expires_on}T00:00:00Z`).toLocaleDateString("en-NZ", { day: "numeric", month: "long", timeZone: "UTC" })
+      : null;
+    await sendEmail({
+      to,
+      fromName: "Platinum Painters",
+      subject: "Your painting proposal from Platinum Painters",
+      text:
+        `Hi ${name},
+
+` +
+        `Just checking you received our painting proposal${job ? ` for ${job}` : ""}. ` +
+        `You can view it, choose any options and accept it online here:
+
+${SITE_URL}/p/${p.token}
+` +
+        (p.access_code ? `Your code to open it: ${p.access_code}
+` : "") +
+        (until ? `
+The price is held until ${until}.
+` : "") +
+        `
+If you have any questions, or would like anything changed, just reply to this email or call us on 021 116 4005.
+
+` +
+        `Thanks,
+Platinum Painters
+`,
+    });
+  }
 }

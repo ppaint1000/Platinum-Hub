@@ -250,6 +250,9 @@ export function ClientsList({
           <Link href="/clients/report" className="text-accent hover:underline">
             Win rate report
           </Link>
+          <Link href="/reminders" className="text-accent hover:underline">
+            Repaint reminders
+          </Link>
         </div>
         <button
           type="button"

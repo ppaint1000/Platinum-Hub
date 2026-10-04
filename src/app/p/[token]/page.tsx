@@ -19,7 +19,13 @@ export const metadata: Metadata = {
 };
 
 type Row = ProposalData & {
-  proposal: ProposalData["proposal"] & AcceptedRecord & { accepted_at: string | null };
+  proposal: ProposalData["proposal"] &
+    AcceptedRecord & {
+      accepted_at: string | null;
+      declined_at?: string | null;
+      declined_reason?: string | null;
+      expires_on?: string | null;
+    };
 };
 
 export default async function ProposalLinkPage({
@@ -53,6 +59,9 @@ export default async function ProposalLinkPage({
         accepted_total: p.accepted_total,
       }
     : null;
+  const declined = p.declined_at ? { declined_at: p.declined_at, declined_reason: p.declined_reason ?? null } : null;
+  const todayNz = new Date().toLocaleDateString("en-CA", { timeZone: "Pacific/Auckland" });
+  const expired = !!p.expires_on && p.expires_on < todayNz;
 
   return (
     <div className="min-h-screen bg-background">
@@ -62,7 +71,7 @@ export default async function ProposalLinkPage({
           {isPreview ? "Preview — this is what the customer sees" : "Painting proposal"}
         </p>
         <div className="flex items-center gap-2">
-          {!accepted && row.proposal.pricing && (
+          {!accepted && !declined && !expired && row.proposal.pricing && (
             <a href="#accept" className="rounded-lg border border-border px-3.5 py-2 text-sm font-semibold text-ink hover:bg-background">
               Accept
             </a>
@@ -74,7 +83,15 @@ export default async function ProposalLinkPage({
         data={row}
         acceptance={
           <div id="accept">
-            <ProposalAcceptance token={token} code={code} pricing={p.pricing} accepted={accepted} preview={isPreview} />
+            <ProposalAcceptance
+              token={token}
+              code={code}
+              pricing={p.pricing}
+              accepted={accepted}
+              declined={declined}
+              expiresOn={p.expires_on ?? null}
+              preview={isPreview}
+            />
           </div>
         }
       />

@@ -12,17 +12,20 @@ type Row = {
     accepted_name: string | null;
     accepted_total: number | null;
     accepted_options: string[] | null;
+    declined_at?: string | null;
+    declined_reason?: string | null;
+    declined_to?: string | null;
   };
   quote: { location: string | null };
   customer: { name: string | null };
 };
 
-// Called by the customer's proposal page after it's opened or accepted, to
+// Called by the customer's proposal page after it's opened, accepted or declined, to
 // tell the Hub. Public (no sign-in): it only passes on what the database
 // already recorded for this token - nothing the caller sends is trusted.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ token: string; event: string }> }) {
   const { token, event } = await params;
-  if (event !== "viewed" && event !== "accepted") {
+  if (event !== "viewed" && event !== "accepted" && event !== "declined") {
     return NextResponse.json({ error: "Unknown event." }, { status: 404 });
   }
 
@@ -33,6 +36,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const row = data as Row;
   if (event === "accepted" && !row.proposal.accepted_at) {
     return NextResponse.json({ error: "Not accepted." }, { status: 409 });
+  }
+  if (event === "declined" && !row.proposal.declined_at) {
+    return NextResponse.json({ error: "Not declined." }, { status: 409 });
   }
 
   const result = await notifyHubProposal({
@@ -46,6 +52,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     acceptedName: row.proposal.accepted_name,
     acceptedTotal: row.proposal.accepted_total,
     acceptedOptions: row.proposal.accepted_options ?? [],
+    declinedReason: row.proposal.declined_reason ?? null,
+    declinedTo: row.proposal.declined_to ?? null,
   });
   return NextResponse.json(result);
 }

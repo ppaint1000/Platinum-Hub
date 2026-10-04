@@ -66,6 +66,16 @@ export const EMAIL_NOTIFICATIONS: EmailNotification[] = [
     defaultScope: { admin: "all", sales: "mine" },
   },
   {
+    key: "proposal_declined",
+    group: "Quotes & proposals",
+    label: "When a customer declines a proposal",
+    description: "They said online they're not going ahead, and why - the job is marked Lost.",
+    audiences: ["admin", "sales"],
+    defaultOn: { admin: true, sales: true },
+    options: MINE_ALL,
+    defaultScope: { admin: "all", sales: "mine" },
+  },
+  {
     key: "proposal_follow_up",
     group: "Quotes & proposals",
     label: "When a proposal needs following up",
@@ -73,6 +83,19 @@ export const EMAIL_NOTIFICATIONS: EmailNotification[] = [
     audiences: ["admin", "sales"],
     defaultOn: { admin: true, sales: true },
     options: MINE_ALL,
+    defaultScope: { admin: "all", sales: "mine" },
+  },
+  {
+    key: "client_reminder_due",
+    group: "Quotes & proposals",
+    label: "When a repaint or check-up reminder is due",
+    description: "A client's reminder (Reminders page) has come round - a good time to call them.",
+    audiences: ["admin", "sales"],
+    defaultOn: { admin: true, sales: false },
+    options: [
+      { value: "mine", label: "My clients" },
+      { value: "all", label: "All clients" },
+    ],
     defaultScope: { admin: "all", sales: "mine" },
   },
   {

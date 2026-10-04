@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentProfile } from '@/lib/supabase/profile'
 import { HubTopBar } from '@/components/dashboard/HubTopBar'
 import { Watermark } from '@/components/timesheets/Watermark'
+import { MyJobs } from '@/components/schedule/MyJobs'
 import { ClockWidget } from './clock-widget'
 
 type CustomerRelation = { name: string } | { name: string }[] | null
@@ -155,6 +156,7 @@ export default async function ClockPage() {
             </Link>
           )}
         </div>
+        <MyJobs myName={profile.full_name} />
       </main>
     </>
   )

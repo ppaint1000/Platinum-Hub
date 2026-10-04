@@ -9,6 +9,17 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { ProposalPricing } from "@/lib/quotes/proposalPricing";
 import { money } from "./ProposalDocument";
+import { ProposalDecline } from "./ProposalDecline";
+
+export type DeclinedRecord = { declined_at: string; declined_reason: string | null };
+
+const longDate = (iso: string) =>
+  new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso).toLocaleDateString("en-NZ", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: iso.length === 10 ? "UTC" : "Pacific/Auckland",
+  });
 
 export type AcceptedRecord = {
   accepted_at: string;
@@ -26,6 +37,8 @@ export function ProposalAcceptance({
   code = null,
   pricing,
   accepted,
+  declined = null,
+  expiresOn = null,
   preview = false,
 }: {
   token: string;
@@ -33,6 +46,9 @@ export function ProposalAcceptance({
   code?: string | null;
   pricing: ProposalPricing;
   accepted: AcceptedRecord | null;
+  declined?: DeclinedRecord | null;
+  // The last day it can be accepted (set when it was sent).
+  expiresOn?: string | null;
   // Staff preview: shows the form, but it can't be submitted.
   preview?: boolean;
 }) {
@@ -140,8 +156,30 @@ export function ProposalAcceptance({
     );
   }
 
+  if (declined) {
+    return (
+      <div className="space-y-2">
+        <p className="rounded-lg bg-background px-4 py-3 font-semibold text-ink">
+          You let us know on {longDate(declined.declined_at)} that you&apos;re not going ahead.
+        </p>
+        <p className="text-sm text-muted">Thanks for considering us. If anything changes, just get in touch and we&apos;ll be happy to help.</p>
+      </div>
+    );
+  }
+
+  const todayNz = new Date().toLocaleDateString("en-CA", { timeZone: "Pacific/Auckland" });
+  if (expiresOn && expiresOn < todayNz && !preview) {
+    return (
+      <div className="space-y-2">
+        <p className="rounded-lg bg-amber-50 px-4 py-3 font-semibold text-amber-900">This proposal expired on {longDate(expiresOn)}.</p>
+        <p className="text-sm text-muted">Please get in touch and we&apos;ll renew it for you.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 print:hidden">
+      {expiresOn && <p className="text-sm text-muted">This proposal is valid until {longDate(expiresOn)}.</p>}
       {pricing.options.length > 0 && (
         <div className="space-y-4">
           <p className="font-semibold text-ink">Choose any options you&apos;d like included</p>
@@ -215,6 +253,7 @@ export function ProposalAcceptance({
           {saving ? "Accepting…" : "Accept proposal"}
         </button>
       </div>
+      <ProposalDecline token={token} code={code} preview={preview} />
     </div>
   );
 }

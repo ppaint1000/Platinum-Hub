@@ -17,6 +17,7 @@ import { LedgerTable } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
 import { TempPasswordReveal } from "./TempPasswordReveal";
 import { UserMore, type StaffType } from "./UserMore";
+import { SetPasswordForm } from "@/app/timesheets/admin/staff/set-password-form";
 
 export type PayRate = {
   employmentType: "contractor" | "employee";
@@ -168,6 +169,7 @@ function UserRowItem({
   onPasswordRevealed: (password: string) => void;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const staffType = staffTypes.find((t) => t.id === user.staff_type_id)?.name;
   const [isPending, startTransition] = useTransition();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -360,11 +362,19 @@ function UserRowItem({
             </button>
             <button
               type="button"
-              disabled={isPending}
-              onClick={resetPassword}
+              onClick={() => setPasswordOpen((v) => !v)}
               className="text-sm font-medium whitespace-nowrap text-accent hover:text-accent-hover"
             >
-              Reset password
+              {passwordOpen ? "Close" : "Set password"}
+            </button>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={resetPassword}
+              title="Makes up a temporary password and shows it to you"
+              className="text-sm font-medium whitespace-nowrap text-accent hover:text-accent-hover"
+            >
+              Temporary password
             </button>
             <button
               type="button"
@@ -378,6 +388,14 @@ function UserRowItem({
           </div>
         </td>
       </tr>
+      {passwordOpen && (
+        <tr>
+          <td colSpan={14} className="bg-background p-4">
+            <p className="mb-2 text-sm font-semibold text-ink">{user.full_name}</p>
+            <SetPasswordForm staffId={user.id} />
+          </td>
+        </tr>
+      )}
       {moreOpen && (
         <tr>
           <td colSpan={14} className="bg-background p-4">

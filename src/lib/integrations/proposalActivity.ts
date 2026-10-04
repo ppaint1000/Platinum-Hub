@@ -9,11 +9,13 @@ import { notificationRecipients } from "@/lib/notifications/recipients";
 //    whoever wants to know (Notifications page: first view or each view).
 //  - accepted: the customer signed - the job is marked won at the accepted
 //    total (including any options they chose), and the admins are emailed.
+//  - declined: the customer said they're not going ahead - the job is
+//    marked lost (with who they went with, if they said), and emailed.
 // Called by the Costing pages and the old Measures webhook route.
 
 export type ProposalActivity = {
   sourceQuoteId: string;
-  event: "sent" | "viewed" | "accepted";
+  event: "sent" | "viewed" | "accepted" | "declined";
   proposalUrl: string;
   location: string | null;
   customerName: string | null;
@@ -21,6 +23,8 @@ export type ProposalActivity = {
   lastViewedAt?: string | null;
   acceptedName?: string | null;
   acceptedTotal?: number | null;
+  declinedReason?: string | null;
+  declinedTo?: string | null;
 };
 
 const money = (n: number) => "$" + n.toLocaleString("en-NZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -67,6 +71,34 @@ export async function recordProposalActivity(
       text:
         `${who} just opened the proposal for ${jobName}${times}.\n\n` +
         `A good time to follow up.\n\nCustomer's link:\n${body.proposalUrl}\n\nJob in the Hub:\n${jobLink}\n`,
+    };
+  } else if (body.event === "declined") {
+    // Only an undecided quote is lost this way.
+    if (job.status === "draft" || job.status === "quoted" || job.status === "on_hold") {
+      update.status = "lost";
+      update.lost_at = new Date().toLocaleDateString("en-CA", { timeZone: "Pacific/Auckland" });
+      if (body.declinedTo?.trim()) update.lost_to = body.declinedTo.trim();
+    }
+    notify = "proposal_declined";
+    email = {
+      subject: `Proposal declined: ${jobName} (${who})`,
+      text:
+        `${who} declined the proposal for ${jobName} online.
+
+` +
+        `Reason: ${body.declinedReason ?? "not given"}
+` +
+        (body.declinedTo?.trim() ? `Went with: ${body.declinedTo.trim()}
+` : "") +
+        `
+The job is now marked Lost in the Hub.
+
+Proposal:
+${body.proposalUrl}
+
+Job in the Hub:
+${jobLink}
+`,
     };
   } else {
     update.proposal_accepted_at = new Date().toISOString();

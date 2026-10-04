@@ -267,6 +267,15 @@ export function ProductionBoard({
                             <span className="font-semibold text-[#16202E]">{money(Number(j.value))}</span>
                           )}
                         </div>
+                        {(j.status === "won" || j.status === "scheduled" || j.status === "in_progress") && (
+                          <Link
+                            href={j.status === "won" ? `/schedule?book=${j.id}` : "/schedule"}
+                            className="mt-1.5 inline-block text-xs font-semibold hover:underline"
+                            style={{ color: BLUE }}
+                          >
+                            {j.status === "won" ? "Book on the schedule" : "See the schedule"}
+                          </Link>
+                        )}
                         {checklistItems.length > 0 && (
                           <button
                             type="button"

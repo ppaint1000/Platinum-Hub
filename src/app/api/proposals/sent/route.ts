@@ -22,10 +22,22 @@ export async function POST(request: NextRequest) {
 
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("id, token, quote_id")
+    .select("id, token, quote_id, expires_on")
     .eq("quote_id", body.quoteId)
-    .maybeSingle();
+    .maybeSingle<{ id: string; token: string; quote_id: string; expires_on: string | null }>();
   if (!proposal) return NextResponse.json({ error: "Save the proposal first." }, { status: 404 });
+
+  // Valid for the set number of days from when it's sent (Settings →
+  // Proposal templates). Sending it again after it's expired renews it.
+  const todayNz = new Date().toLocaleDateString("en-CA", { timeZone: "Pacific/Auckland" });
+  if (!proposal.expires_on || proposal.expires_on < todayNz) {
+    const { data: settings } = await supabase.from("proposal_settings").select("valid_days").maybeSingle<{ valid_days: number | null }>();
+    const days = settings?.valid_days ?? 30;
+    if (days > 0) {
+      const expires = new Date(Date.parse(`${todayNz}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10);
+      await supabase.from("proposals").update({ expires_on: expires }).eq("id", proposal.id);
+    }
+  }
 
   const { data: quote } = await supabase
     .from("quotes")

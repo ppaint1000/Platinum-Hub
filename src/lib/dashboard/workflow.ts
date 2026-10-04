@@ -30,8 +30,8 @@ export async function loadWorkflow(supabase: SupabaseClient, monthKey: string): 
     supabase.from("quotes").select("status").returns<{ status: string }[]>(),
     supabase
       .from("proposals")
-      .select("sent_at, view_count, accepted_at")
-      .returns<{ sent_at: string | null; view_count: number; accepted_at: string | null }[]>(),
+      .select("sent_at, view_count, accepted_at, declined_at")
+      .returns<{ sent_at: string | null; view_count: number; accepted_at: string | null; declined_at: string | null }[]>(),
     supabase
       .from("jobs")
       .select("id, job_number, name, status, quoted_sell_total, client:clients(name)")
@@ -62,8 +62,8 @@ export async function loadWorkflow(supabase: SupabaseClient, monthKey: string): 
       draft: count(quotes, (q) => q.status === "draft"),
     },
     proposals: {
-      notOpened: count(proposals, (p) => !!p.sent_at && !p.accepted_at && p.view_count === 0),
-      opened: count(proposals, (p) => !p.accepted_at && p.view_count > 0),
+      notOpened: count(proposals, (p) => !!p.sent_at && !p.accepted_at && !p.declined_at && p.view_count === 0),
+      opened: count(proposals, (p) => !p.accepted_at && !p.declined_at && p.view_count > 0),
       acceptedThisMonth: count(proposals, (p) => !!p.accepted_at && p.accepted_at.slice(0, 7) === monthKey),
     },
     jobs: {
