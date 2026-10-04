@@ -1,32 +1,41 @@
 // Where a signed-in user lands: after sign-in, and on a bare visit to "/".
-//
-// Admins land on the Dashboard, and sales staff on their own sales
-// dashboard. Everyone else keeps their own default app
-// (user_app_access.default_app, set on the Users page), falling back to
-// Timesheets. Painters never land on the Hub, even if their default_app says
-// "hub" - they only use the apps they've been given (Timesheets, fuel entry).
+// It's their "Default app" on the Users page - whatever is picked there.
+// If it's an app they can't open (e.g. unticked since), they get
+// Timesheets instead.
+import { defaultAppAllowed, type AppFlags, type DefaultApp } from "@/lib/users/access";
 
-type LandingAccess = {
-  fleet: boolean;
-  orders: boolean;
-  jobs: boolean;
-  sales: boolean;
-  default_app: string;
-} | null;
+type LandingAccess = (AppFlags & { sales_authority?: boolean; default_app: string }) | null;
 
 export function landingPath(role: string, access: LandingAccess): string {
-  if (role === "admin") return "/dashboard";
-  if (role === "sales" && access?.sales) return "/sales/dashboard";
+  const app = (access?.default_app ?? "timesheets") as DefaultApp;
+  const ok = defaultAppAllowed(app, role, access);
+  const staffSide = role === "admin" || role === "supervisor";
 
-  const defaultApp = access?.default_app ?? "timesheets";
-
-  if (defaultApp === "hub" && role !== "painter") return "/hub";
-  if (defaultApp === "fleet" && access?.fleet) return "/fleet";
-  if (defaultApp === "orders" && access?.orders) return "/orders";
-  if (defaultApp === "jobs" && access?.jobs) return "/jobs";
-  if (defaultApp === "sales" && access?.sales) return "/sales";
-
-  // default_app === "timesheets", or pointed at an app the user no longer
-  // has (flag revoked after being set as default).
-  return role === "supervisor" ? "/timesheets/admin" : "/timesheets/clock";
+  if (ok) {
+    switch (app) {
+      case "dashboard":
+        return "/dashboard";
+      case "hub":
+        return "/hub";
+      case "production":
+        return "/production";
+      case "sales":
+        // The whole team's figures for admins and sales authority, your own
+        // otherwise.
+        return role === "admin" || access?.sales_authority ? "/sales" : "/sales/dashboard";
+      case "jobs":
+        return "/jobs";
+      case "costing":
+        return "/costing";
+      case "measures":
+        return "/site-measures";
+      case "orders":
+        return "/orders";
+      case "fleet":
+        return "/fleet";
+      case "timesheets":
+        break;
+    }
+  }
+  return staffSide ? "/timesheets/admin" : "/timesheets/clock";
 }

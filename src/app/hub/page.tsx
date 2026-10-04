@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
+  Settings,
   Clock,
   Truck,
   ClipboardList,
@@ -226,6 +227,12 @@ export default async function HubPage() {
             description="Add, deactivate, or delete staff and set app access."
           />
         )}
+        <AppTile
+          href="/settings"
+          icon={<Settings className="h-5 w-5" />}
+          title="Settings"
+          description="Rates, templates, users and access, checklists, sites, vehicles - all set-up in one place."
+        />
       </div>
     </main>
   );

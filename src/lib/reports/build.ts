@@ -61,13 +61,32 @@ export const REPORT_GROUPS: ReportGroup[] = [
   },
 ];
 
-// Older Hub reports, listed alongside.
-export const MORE_REPORTS = [
-  { href: "/clients/dashboard", title: "Clients Dashboard", description: "Quoted, won, lost and win rate across clients." },
-  { href: "/clients/report", title: "Win Rate by Client", description: "Each client's quotes, wins and losses." },
-  { href: "/jobs/lost-report", title: "Lost To Report", description: "Who we lose work to, over time." },
-  { href: "/sales/budgets", title: "Sales Budgets", description: "Quoted and won against each salesperson's budget." },
-  { href: "/fleet/fuel-report", title: "Fuel Report", description: "Fuel use and spend by vehicle." },
+// The Hub's other reports - kept on their own pages, listed here so every
+// report is in one place.
+export const OTHER_REPORT_GROUPS: { title: string; reports: { href: string; title: string; description: string }[] }[] = [
+  {
+    title: "Clients and sales",
+    reports: [
+      { href: "/sales", title: "Sales Overview", description: "The team's quoted and won against budget." },
+      { href: "/sales/budgets", title: "Sales Budgets", description: "Quoted and won against each salesperson's budget." },
+      { href: "/clients/dashboard", title: "Clients Dashboard", description: "Quoted, won, lost and win rate across clients." },
+      { href: "/clients/report", title: "Win Rate by Client", description: "Each client's quotes, wins and losses." },
+      { href: "/jobs/lost-report", title: "Lost To by Month", description: "Who we lose work to, month by month." },
+    ],
+  },
+  {
+    title: "Timesheets and staff",
+    reports: [
+      { href: "/timesheets/admin/reports", title: "Timesheet Report", description: "Hours by person and day, with CSV, PDF and Excel export." },
+      { href: "/timesheets/admin/reports/by-job", title: "Hours by Job (Timesheets)", description: "Paid hours per person on each job site, rounded like payroll." },
+      { href: "/timesheets/admin/activity", title: "Clock-in Activity", description: "Who clocked in and out, and where." },
+      { href: "/absences", title: "Absences", description: "Who's been away, why, and the patterns." },
+    ],
+  },
+  {
+    title: "Fleet",
+    reports: [{ href: "/fleet/fuel-report", title: "Fuel Report", description: "Fuel use and cost per km by vehicle." }],
+  },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────

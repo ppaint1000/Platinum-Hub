@@ -4,7 +4,14 @@ import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { AccessApp, DefaultApp, Role } from "@/lib/users/access";
+import {
+  defaultAppAllowed,
+  defaultAppForRole,
+  type AccessApp,
+  type AppFlags,
+  type DefaultApp,
+  type Role,
+} from "@/lib/users/access";
 
 function generateTempPassword() {
   return randomBytes(9).toString("base64url");
@@ -66,36 +73,35 @@ export async function createUserAction(input: {
   return { tempPassword };
 }
 
+// A user's flags, role and landing page - to keep the landing page one
+// they can still open after a change.
+async function landingCheck(supabase: Awaited<ReturnType<typeof requireAdmin>>, userId: string) {
+  const [{ data: flags }, { data: profile }] = await Promise.all([
+    supabase
+      .from("user_app_access")
+      .select("timesheets, fleet, orders, jobs, sales, measures, costing, default_app")
+      .eq("user_id", userId)
+      .maybeSingle<AppFlags & { default_app: DefaultApp }>(),
+    supabase.from("profiles").select("role").eq("id", userId).maybeSingle<{ role: Role }>(),
+  ]);
+  return { flags, role: profile?.role ?? "painter" };
+}
+
+// If the landing page can't be opened any more (an app unticked), fall back
+// to the role's usual one, or Timesheets.
+function fallbackLanding(role: Role, flags: AppFlags): DefaultApp {
+  const usual = defaultAppForRole(role);
+  return defaultAppAllowed(usual, role, flags) ? usual : "timesheets";
+}
+
 export async function updateAccessAction(userId: string, app: AccessApp, granted: boolean) {
   const supabase = await requireAdmin();
-
-  const { data: current } = await supabase
-    .from("user_app_access")
-    .select("timesheets, fleet, orders, jobs, sales, default_app")
-    .eq("user_id", userId)
-    .maybeSingle<Record<AccessApp, boolean> & { default_app: DefaultApp }>();
-
-  const nextFlags: Record<AccessApp, boolean> = {
-    timesheets: current?.timesheets ?? true,
-    fleet: current?.fleet ?? false,
-    orders: current?.orders ?? false,
-    jobs: current?.jobs ?? false,
-    sales: current?.sales ?? false,
-    [app]: granted,
-  };
-  const hasHubAccess = nextFlags.fleet || nextFlags.orders || nextFlags.jobs || nextFlags.sales;
-  const currentDefault = current?.default_app ?? "timesheets";
-
-  // Re-validate the stored default against the flags as they'll be after
-  // this change — 'hub' is only reachable with at least one Hub-side app
-  // enabled, and any specific app default requires that app's own flag.
-  const defaultStillValid =
-    currentDefault === "hub" ? hasHubAccess : nextFlags[currentDefault as AccessApp];
+  const { flags, role } = await landingCheck(supabase, userId);
+  const nextFlags: AppFlags = { ...(flags ?? {}), [app]: granted };
+  const current = flags?.default_app ?? "timesheets";
 
   const update: Record<string, unknown> = { [app]: granted, updated_at: new Date().toISOString() };
-  if (!defaultStillValid) {
-    update.default_app = hasHubAccess ? "hub" : "timesheets";
-  }
+  if (!defaultAppAllowed(current, role, nextFlags)) update.default_app = fallbackLanding(role, nextFlags);
 
   const { error } = await supabase.from("user_app_access").update(update).eq("user_id", userId);
   if (error) return { error: error.message };
@@ -108,11 +114,14 @@ export async function updateAccessAction(userId: string, app: AccessApp, granted
 // measures; admins see everything regardless).
 export async function updateMcAccessAction(userId: string, app: "measures" | "costing", granted: boolean) {
   const supabase = await requireAdmin();
+  const { flags, role } = await landingCheck(supabase, userId);
+  const nextFlags: AppFlags = { ...(flags ?? {}), [app]: granted };
+  const current = flags?.default_app ?? "timesheets";
 
-  const { error } = await supabase
-    .from("user_app_access")
-    .update({ [app]: granted, updated_at: new Date().toISOString() })
-    .eq("user_id", userId);
+  const update: Record<string, unknown> = { [app]: granted, updated_at: new Date().toISOString() };
+  if (!defaultAppAllowed(current, role, nextFlags)) update.default_app = fallbackLanding(role, nextFlags);
+
+  const { error } = await supabase.from("user_app_access").update(update).eq("user_id", userId);
 
   if (error) return { error: error.message };
 
@@ -136,19 +145,9 @@ export async function updateSalesAuthorityAction(userId: string, granted: boolea
 
 export async function updateDefaultAppAction(userId: string, app: DefaultApp) {
   const supabase = await requireAdmin();
+  const { flags, role } = await landingCheck(supabase, userId);
 
-  const { data: access } = await supabase
-    .from("user_app_access")
-    .select("timesheets, fleet, orders, jobs, sales")
-    .eq("user_id", userId)
-    .maybeSingle<Record<AccessApp, boolean>>();
-
-  const isValid =
-    app === "hub"
-      ? !!access?.fleet || !!access?.orders || !!access?.jobs || !!access?.sales
-      : !!access?.[app];
-
-  if (!isValid) {
+  if (!defaultAppAllowed(app, role, flags)) {
     return { error: "That app isn't enabled for this user." };
   }
 

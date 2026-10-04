@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   Bell,
+  Settings,
   Briefcase,
   Calculator,
   CalendarX,
@@ -282,6 +283,16 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
           </nav>
           <div className="flex items-center gap-1">
             <Link
+              href="/settings"
+              aria-label="Settings"
+              title="Settings"
+              className={`flex min-h-10 items-center rounded-lg px-2.5 hover:bg-white/10 hover:text-white ${
+                activeHref === "/settings" ? "bg-white/10 text-white" : "text-[#C9D1DC]"
+              }`}
+            >
+              <Settings className="h-5 w-5" />
+            </Link>
+            <Link
               href="/notifications"
               aria-label="Notifications"
               title="Notifications"
@@ -320,6 +331,13 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
         </summary>
         <nav aria-label="Main" className="mt-3 border-t border-[#2A3748] pb-2 pt-3">
           <NavList items={items} activeHref={activeHref} alerts={alerts} />
+          <Link
+            href="/settings"
+            className="mt-1 flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#C9D1DC] hover:bg-white/10 hover:text-white"
+          >
+            <Settings className="h-4 w-4" />
+            Settings
+          </Link>
           <Link
             href="/notifications"
             className="mt-1 flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-[#C9D1DC] hover:bg-white/10 hover:text-white"

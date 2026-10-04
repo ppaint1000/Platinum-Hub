@@ -9,6 +9,9 @@ type AppAccess = {
   orders: boolean;
   jobs: boolean;
   sales: boolean;
+  sales_authority: boolean;
+  measures: boolean;
+  costing: boolean;
   default_app: string;
 };
 
@@ -76,7 +79,7 @@ export async function updateSession(request: NextRequest) {
         .maybeSingle<Profile>(),
       supabase
         .from("user_app_access")
-        .select("timesheets, fleet, orders, jobs, sales, default_app")
+        .select("timesheets, fleet, orders, jobs, sales, sales_authority, measures, costing, default_app")
         .eq("user_id", user.id)
         .maybeSingle<AppAccess>(),
     ]);

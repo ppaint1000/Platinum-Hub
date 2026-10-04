@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { createUserAction } from "@/app/users/actions";
-import { defaultAccessForRole, type AccessApp, type DefaultApp, type Role } from "@/lib/users/access";
+import {
+  DEFAULT_APP_OPTIONS,
+  defaultAccessForRole,
+  defaultAppAllowed,
+  defaultAppForRole,
+  type AccessApp,
+  type DefaultApp,
+  type Role,
+} from "@/lib/users/access";
 import { Button, Panel } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
 import { TempPasswordReveal } from "./TempPasswordReveal";
@@ -15,14 +23,6 @@ const APPS: { key: AccessApp; label: string }[] = [
   { key: "sales", label: "Sales" },
 ];
 
-const APP_LABEL: Record<DefaultApp, string> = {
-  hub: "Hub",
-  timesheets: "Timesheets",
-  fleet: "Fleet",
-  orders: "Orders",
-  jobs: "Jobs",
-  sales: "Sales",
-};
 
 export function NewUserForm() {
   const [open, setOpen] = useState(false);
@@ -30,7 +30,7 @@ export function NewUserForm() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("painter");
   const [access, setAccess] = useState<Record<AccessApp, boolean>>(defaultAccessForRole("painter"));
-  const [defaultApp, setDefaultApp] = useState<DefaultApp>("timesheets");
+  const [defaultApp, setDefaultApp] = useState<DefaultApp>(defaultAppForRole("painter"));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
@@ -38,13 +38,17 @@ export function NewUserForm() {
   function changeRole(next: Role) {
     setRole(next);
     setAccess(defaultAccessForRole(next));
-    setDefaultApp(next === "painter" ? "timesheets" : "hub");
+    // Painters start on Clock in, sales on Sales, supervisors on the
+    // Production board, admins on the Dashboard - change it below if needed.
+    setDefaultApp(defaultAppForRole(next));
   }
 
   function toggleApp(app: AccessApp, checked: boolean) {
     setAccess((prev) => ({ ...prev, [app]: checked }));
-    if (!checked && defaultApp === app) {
-      setDefaultApp("hub");
+    const next = { ...access, [app]: checked };
+    if (!defaultAppAllowed(defaultApp, role, next)) {
+      const usual = defaultAppForRole(role);
+      setDefaultApp(defaultAppAllowed(usual, role, next) ? usual : "timesheets");
     }
   }
 
@@ -71,13 +75,7 @@ export function NewUserForm() {
     setOpen(false);
   }
 
-  const defaultAppOptions = (Object.keys(APP_LABEL) as DefaultApp[]).filter((o) =>
-    role === "admin"
-      ? true
-      : o === "hub"
-        ? access.fleet || access.orders || access.jobs || access.sales
-        : access[o as AccessApp]
-  );
+  const defaultAppOptions = DEFAULT_APP_OPTIONS.filter((o) => defaultAppAllowed(o.value, role, access));
 
   return (
     <div className="relative">
@@ -148,8 +146,8 @@ export function NewUserForm() {
                 className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
               >
                 {defaultAppOptions.map((o) => (
-                  <option key={o} value={o}>
-                    {APP_LABEL[o]}
+                  <option key={o.value} value={o.value}>
+                    {o.label}
                   </option>
                 ))}
               </select>

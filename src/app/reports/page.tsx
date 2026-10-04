@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
-import { MORE_REPORTS, REPORT_GROUPS } from "@/lib/reports/build";
+import { OTHER_REPORT_GROUPS, REPORT_GROUPS } from "@/lib/reports/build";
 import { DashboardShell } from "@/components/dashboard/parts";
 import { ADMIN_NAV, TopBar } from "@/components/dashboard/TopBar";
 import { dashboardFontClass } from "@/components/dashboard/fonts";
@@ -32,7 +32,7 @@ export default async function ReportsPage() {
       title="Reports"
     >
       {REPORT_GROUPS.map((g) => (
-        <section key={g.title} aria-label={g.title} className="flex flex-col gap-3">
+        <section key={g.title} id={g.title.toLowerCase().replace(/[^a-z]+/g, "-")} aria-label={g.title} className="flex scroll-mt-24 flex-col gap-3">
           <h2 className="text-lg font-bold text-[#16202E]">{g.title}</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {g.reports.map((r) => (
@@ -41,14 +41,16 @@ export default async function ReportsPage() {
           </div>
         </section>
       ))}
-      <section aria-label="More reports" className="flex flex-col gap-3">
-        <h2 className="text-lg font-bold text-[#16202E]">More</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {MORE_REPORTS.map((r) => (
-            <Tile key={r.href} {...r} />
-          ))}
-        </div>
-      </section>
+      {OTHER_REPORT_GROUPS.map((g) => (
+        <section key={g.title} id={g.title.toLowerCase().replace(/[^a-z]+/g, "-")} aria-label={g.title} className="flex scroll-mt-24 flex-col gap-3">
+          <h2 className="text-lg font-bold text-[#16202E]">{g.title}</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {g.reports.map((r) => (
+              <Tile key={r.href} {...r} />
+            ))}
+          </div>
+        </section>
+      ))}
     </DashboardShell>
   );
 }

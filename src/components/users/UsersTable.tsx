@@ -12,7 +12,7 @@ import {
   resetPasswordAction,
   deleteUserAction,
 } from "@/app/users/actions";
-import type { AccessApp, DefaultApp, Role } from "@/lib/users/access";
+import { DEFAULT_APP_OPTIONS, defaultAppAllowed, type AccessApp, type DefaultApp, type Role } from "@/lib/users/access";
 import { LedgerTable } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
 import { TempPasswordReveal } from "./TempPasswordReveal";
@@ -54,14 +54,6 @@ const APPS: { key: AccessApp; label: string }[] = [
   { key: "sales", label: "Sales" },
 ];
 
-const DEFAULT_APP_OPTIONS: { value: DefaultApp; label: string }[] = [
-  { value: "hub", label: "Hub" },
-  { value: "timesheets", label: "Timesheets" },
-  { value: "fleet", label: "Fleet" },
-  { value: "orders", label: "Orders" },
-  { value: "jobs", label: "Jobs" },
-  { value: "sales", label: "Sales" },
-];
 
 const DEFAULT_PAY_RATE: PayRate = {
   employmentType: "employee",
@@ -311,11 +303,7 @@ function UserRowItem({
             onChange={(e) => changeDefaultApp(e.target.value as DefaultApp)}
             className="rounded border border-line bg-paper-raised px-2 py-1 text-sm"
           >
-            {DEFAULT_APP_OPTIONS.filter((o) =>
-              o.value === "hub"
-                ? isAdmin || !!access?.fleet || !!access?.orders || !!access?.jobs || !!access?.sales
-                : isAdmin || !!access?.[o.value as AccessApp]
-            ).map((o) => (
+            {DEFAULT_APP_OPTIONS.filter((o) => defaultAppAllowed(o.value, user.role, access)).map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
