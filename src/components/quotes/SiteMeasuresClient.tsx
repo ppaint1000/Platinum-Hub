@@ -518,19 +518,11 @@ export function SiteMeasuresClient({
       .single();
     if (quoteErr || !quote) throw quoteErr ?? new Error("Couldn't create the costing.");
 
-    // Each measured area (Fascia, Soffit, Wall...) becomes its own
-    // Building / Area section in the costing, with that area's lines - named
-    // "Building - Area" when the measure has more than one building.
-    const manyBuildings = form.buildings.filter((b) => b.title.trim() || b.areas.length).length > 1;
-    const sections = form.buildings.flatMap((building) =>
-      building.areas
-        .filter((area) => area.lines.some((ln) => ln.m.trim() !== ""))
-        .map((area) => ({
-          name: [manyBuildings ? building.title.trim() : "", area.name.trim()].filter(Boolean).join(" - ") || building.title.trim(),
-          category: building.category,
-          areas: [area],
-        }))
-    );
+    // One Building / Area section per measured building; its areas (Fascia,
+    // Soffit, Wall...) become the surface lines inside it.
+    const sections = form.buildings
+      .filter((building) => building.title.trim() || building.areas.length > 0)
+      .map((building) => ({ name: building.title.trim(), category: building.category, areas: building.areas }));
 
     for (const [bi, building] of sections.entries()) {
       const { data: qb, error: bErr } = await supabase
