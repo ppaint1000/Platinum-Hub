@@ -64,7 +64,7 @@ export async function updateSession(request: NextRequest) {
   // code is the key (checked in the database). Work order links (/w/) need a
   // Hub sign-in like everything else.
   const isTokenLink =
-    path.startsWith("/p/") || /^\/api\/proposals\/[^/]+\/(viewed|accepted)$/.test(path);
+    path.startsWith("/p/") || /^\/api\/proposals\/[^/]+\/(viewed|accepted|declined)$/.test(path) || path.startsWith("/u/");
 
   if (isPublicAsset || isIntegrationWebhook || isTokenLink) return response;
 

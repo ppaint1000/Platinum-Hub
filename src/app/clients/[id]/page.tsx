@@ -27,7 +27,7 @@ export default async function ClientDetailPage({
 
   const { data: client } = await supabase
     .from("clients")
-    .select("id, name, notes, email, phone, address, sales_person_id, created_at, updated_at")
+    .select("id, name, notes, email, phone, address, sales_person_id, created_at, updated_at, drip_opt_out, drip_off")
     .eq("id", id)
     .single<ClientPageRow>();
 

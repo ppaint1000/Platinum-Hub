@@ -18,6 +18,7 @@ import {
   Home,
   Inbox,
   Kanban,
+  Mail,
   LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
@@ -52,6 +53,7 @@ const GROUPS: { title: string; links: Link_[] }[] = [
       { href: "/costing", label: "Costing", icon: Calculator },
       { href: "/sales", label: "Sales", icon: TrendingUp },
       { href: "/reminders", label: "Repaint reminders", icon: BellRing },
+      { href: "/drips", label: "Drips & reviews", icon: Mail },
     ],
   },
   {

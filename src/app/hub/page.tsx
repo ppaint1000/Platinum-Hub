@@ -20,6 +20,7 @@ import {
   CalendarX,
   Receipt,
   Kanban,
+  Mail,
   PieChart,
   AlertTriangle,
 } from "lucide-react";
@@ -80,6 +81,7 @@ export default async function HubPage() {
         { href: "/requests", icon: <Inbox className="h-5 w-5" />, title: "Requests", description: "New enquiries from the website or a call - turn them into site measures.", show: isAdmin || !!access?.measures || !!access?.costing },
         { href: "/clients", icon: <Contact className="h-5 w-5" />, title: "Clients", description: "Every client, their contacts, jobs and clock-in sites.", show: isAdmin || !!access?.jobs },
         { href: "/reminders", icon: <BellRing className="h-5 w-5" />, title: "Repaint reminders", description: "Check-ups and repaints coming due for past clients.", show: isAdmin },
+        { href: "/drips", icon: <Mail className="h-5 w-5" />, title: "Drips & Google reviews", description: "Automatic follow-up emails and review requests to customers.", show: isAdmin },
         { href: "/site-measures", icon: <Ruler className="h-5 w-5" />, title: "Site Measures", description: "Measure up on site, then send it to a costing.", show: isAdmin || !!access?.measures },
         { href: "/costing", icon: <Calculator className="h-5 w-5" />, title: "Costing and proposals", description: "Price the job and send the customer an online proposal.", show: isAdmin || !!access?.costing },
         { href: "/sales", icon: <TrendingUp className="h-5 w-5" />, title: "Sales", description: "Quoted and won $ by salesperson, against a monthly budget.", show: isAdmin || !!access?.sales },

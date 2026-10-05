@@ -1,5 +1,7 @@
 "use server";
 
+import { createAdminClient } from "@/lib/supabase/admin";
+
 import { revalidatePath } from "next/cache";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 
@@ -163,5 +165,33 @@ export async function deleteClientNoteAction(id: string, clientId: string) {
   if (error) return { error: error.message };
 
   revalidatePath(`/clients/${clientId}`);
+  return {};
+}
+
+// The client's automatic emails (Drips): the main switch, and the
+// automations unticked for them. Turning something off also stops those
+// emails already on their way.
+const TRIGGERS = ["request_created", "proposal_sent", "job_paid", "job_lost"];
+
+export async function setClientAutoEmailsAction(id: string, enabled: boolean, off: string[] = []) {
+  const supabase = await requireAppAccess("jobs");
+  const dripOff = [...new Set(off.filter((t) => TRIGGERS.includes(t)))];
+  const { error } = await supabase.from("clients").update({ drip_opt_out: !enabled, drip_off: dripOff }).eq("id", id);
+  if (error) return { error: error.message };
+  const stopFor = enabled ? dripOff : TRIGGERS;
+  if (stopFor.length) {
+    const admin = createAdminClient();
+    const { data: seqs } = await admin.from("drip_sequences").select("id").in("trigger", stopFor);
+    const ids = (seqs ?? []).map((s) => s.id);
+    if (ids.length) {
+      await admin
+        .from("drip_enrolments")
+        .update({ status: "stopped", stopped_reason: "Turned off for this client", next_send_at: null })
+        .eq("client_id", id)
+        .in("sequence_id", ids)
+        .eq("status", "active");
+    }
+  }
+  revalidatePath(`/clients/${id}`);
   return {};
 }

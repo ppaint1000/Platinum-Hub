@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Copy, Check, Mail, MapPin, Phone, Plus, Trash2 } from "lucide-react";
 import { addClientNoteAction, deleteClientNoteAction } from "@/app/clients/actions";
 import { ClientEditForm, ContactsList, type ClientDetailRow, type ContactRow } from "./ClientDetail";
+import { AutoEmailsToggle } from "./AutoEmailsToggle";
 import { Button } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
 import { isWonStatus, type JobStatus } from "@/lib/jobs/status";
@@ -33,7 +34,7 @@ export type ClientJob = {
   proposal_accepted_at: string | null;
 };
 export type ClientNote = { id: string; body: string; created_at: string; author: string | null };
-export type ClientPageRow = ClientDetailRow & { created_at: string; updated_at: string };
+export type ClientPageRow = ClientDetailRow & { created_at: string; updated_at: string; drip_opt_out?: boolean; drip_off?: string[] | null };
 
 // Dashboard colours (components/dashboard/parts.tsx).
 const NAVY = "#16202E";
@@ -323,6 +324,7 @@ export function ClientPage({
                   <DetailRow label="Lead source" value={sources.join(", ") || null} empty="Not recorded on any job" copy={false} />
                   <DetailRow label="Date added" value={fmtDay(client.created_at)} copy={false} />
                   <DetailRow label="Notes" value={client.notes} copy={false} multiline />
+                  <AutoEmailsToggle clientId={client.id} enabled={!client.drip_opt_out} off={client.drip_off ?? []} />
                   <div className="pt-3">
                     <Button variant="secondary" onClick={() => setEditing(true)}>
                       Edit details

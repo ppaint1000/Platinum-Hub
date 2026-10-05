@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { notifyHubProposal } from "@/lib/quotes/hubNotify";
+import { enrolDrip } from "@/lib/drips/drips";
 
 // "Copy link" on a proposal: records it as sent, moves a draft costing to
 // Sent, and tells the Hub - which emails the admins a reminder with the
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
 
   const { data: quote } = await supabase
     .from("quotes")
-    .select("status, location, customers:clients(name)")
+    .select("status, location, customer_id, customers:clients(name, email)")
     .eq("id", body.quoteId)
     .single();
 
@@ -49,6 +50,16 @@ export async function POST(request: NextRequest) {
   if (quote && (quote.status === "draft" || quote.status === "draft_review")) {
     await supabase.from("quotes").update({ status: "sent" }).eq("id", body.quoteId);
   }
+
+  // The "Proposal follow-up" emails (Drips page) - once per proposal.
+  const customer = quote?.customers as unknown as { name: string; email: string | null } | null;
+  await enrolDrip({
+    trigger: "proposal_sent",
+    email: customer?.email,
+    name: customer?.name,
+    clientId: (quote as { customer_id?: string } | null)?.customer_id ?? null,
+    proposalId: proposal.id,
+  });
 
   const hub = await notifyHubProposal({
     sourceQuoteId: body.quoteId,

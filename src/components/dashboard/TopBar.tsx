@@ -36,6 +36,7 @@ import { readyToInvoiceCount, runAutoOnHold } from "@/lib/jobs/production";
 import { runProposalFollowUps } from "@/lib/quotes/proposalFollowUps";
 import { runBookingReminders } from "@/lib/schedule/customerEmails";
 import { runClientReminders } from "@/lib/reminders/clientReminders";
+import { runDrips } from "@/lib/drips/drips";
 import { NAVY } from "./parts";
 import { SidePanel } from "./SidePanel";
 
@@ -373,6 +374,7 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
   after(runProposalFollowUps);
   after(runBookingReminders);
   after(runClientReminders);
+  after(runDrips);
   if (isAdminBar) {
     // Quotes undecided for 8 months go On Hold before anything is counted.
     await runAutoOnHold();

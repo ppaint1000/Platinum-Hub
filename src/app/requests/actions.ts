@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { enrolDrip } from "@/lib/drips/drips";
 
 export type RequestInput = {
   name: string;
@@ -23,7 +24,7 @@ export async function createRequestAction(input: RequestInput) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const { error } = await supabase.from("requests").insert({
+  const { data: created, error } = await supabase.from("requests").insert({
     name: input.name.trim(),
     company: clean(input.company),
     email: clean(input.email),
@@ -33,8 +34,10 @@ export async function createRequestAction(input: RequestInput) {
     source: input.source,
     // Yours unless an admin gives it to someone else.
     owner_id: input.ownerId ?? user?.id ?? null,
-  });
+  }).select("id").single<{ id: string }>();
   if (error) return { error: error.message };
+  // The "New enquiry" emails (Drips page), if they gave an email.
+  await enrolDrip({ trigger: "request_created", email: input.email, name: input.name, requestId: created.id });
   revalidatePath("/requests");
   return {};
 }

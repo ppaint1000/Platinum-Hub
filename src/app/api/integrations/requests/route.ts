@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyQuotesWebhook } from "@/lib/integrations/quotesWebhook";
+import { enrolDrip } from "@/lib/drips/drips";
 
 // The website's "request a quote" form: each enquiry becomes a Request in the
 // Hub (as well as the email it already sends). Called server-to-server by the
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
   const heard = text(body.source, 200);
   const message = [text(body.message), heard ? `Heard about us: ${heard}` : null].filter(Boolean).join("\n\n") || null;
 
-  const { error } = await createAdminClient()
+  const { data: created, error } = await createAdminClient()
     .from("requests")
     .insert({
       name,
@@ -33,7 +34,11 @@ export async function POST(request: NextRequest) {
       company: text(body.company, 200),
       message,
       source: "website",
-    });
+    })
+    .select("id")
+    .single<{ id: string }>();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // The "New enquiry" emails (Drips page).
+  await enrolDrip({ trigger: "request_created", email: text(body.email, 200), name, requestId: created.id });
   return NextResponse.json({ ok: true });
 }

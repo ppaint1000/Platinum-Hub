@@ -253,6 +253,9 @@ export function ClientsList({
           <Link href="/reminders" className="text-accent hover:underline">
             Repaint reminders
           </Link>
+          <Link href="/drips" className="text-accent hover:underline">
+            Drips &amp; reviews
+          </Link>
         </div>
         <button
           type="button"
