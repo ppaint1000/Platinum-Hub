@@ -42,10 +42,6 @@ type OpenEntryRow = {
   sites: OpenEntrySite | OpenEntrySite[] | null
 }
 
-function customerName(relation: CustomerRelation): string | undefined {
-  return Array.isArray(relation) ? relation[0]?.name : relation?.name
-}
-
 const pillClass =
   'rounded-lg bg-gray-300 px-3 py-1.5 text-xs font-medium text-gray-800 transition-colors hover:bg-gray-400'
 
@@ -106,7 +102,8 @@ export default async function ClockPage() {
   const sites = (siteRows ?? []).map((s) => ({
     id: s.id,
     workOrderUrl: workOrderBySite.get(s.id) ?? null,
-    label: customerName(s.customers) ? `${s.name} (${customerName(s.customers)})` : s.name,
+    // Just the site - painters don't need to see the customer.
+    label: s.name,
     hasExtentOfWork: Boolean(s.extent_of_work_filename),
     hasSafetyPlan: Boolean(s.safety_plan_filename),
     safetyAcknowledged: acknowledgedSiteIds.has(s.id),

@@ -47,7 +47,7 @@ export async function MyJobs({ myName }: { myName: string }) {
                 {b.job_number ? `${b.job_number} · ` : ""}
                 {b.job_name}
               </p>
-              {(b.address || b.client_name) && <p className="text-black/60">{b.address || b.client_name}</p>}
+              {b.address && <p className="text-black/60">{b.address}</p>}
               {others.length > 0 && <p className="text-black/60">With {others.join(", ")}</p>}
               {b.notes && <p className="mt-1 whitespace-pre-wrap">{b.notes}</p>}
               <div className="mt-1.5 flex gap-3">
