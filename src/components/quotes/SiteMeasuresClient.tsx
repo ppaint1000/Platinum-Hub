@@ -195,6 +195,8 @@ export function SiteMeasuresClient({
   const [snapshot, setSnapshot] = useState("");
   const [confirmClose, setConfirmClose] = useState(false);
   const [savedNote, setSavedNote] = useState(false);
+  // The area last clicked into - "Add line" adds there, not just to the bottom.
+  const [activeArea, setActiveArea] = useState<{ bi: number; ai: number } | null>(null);
   const isDirty = (adding || !!editing) && JSON.stringify(form) !== snapshot;
 
   // Warns before closing the tab, refreshing, or navigating to a new
@@ -516,14 +518,26 @@ export function SiteMeasuresClient({
       .single();
     if (quoteErr || !quote) throw quoteErr ?? new Error("Couldn't create the costing.");
 
-    for (const [bi, building] of form.buildings.entries()) {
-      if (!building.title.trim() && building.areas.length === 0) continue;
+    // Each measured area (Fascia, Soffit, Wall...) becomes its own
+    // Building / Area section in the costing, with that area's lines - named
+    // "Building - Area" when the measure has more than one building.
+    const manyBuildings = form.buildings.filter((b) => b.title.trim() || b.areas.length).length > 1;
+    const sections = form.buildings.flatMap((building) =>
+      building.areas
+        .filter((area) => area.lines.some((ln) => ln.m.trim() !== ""))
+        .map((area) => ({
+          name: [manyBuildings ? building.title.trim() : "", area.name.trim()].filter(Boolean).join(" - ") || building.title.trim(),
+          category: building.category,
+          areas: [area],
+        }))
+    );
 
+    for (const [bi, building] of sections.entries()) {
       const { data: qb, error: bErr } = await supabase
         .from("quote_buildings")
         .insert({
           quote_id: quote.id,
-          name: building.title.trim(),
+          name: building.name,
           sort_order: bi,
           category: building.category,
           excludes: "",
@@ -572,7 +586,10 @@ export function SiteMeasuresClient({
         const qty = ln.q ?? 0;
         const coats = Number(ln.coats) || 0;
         const labourRate = Number(ln.loading) || 0;
-        const girth = 1;
+        // A lineal-metre line's qty is its length; the number before the "/"
+        // is its height (girth), so the costing works out the m² from both.
+        const measuredGirth = parseFloat(ln.m.trim().split("/")[0]);
+        const girth = ln.unit === "lm" && measuredGirth > 0 ? measuredGirth : 1;
         const hours = labourRate > 0 ? (qty * coats) / labourRate : 0;
         const litres = spreadRate > 0 ? (qty * coats * girth) / spreadRate : 0;
         const cost = hours * labourRateSell + litres * materialRate;
@@ -973,7 +990,15 @@ export function SiteMeasuresClient({
 
                       <div className="flex flex-col gap-3">
                         {building.areas.map((area, ai) => (
-                          <div key={ai} className="rounded-lg border border-border bg-surface p-3">
+                          <div
+                            key={ai}
+                            // Clicking into an area makes it the one "Add line" adds to.
+                            onFocusCapture={() => setActiveArea({ bi, ai })}
+                            onMouseDown={() => setActiveArea({ bi, ai })}
+                            className={`rounded-lg border bg-surface p-3 ${
+                              activeArea?.bi === bi && activeArea.ai === ai ? "border-brand-red ring-1 ring-brand-red" : "border-border"
+                            }`}
+                          >
                             <div className="flex items-center gap-2">
                               <input
                                 className={inputClass + " flex-1"}
@@ -1109,6 +1134,15 @@ export function SiteMeasuresClient({
                                   )}
                                 </div>
                               ))}
+                              {/* Add a line to this area, right where you are. */}
+                              <button
+                                type="button"
+                                onClick={() => addLine(bi, ai)}
+                                className="flex items-center gap-1 self-start rounded-md px-2 py-1 text-xs font-semibold text-muted transition hover:bg-background hover:text-ink"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                                Add line to {area.name.trim() || "this area"}
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -1116,7 +1150,12 @@ export function SiteMeasuresClient({
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={() => addLineToLastArea(bi)}
+                            onClick={() =>
+                              activeArea?.bi === bi && building.areas[activeArea.ai]
+                                ? addLine(bi, activeArea.ai)
+                                : addLineToLastArea(bi)
+                            }
+                            title="Adds a line to the area you last clicked in (or the last area)"
                             className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-background"
                           >
                             <Plus className="h-3.5 w-3.5" />
