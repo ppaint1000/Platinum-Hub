@@ -31,6 +31,7 @@ export type BuilderProposal = {
   condition_photos: ProposalImage[];
   sections: SectionChoice[];
   pricing_labels: Record<string, string>;
+  pricing_edits: PricingEdits;
   pricing: ProposalPricing | null;
   sent_at: string | null;
   first_viewed_at: string | null;
@@ -65,13 +66,28 @@ function duration(seconds: number) {
   return m < 60 ? `${m}m ${seconds % 60}s` : `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
-// Applies the typed-over labels to the costing's pricing.
-function withLabels(pricing: ProposalPricing, labels: Record<string, string>): ProposalPricing {
+// Changes made on this proposal to the costing's prices: dollar amounts
+// typed over, lines taken out, and extra lines added.
+export type PricingEdits = {
+  prices?: Record<string, number>;
+  removed?: string[];
+  extra?: { key: string; label: string; price: number }[];
+};
+
+// The costing's pricing with the typed-over labels and this proposal's
+// price edits applied - what the customer sees (and what the total is).
+function withLabels(pricing: ProposalPricing, labels: Record<string, string>, edits: PricingEdits = {}): ProposalPricing {
   const label = (key: string, fallback: string) => labels[key]?.trim() || fallback;
+  const price = (key: string, fallback: number) => (typeof edits.prices?.[key] === "number" ? edits.prices[key] : fallback);
+  const removed = new Set(edits.removed ?? []);
+  const items = [
+    ...pricing.items.filter((i) => !removed.has(i.key)).map((i) => ({ ...i, label: label(i.key, i.label), price: price(i.key, i.price) })),
+    ...(edits.extra ?? []).map((x) => ({ key: x.key, label: x.label || "Extra", price: Number(x.price) || 0 })),
+  ];
   return {
-    items: pricing.items.map((i) => ({ ...i, label: label(i.key, i.label) })),
-    options: pricing.options.map((o) => ({ ...o, label: label(o.key, o.label) })),
-    total: pricing.total,
+    items,
+    options: pricing.options.filter((o) => !removed.has(o.key)).map((o) => ({ ...o, label: label(o.key, o.label), price: price(o.key, o.price) })),
+    total: items.reduce((s, i) => s + i.price, 0),
   };
 }
 
@@ -100,7 +116,26 @@ export function ProposalBuilder({
   const set = <K extends keyof BuilderProposal>(key: K, value: BuilderProposal[K]) =>
     setP((prev) => ({ ...prev, [key]: value }));
 
-  const pricing = withLabels(livePricing, p.pricing_labels);
+  const edits = p.pricing_edits ?? {};
+  const pricing = withLabels(livePricing, p.pricing_labels, edits);
+  const setEdits = (next: PricingEdits) => set("pricing_edits", next);
+  const setPrice = (key: string, value: string) => {
+    const prices = { ...(edits.prices ?? {}) };
+    if (value.trim() === "") delete prices[key];
+    else prices[key] = Math.round(Number(value) || 0);
+    setEdits({ ...edits, prices });
+  };
+  const removeLine = (key: string) => {
+    if (key.startsWith("extra-")) setEdits({ ...edits, extra: (edits.extra ?? []).filter((x) => x.key !== key) });
+    else setEdits({ ...edits, removed: [...new Set([...(edits.removed ?? []), key])] });
+  };
+  const restoreLine = (key: string) => setEdits({ ...edits, removed: (edits.removed ?? []).filter((k) => k !== key) });
+  const addLine = () =>
+    setEdits({ ...edits, extra: [...(edits.extra ?? []), { key: `extra-${Date.now()}`, label: "", price: 0 }] });
+  const setExtra = (key: string, patch: { label?: string; price?: number }) =>
+    setEdits({ ...edits, extra: (edits.extra ?? []).map((x) => (x.key === key ? { ...x, ...patch } : x)) });
+  const removedLines = [...livePricing.items, ...livePricing.options].filter((l) => (edits.removed ?? []).includes(l.key));
+  const costingPrice = new Map([...livePricing.items, ...livePricing.options].map((l) => [l.key, l.price]));
   // The costing changed since the prices were last saved into the proposal.
   const pricesChanged =
     !!p.pricing &&
@@ -131,6 +166,7 @@ export function ProposalBuilder({
       condition_photos: p.condition_photos,
       sections: p.sections,
       pricing_labels: p.pricing_labels,
+      pricing_edits: edits,
       // Frozen here: what the customer sees until the next save.
       pricing,
       updated_at: new Date().toISOString(),
@@ -565,24 +601,68 @@ export function ProposalBuilder({
         <div className={card}>
           <h2 className="mb-1 text-sm font-semibold text-ink">Pricing</h2>
           <p className="mb-3 text-xs text-muted">
-            From the costing (Negotiating Factor applied, rounded to the dollar, excl. GST). Change the wording the customer sees if you like.
+            From the costing (Negotiating Factor applied, rounded to the dollar, excl. GST). Change the wording or the price, take a line
+            out, or add your own (e.g. one line for areas you&apos;ve grouped together). Changes here don&apos;t change the costing.
           </p>
           {pricesChanged && (
             <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
-              The costing has changed since this proposal was saved — Save to update the prices the customer sees.
+              The prices have changed since this proposal was saved — Save to update what the customer sees.
             </p>
           )}
           <div className="space-y-2">
-            {pricing.items.map((l) => (
-              <div key={l.key} className="flex items-center gap-3">
-                <input
-                  className={inputClass + " flex-1"}
-                  value={p.pricing_labels[l.key] ?? l.label}
-                  onChange={(e) => set("pricing_labels", { ...p.pricing_labels, [l.key]: e.target.value })}
-                />
-                <span className="w-28 text-right font-medium">{money(l.price)}</span>
-              </div>
-            ))}
+            {pricing.items.map((l) => {
+              const extra = l.key.startsWith("extra-");
+              const fromCosting = costingPrice.get(l.key);
+              const changed = !extra && fromCosting !== undefined && fromCosting !== l.price;
+              return (
+                <div key={l.key} className="flex flex-wrap items-center gap-2">
+                  <input
+                    className={inputClass + " min-w-48 flex-1"}
+                    value={extra ? (edits.extra ?? []).find((x) => x.key === l.key)?.label ?? "" : p.pricing_labels[l.key] ?? l.label}
+                    placeholder={extra ? "Describe this line" : undefined}
+                    onChange={(e) =>
+                      extra ? setExtra(l.key, { label: e.target.value }) : set("pricing_labels", { ...p.pricing_labels, [l.key]: e.target.value })
+                    }
+                  />
+                  <span className="flex w-36 items-center gap-1">
+                    <span className="text-muted">$</span>
+                    <input
+                      type="number"
+                      step="1"
+                      aria-label={`Price for ${l.label}`}
+                      className={inputClass + " w-full text-right" + (changed ? " border-amber-400 bg-amber-50" : "")}
+                      value={l.price}
+                      onChange={(e) => (extra ? setExtra(l.key, { price: Math.round(Number(e.target.value) || 0) }) : setPrice(l.key, e.target.value))}
+                    />
+                  </span>
+                  {changed && (
+                    <button type="button" onClick={() => setPrice(l.key, "")} className="text-xs font-semibold text-muted hover:text-ink" title={`Costing price: ${money(fromCosting!)}`}>
+                      Reset
+                    </button>
+                  )}
+                  <button type="button" onClick={() => removeLine(l.key)} aria-label={`Remove ${l.label}`} className="rounded-md p-1.5 text-muted transition hover:bg-background hover:text-brand-red">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              );
+            })}
+            <button type="button" onClick={addLine} className="flex items-center gap-1.5 text-sm font-semibold text-ink hover:underline">
+              <Plus className="h-4 w-4" /> Add a line
+            </button>
+            {removedLines.length > 0 && (
+              <p className="text-xs text-muted">
+                Taken out:{" "}
+                {removedLines.map((l, i) => (
+                  <span key={l.key}>
+                    {i > 0 && ", "}
+                    {p.pricing_labels[l.key] ?? l.label} ({money(l.price)}){" "}
+                    <button type="button" onClick={() => restoreLine(l.key)} className="font-semibold text-ink underline">
+                      put back
+                    </button>
+                  </span>
+                ))}
+              </p>
+            )}
             <div className="flex justify-between border-t border-border pt-2 text-sm font-semibold">
               <span>Total</span>
               <span>{money(pricing.total)} + GST</span>
@@ -599,7 +679,20 @@ export function ProposalBuilder({
                     onChange={(e) => set("pricing_labels", { ...p.pricing_labels, [o.key]: e.target.value })}
                   />
                   {o.group && <span className="text-xs text-muted">{o.group}</span>}
-                  <span className="w-28 text-right font-medium">{money(o.price)}</span>
+                  <span className="flex w-36 items-center gap-1">
+                    <span className="text-muted">$</span>
+                    <input
+                      type="number"
+                      step="1"
+                      aria-label={`Price for ${o.label}`}
+                      className={inputClass + " w-full text-right"}
+                      value={o.price}
+                      onChange={(e) => setPrice(o.key, e.target.value)}
+                    />
+                  </span>
+                  <button type="button" onClick={() => removeLine(o.key)} aria-label={`Remove ${o.label}`} className="rounded-md p-1.5 text-muted transition hover:bg-background hover:text-brand-red">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               ))}
             </div>

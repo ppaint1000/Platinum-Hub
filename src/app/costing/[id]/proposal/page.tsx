@@ -81,6 +81,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
         condition_photos: [],
         sections: resolveSections(null),
         pricing_labels: {},
+        pricing_edits: {},
         sent_at: null,
         first_viewed_at: null,
         last_viewed_at: null,
