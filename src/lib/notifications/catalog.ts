@@ -107,6 +107,14 @@ export const EMAIL_NOTIFICATIONS: EmailNotification[] = [
     defaultOn: { admin: true, supervisor: false },
   },
   {
+    key: "safety_incident",
+    group: "Jobs & production",
+    label: "When an incident is reported",
+    description: "An injury, near miss or damage reported under Health & safety.",
+    audiences: ["admin", "supervisor"],
+    defaultOn: { admin: true, supervisor: true },
+  },
+  {
     key: "timesheet_change_request",
     group: "Timesheets",
     label: "When someone asks to change a timesheet",

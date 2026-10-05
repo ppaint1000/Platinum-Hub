@@ -40,7 +40,7 @@ function days(n: number) {
 
 export function TypePill({ type }: { type: AbsenceType | null }) {
   if (!type) return <Pill level="alert">Needs a reason</Pill>;
-  if (type === "unauthorised_leave") return <Pill level="alert">{ABSENCE_LABEL[type]}</Pill>;
+  if (type === "unauthorised_leave") return <Pill level="soon">{ABSENCE_LABEL[type]}</Pill>;
   if (type === "sick") return <Pill level="soon">{ABSENCE_LABEL[type]}</Pill>;
   return <Pill level="ok">{ABSENCE_LABEL[type]}</Pill>;
 }
@@ -95,7 +95,8 @@ export function AbsencesDashboard({
           {days(data.totals.authorised_leave)} authorised leave
         </Headline>
         <Headline label="Unauthorised" value={String(data.totals.unauthorised_leave)}>
-          {data.totals.unauthorised_leave > 0 ? <Pill level="alert">Follow up</Pill> : "None"}
+          {/* Recording it as unauthorised is the end of it - nothing to follow up. */}
+          {data.totals.unauthorised_leave > 0 ? "Recorded - nothing to follow up" : "None"}
         </Headline>
         <Headline label="Most common day" value={data.commonDay ?? "—"}>
           {data.commonDay ? "For sick and leave days" : "No absences yet"}
@@ -338,7 +339,7 @@ function PeopleSection({ data }: { data: AbsencesData }) {
                   <td className={td}>{p.sick}</td>
                   <td className={td}>{p.authorised_leave}</td>
                   <td className={td}>
-                    {p.unauthorised_leave > 0 ? <Pill level="alert">{p.unauthorised_leave}</Pill> : 0}
+                    {p.unauthorised_leave}
                   </td>
                   <td className={`${td} font-bold`}>{p.total}</td>
                   <td className="px-3 py-3">{p.commonDay ?? "—"}</td>

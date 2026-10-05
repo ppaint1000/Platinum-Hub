@@ -48,6 +48,20 @@ body {
   color: var(--foreground);
 }
 
+/* Admins' side menu (components/dashboard/SidePanel): on a big screen the
+   page moves over to make room for it, so the tabs across the top still
+   fit; on a smaller one it sits over the page until it's closed. */
+@media (min-width: 1600px) {
+  html[data-side-panel="open"] body {
+    padding-left: 15rem;
+  }
+}
+@media (max-width: 1599px) {
+  html[data-side-panel="open"] #side-panel {
+    box-shadow: 0 10px 40px rgb(0 0 0 / 0.35);
+  }
+}
+
 /* Hides the browser's up/down spinner arrows on number fields. Used on the
    Jobs money/hours inputs, where nobody nudges a $ figure by 1 with a click. */
 @utility no-spinner {

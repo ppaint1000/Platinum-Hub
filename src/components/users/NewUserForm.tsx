@@ -22,6 +22,9 @@ const APPS: { key: AccessApp; label: string }[] = [
   { key: "orders", label: "Orders" },
   { key: "jobs", label: "Jobs" },
   { key: "sales", label: "Sales" },
+  { key: "production", label: "Production board" },
+  { key: "schedule", label: "Schedule" },
+  { key: "safety", label: "Health & safety" },
 ];
 
 

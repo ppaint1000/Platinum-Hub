@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   BellRing,
   CalendarDays,
+  ShieldCheck,
   CalendarX,
   Receipt,
   Kanban,
@@ -34,6 +35,9 @@ type AppAccess = {
   sales: boolean;
   measures: boolean;
   costing: boolean;
+  production?: boolean;
+  schedule?: boolean;
+  safety?: boolean;
 };
 
 export default async function HubPage() {
@@ -50,7 +54,7 @@ export default async function HubPage() {
       .single(),
     supabase
       .from("user_app_access")
-      .select("timesheets, fleet, orders, jobs, sales, measures, costing")
+      .select("timesheets, fleet, orders, jobs, sales, measures, costing, production, schedule, safety")
       .eq("user_id", user?.id ?? "")
       .maybeSingle<AppAccess>(),
   ]);
@@ -84,8 +88,8 @@ export default async function HubPage() {
       title: "Jobs",
       tiles: [
         { href: "/jobs", icon: <Briefcase className="h-5 w-5" />, title: "Jobs", description: "Pipeline, budgets, and budget-vs-actual by job.", show: isAdmin || !!access?.jobs },
-        { href: "/production", icon: <Kanban className="h-5 w-5" />, title: "Production board", description: "Won jobs from To be scheduled through to Paid.", show: isAdmin || isSupervisor },
-        { href: "/schedule", icon: <CalendarDays className="h-5 w-5" />, title: "Schedule", description: "Which crew is on which job, week by week.", show: isAdmin || isSupervisor },
+        { href: "/production", icon: <Kanban className="h-5 w-5" />, title: "Production board", description: "Won jobs from To be scheduled through to Paid.", show: isAdmin || !!access?.production },
+        { href: "/schedule", icon: <CalendarDays className="h-5 w-5" />, title: "Schedule", description: "Which crew is on which job, week by week.", show: isAdmin || !!access?.schedule },
         { href: "/orders", icon: <ClipboardList className="h-5 w-5" />, title: "Orders", description: "Supplier orders by job, with line items and totals.", show: isAdmin || !!access?.orders },
         { href: "/jobs/invoices", icon: <Receipt className="h-5 w-5" />, title: "Supplier invoices", description: "Upload supplier invoices and put their lines against jobs.", show: isAdmin || !!access?.jobs },
       ],
@@ -95,6 +99,7 @@ export default async function HubPage() {
       tiles: [
         { href: "/timesheets", icon: <Clock className="h-5 w-5" />, title: "Timesheets", description: "Clock in and out, timesheets and sites.", show: isAdmin || !!access?.timesheets },
         { href: "/absences", icon: <CalendarX className="h-5 w-5" />, title: "Absences", description: "Who's been away and why - sick days, leave and patterns.", show: isAdmin },
+        { href: "/safety", icon: <ShieldCheck className="h-5 w-5" />, title: "Health & safety", description: "Hazard reports, incidents, toolbox meetings, tasks and safety documents.", show: isAdmin || !!access?.safety },
         { href: "/fleet", icon: <Truck className="h-5 w-5" />, title: "Fleet", description: "Vehicles, fuel, servicing, and WOF/rego.", show: isAdmin || !!access?.fleet },
       ],
     },

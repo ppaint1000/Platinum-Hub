@@ -66,8 +66,9 @@ const STATUS_LABELS: Record<string, string> = {
 };
 const UNITS = ["m2", "lm"];
 
+// Today in New Zealand (not UTC, which is still yesterday until midday).
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Pacific/Auckland" });
 }
 
 function emptyLine(): MeasureLine {
@@ -129,6 +130,11 @@ function empty(): FormState {
 // The site-measure formula: "<multiplier>/<seg1>,<seg2>,..." where a segment
 // can be "AxN" for A repeated N times (e.g. three 3m windows -> "3x3").
 // For unit "lm" the multiplier is ignored — the segments are just summed.
+// The measurement line's columns (Formula, Unit, Qty, Prod Rate, Coats,
+// Comment, remove) - fixed widths, shared by the headings and every line,
+// so they all line up.
+const LINE_COLS = "grid grid-cols-[minmax(150px,1fr)_6rem_5.5rem_5.5rem_4.5rem_5.75rem_2.25rem] gap-1.5";
+
 function computeQty(m: string, unit: string): number | null {
   const trimmed = m.trim();
   if (!trimmed.includes("/")) return null;
@@ -184,19 +190,24 @@ export function SiteMeasuresClient({
   const [creatingCosting, setCreatingCosting] = useState(false);
   const [createCostingError, setCreateCostingError] = useState<string | null>(null);
   const [sentCostingId, setSentCostingId] = useState<string | null>(null);
+  // The form as it was when opened or last saved - anything different is
+  // unsaved, and closing asks first.
+  const [snapshot, setSnapshot] = useState("");
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [savedNote, setSavedNote] = useState(false);
+  const isDirty = (adding || !!editing) && JSON.stringify(form) !== snapshot;
 
   // Warns before closing the tab, refreshing, or navigating to a new
-  // address while the add/edit form is open — closing it without saving
-  // already discards it, so there's nothing at risk once it's closed.
+  // address while the form has unsaved changes.
   useEffect(() => {
     function handler(e: BeforeUnloadEvent) {
-      if (!adding && !editing) return;
+      if (!isDirty) return;
       e.preventDefault();
       e.returnValue = "";
     }
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [adding, editing]);
+  }, [isDirty]);
 
   const customerName = (id: string | null) =>
     customerList.find((c) => c.id === id)?.name ?? "—";
@@ -213,7 +224,10 @@ export function SiteMeasuresClient({
     : initialMeasures;
 
   function openAdd() {
-    setForm({ ...empty(), buildings: [emptyBuilding()] });
+    const fresh = { ...empty(), buildings: [emptyBuilding()] };
+    setForm(fresh);
+    setSnapshot(JSON.stringify(fresh));
+    setSavedNote(false);
     setError(null);
     setSentCostingId(null);
     setCreateCostingError(null);
@@ -227,7 +241,7 @@ export function SiteMeasuresClient({
   }, []);
 
   function openEdit(m: SiteMeasure) {
-    setForm({
+    const opened: FormState = {
       customer_id: m.customer_id ?? "",
       location: m.location ?? "",
       project: m.project ?? "",
@@ -239,7 +253,10 @@ export function SiteMeasuresClient({
           ? normalizeBuildings(m.buildings)
           : [emptyBuilding()],
       status: m.status,
-    });
+    };
+    setForm(opened);
+    setSnapshot(JSON.stringify(opened));
+    setSavedNote(false);
     setError(null);
     setSentCostingId(m.sent_costing_id);
     setCreateCostingError(null);
@@ -249,6 +266,8 @@ export function SiteMeasuresClient({
   function close() {
     setAdding(false);
     setEditing(null);
+    setConfirmClose(false);
+    setSavedNote(false);
   }
 
   function updateBuildings(fn: (buildings: Building[]) => Building[]) {
@@ -376,9 +395,12 @@ export function SiteMeasuresClient({
     );
   }
 
-  async function save() {
+  // Save keeps the form open (a new measure becomes an edit of the saved
+  // one, so the next Save updates it); Save and close also closes it.
+  async function save(closeAfter = false) {
     setSaving(true);
     setError(null);
+    setSavedNote(false);
     const supabase = createClient();
 
     // Drop fully-empty scaffolding rows the user never filled in.
@@ -405,15 +427,30 @@ export function SiteMeasuresClient({
       status: form.status,
     };
 
-    const { error } = editing
-      ? await supabase.from("site_measures").update(payload).eq("id", editing.id)
-      : await supabase.from("site_measures").insert(payload);
+    if (editing) {
+      const { error } = await supabase.from("site_measures").update(payload).eq("id", editing.id);
+      setSaving(false);
+      if (error) return setError("Couldn't save — " + error.message);
+      setEditing({ ...editing, ...payload });
+    } else {
+      const { data, error } = await supabase.from("site_measures").insert(payload).select("*").single<SiteMeasure>();
+      setSaving(false);
+      if (error || !data) return setError("Couldn't save — " + (error?.message ?? "Unknown error."));
+      setAdding(false);
+      setEditing(data);
+    }
 
-    setSaving(false);
-    if (error) return setError("Couldn't save — " + error.message);
-
-    close();
+    setSnapshot(JSON.stringify(form));
     router.refresh();
+    if (closeAfter) close();
+    else setSavedNote(true);
+  }
+
+  // Closing (X, Cancel or clicking outside): if anything's changed since it
+  // was opened or last saved, ask first instead of losing it.
+  function requestClose() {
+    if (isDirty) setConfirmClose(true);
+    else close();
   }
 
   // Turns a measured site into a costing: one quote_building per
@@ -667,6 +704,7 @@ export function SiteMeasuresClient({
     } catch (e) {
       setCreatingCosting(false);
       setCreateCostingError("Saved, but couldn't create the costing — " + (e as Error).message);
+      setSnapshot(JSON.stringify({ ...form, status: "sent_to_costing" }));
       setAdding(false);
       setEditing({
         id: measureId,
@@ -807,17 +845,17 @@ export function SiteMeasuresClient({
       </div>
 
       {(adding || editing) && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/45 px-2 py-2 sm:px-4 sm:py-[5vh]"
-          onClick={(e) => e.target === e.currentTarget && close()}
-        >
-          <div className="flex max-h-[96vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-xl sm:max-h-[90vh] md:max-w-4xl lg:max-w-5xl xl:max-w-6xl">
+        // The whole screen on every device - nothing behind it to click by
+        // mistake.
+        <div className="fixed inset-0 z-50 flex bg-surface">
+          <div className="flex h-full w-full flex-col overflow-hidden bg-surface">
             <div className="flex items-center justify-between border-b border-border bg-surface px-5 py-4">
               <h3 className="text-sm font-semibold text-ink">
                 {editing ? "Edit site measure" : "Add site measure"}
+                {isDirty && <span className="ml-2 text-xs font-normal text-muted">Unsaved changes</span>}
               </h3>
               <button
-                onClick={close}
+                onClick={requestClose}
                 aria-label="Close"
                 className="rounded-md p-1 text-muted transition hover:bg-background hover:text-ink"
               >
@@ -974,7 +1012,8 @@ export function SiteMeasuresClient({
 
                             <div className="mt-4 flex flex-col gap-3 overflow-x-auto">
                               {area.lines.length > 0 && (
-                                <div className="grid grid-cols-[minmax(140px,1fr)_5rem_4rem_4rem_3.5rem_auto_auto] gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                                // Same columns and padding as each line below, so the headings sit over their boxes.
+                                <div className={`${LINE_COLS} border border-transparent px-2 text-[10px] font-semibold uppercase tracking-wide text-muted`}>
                                   <span>Formula</span>
                                   <span>Unit</span>
                                   <span>Qty</span>
@@ -989,7 +1028,7 @@ export function SiteMeasuresClient({
                                   key={li}
                                   className="flex flex-col gap-1.5 rounded-md border border-border/60 bg-background/40 p-2"
                                 >
-                                  <div className="grid grid-cols-[minmax(140px,1fr)_5rem_4rem_4rem_3.5rem_auto_auto] items-center gap-1.5">
+                                  <div className={`${LINE_COLS} items-center`}>
                                     <input
                                       className={inputClass}
                                       value={line.m}
@@ -1143,19 +1182,27 @@ export function SiteMeasuresClient({
               {error && <p className="text-sm text-brand-red">{error}</p>}
             </div>
 
-            <div className="flex justify-end gap-2 border-t border-border bg-surface px-5 py-3.5">
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-surface px-5 py-3.5">
+              {savedNote && !isDirty && <span className="mr-auto text-sm text-green-700">Saved.</span>}
               <button
-                onClick={close}
+                onClick={requestClose}
                 className="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-ink transition hover:bg-background"
               >
-                Cancel
+                Close
               </button>
               <button
-                onClick={save}
+                onClick={() => save(false)}
                 disabled={saving || creatingCosting}
                 className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-60"
               >
                 {saving ? "Saving…" : "Save"}
+              </button>
+              <button
+                onClick={() => save(true)}
+                disabled={saving || creatingCosting}
+                className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-60"
+              >
+                Save and close
               </button>
               <button
                 onClick={saveAndSendToCosting}
@@ -1170,6 +1217,39 @@ export function SiteMeasuresClient({
               </button>
             </div>
           </div>
+
+          {confirmClose && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4">
+              <div role="alertdialog" aria-label="Unsaved changes" className="w-full max-w-sm rounded-xl bg-surface p-5 shadow-xl">
+                <h4 className="text-base font-semibold text-ink">Save your changes?</h4>
+                <p className="mt-1 text-sm text-muted">This site measure has changes that haven&apos;t been saved.</p>
+                <div className="mt-4 flex flex-col gap-2">
+                  <button
+                    onClick={() => {
+                      setConfirmClose(false);
+                      save(true);
+                    }}
+                    disabled={saving}
+                    className="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-black disabled:opacity-60"
+                  >
+                    Save and close
+                  </button>
+                  <button
+                    onClick={() => setConfirmClose(false)}
+                    className="rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-ink hover:bg-background"
+                  >
+                    Keep editing
+                  </button>
+                  <button
+                    onClick={close}
+                    className="rounded-lg px-4 py-2.5 text-sm font-semibold text-brand-red hover:bg-brand-red/5"
+                  >
+                    Close without saving
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

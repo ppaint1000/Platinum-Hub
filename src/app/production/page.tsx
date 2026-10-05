@@ -9,7 +9,9 @@ import { loadProductionJobs, PAID_SHOWN_DAYS } from "@/lib/jobs/production";
 import { loadChecklists } from "@/lib/jobs/checklists";
 import { ProductionBoard } from "@/components/production/ProductionBoard";
 import { DashboardShell } from "@/components/dashboard/parts";
-import { ADMIN_NAV, SUPERVISOR_NAV, TopBar } from "@/components/dashboard/TopBar";
+import { TopBar } from "@/components/dashboard/TopBar";
+import { navForViewer } from "@/lib/nav";
+import { canOpenPage } from "@/lib/auth/pageAccess";
 import { dashboardFontClass } from "@/components/dashboard/fonts";
 import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
@@ -18,17 +20,19 @@ export const metadata: Metadata = { title: "Production · Platinum Hub" };
 
 export default async function ProductionPage() {
   const profile = await getCurrentProfile();
-  if (profile.role !== "admin" && profile.role !== "supervisor") redirect("/hub");
+  // Anyone with Production board ticked on the Users page (no $ unless admin).
+  if (!(await canOpenPage("production"))) redirect("/");
   const isAdmin = profile.role === "admin";
 
   const supabase = await createClient();
+  const nav = await navForViewer();
   const jobs = await loadProductionJobs(supabase);
   const checklists = await loadChecklists(supabase, jobs.map((j) => j.id));
 
   return (
     <DashboardShell
       fontClass={dashboardFontClass}
-      topBar={<TopBar items={isAdmin ? ADMIN_NAV : SUPERVISOR_NAV} activeHref="/production" />}
+      topBar={<TopBar items={nav} activeHref="/production" />}
       todayKey={nzTodayDateString()}
       title="Production"
     >

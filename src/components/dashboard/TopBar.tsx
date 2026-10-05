@@ -7,6 +7,7 @@ import {
   Inbox,
   Plus,
   Settings,
+  ShieldCheck,
   Briefcase,
   Calculator,
   CalendarDays,
@@ -36,6 +37,7 @@ import { runProposalFollowUps } from "@/lib/quotes/proposalFollowUps";
 import { runBookingReminders } from "@/lib/schedule/customerEmails";
 import { runClientReminders } from "@/lib/reminders/clientReminders";
 import { NAVY } from "./parts";
+import { SidePanel } from "./SidePanel";
 
 // group: shown together in a desktop drop-down tab with that name.
 export type NavItem = { href: string; label: string; icon: LucideIcon; external?: boolean; group?: string };
@@ -56,6 +58,7 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/timesheets/admin", label: "Timesheets", icon: Clock, group: "Team" },
   { href: "/absences", label: "Absences", icon: CalendarX, group: "Team" },
   { href: "/users", label: "Users", icon: Users, group: "Team" },
+  { href: "/safety", label: "Safety", icon: ShieldCheck, group: "Team" },
   { href: "/fleet", label: "Fleet", icon: Truck },
   { href: "/reports", label: "Reports", icon: PieChart },
 ];
@@ -79,6 +82,9 @@ export function staffNav(access: {
   measures?: boolean;
   costing?: boolean;
   sales?: boolean;
+  production?: boolean;
+  schedule?: boolean;
+  safety?: boolean;
   // Painters: just their own things (clock in, timesheet, fuel) - no Hub home.
   painter?: boolean;
 }): NavItem[] {
@@ -92,11 +98,14 @@ export function staffNav(access: {
   if (access.measures || access.costing) items.push({ href: "/requests", label: "Requests", icon: Inbox });
   if (access.measures) items.push({ href: "/site-measures", label: "Measures", icon: Ruler });
   if (access.costing) items.push({ href: "/costing", label: "Costing", icon: Calculator });
+  if (access.production) items.push({ href: "/production", label: "Production", icon: Kanban });
+  if (access.schedule) items.push({ href: "/schedule", label: "Schedule", icon: CalendarDays });
   if (access.timesheets) {
     items.push({ href: "/timesheets/clock", label: "Clock in", icon: Clock });
     items.push({ href: "/timesheets/timesheet", label: "My timesheet", icon: CalendarX });
   }
   if (access.orders) items.push({ href: "/orders", label: "Orders", icon: ShoppingCart });
+  if (access.safety) items.push({ href: "/safety", label: "Safety", icon: ShieldCheck });
   if (access.fleet) {
     items.push(
       access.painter
@@ -378,7 +387,8 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
       {/* Wide enough for the row of tabs */}
       <div className={breakpoint.row}>
         <div className="mx-auto flex h-16 max-w-[92rem] items-stretch gap-4 2xl:gap-6">
-          <div className="flex items-center">
+          <div className="flex items-center gap-1">
+            {isAdminBar && <SidePanel />}
             <Logo href={home} className="w-28" />
           </div>
           <nav aria-label="Main" className="flex-1">

@@ -13,6 +13,9 @@ type Access = {
   sales_authority: boolean;
   measures: boolean;
   costing: boolean;
+  production?: boolean;
+  schedule?: boolean;
+  safety?: boolean;
 };
 
 export async function navForViewer(): Promise<NavItem[]> {
@@ -21,15 +24,21 @@ export async function navForViewer(): Promise<NavItem[]> {
   const supabase = await createClient();
   const { data: access } = await supabase
     .from("user_app_access")
-    .select("timesheets, jobs, orders, fleet, sales, sales_authority, measures, costing")
+    .select("timesheets, jobs, orders, fleet, sales, sales_authority, measures, costing, production, schedule, safety")
     .eq("user_id", profile.id)
     .maybeSingle<Access>();
   if (profile.role === "supervisor") {
-    // Plus Costing / Measures if ticked for them, before "All apps".
-    const extra = staffNav({ measures: access?.measures, costing: access?.costing }).filter(
-      (i) => i.href === "/costing" || i.href === "/site-measures" || i.href === "/requests"
-    );
-    return [...SUPERVISOR_NAV.slice(0, -1), ...extra, SUPERVISOR_NAV[SUPERVISOR_NAV.length - 1]];
+    // Their timesheets admin always; Production, Schedule, Costing /
+    // Measures and Health & safety if ticked for them, before "All apps".
+    const ticked = staffNav({
+      measures: access?.measures,
+      costing: access?.costing,
+      production: access?.production,
+      schedule: access?.schedule,
+      safety: access?.safety,
+    }).filter((i) => i.href !== "/hub");
+    const [timesheets, allApps] = [SUPERVISOR_NAV.find((i) => i.href === "/timesheets/admin")!, SUPERVISOR_NAV[SUPERVISOR_NAV.length - 1]];
+    return [...ticked.filter((i) => i.href === "/production" || i.href === "/schedule"), timesheets, ...ticked.filter((i) => i.href !== "/production" && i.href !== "/schedule"), allApps];
   }
   return staffNav({
     timesheets: access?.timesheets,
@@ -39,6 +48,9 @@ export async function navForViewer(): Promise<NavItem[]> {
     salesAuthority: access?.sales_authority,
     measures: access?.measures,
     costing: access?.costing,
+    production: access?.production,
+    schedule: access?.schedule,
+    safety: access?.safety,
     sales: access?.sales || profile.role === "sales",
     painter: profile.role === "painter",
   });

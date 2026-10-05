@@ -28,7 +28,7 @@ export default async function UsersPage() {
     supabase
       .from("profiles")
       .select(
-        "id, full_name, email, role, is_active, staff_type_id, user_app_access(timesheets, fleet, orders, jobs, sales, sales_authority, default_app, measures, costing)"
+        "id, full_name, email, role, is_active, staff_type_id, user_app_access(timesheets, fleet, orders, jobs, sales, sales_authority, default_app, measures, costing, production, schedule, safety)"
       )
       .is("deleted_at", null)
       .order("is_active", { ascending: false })

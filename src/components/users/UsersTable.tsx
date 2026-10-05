@@ -44,6 +44,9 @@ export type UserRow = {
     default_app: DefaultApp;
     measures: boolean;
     costing: boolean;
+    production?: boolean;
+    schedule?: boolean;
+    safety?: boolean;
   } | null;
   payRate: PayRate | null;
   staff_type_id: string | null;
@@ -51,13 +54,38 @@ export type UserRow = {
   pending: boolean;
 };
 
-const APPS: { key: AccessApp; label: string }[] = [
-  { key: "timesheets", label: "Timesheets" },
-  { key: "fleet", label: "Fleet" },
-  { key: "orders", label: "Orders" },
-  { key: "jobs", label: "Jobs" },
-  { key: "sales", label: "Sales" },
+// Every page someone can be given, grouped as on the side menu. Ticked =
+// they see it in their menu and can open it. Admins can open everything.
+type PageKey = AccessApp | "measures" | "costing" | "sales_authority";
+const PAGE_GROUPS: { title: string; pages: { key: PageKey; label: string; hint?: string }[] }[] = [
+  {
+    title: "Sales",
+    pages: [
+      { key: "measures", label: "Site measures", hint: "their own" },
+      { key: "costing", label: "Costing & proposals", hint: "their own" },
+      { key: "sales", label: "My sales" },
+      { key: "sales_authority", label: "Team sales" },
+    ],
+  },
+  {
+    title: "Jobs",
+    pages: [
+      { key: "jobs", label: "Jobs & Clients" },
+      { key: "production", label: "Production board", hint: "no $" },
+      { key: "schedule", label: "Schedule" },
+      { key: "orders", label: "Orders" },
+    ],
+  },
+  {
+    title: "Team",
+    pages: [
+      { key: "timesheets", label: "Clock in & timesheet" },
+      { key: "fleet", label: "Fleet / log fuel" },
+      { key: "safety", label: "Health & safety" },
+    ],
+  },
 ];
+const ALL_PAGES = PAGE_GROUPS.flatMap((g) => g.pages);
 
 
 const DEFAULT_PAY_RATE: PayRate = {
@@ -136,20 +164,13 @@ export function UsersTable({ users, staffTypes }: { users: UserRow[]; staffTypes
         headers={[
           "Name",
           "Role",
-          "Timesheets",
-          "Fleet",
-          "Orders",
-          "Jobs",
-          "Sales",
-          "Authority",
-          "Measures",
-          "Costing",
+          "Pages",
           "Default app",
           "Active",
           "Pay rate",
           "",
         ]}
-        align={["left", "left", "center", "center", "center", "center", "center", "center", "center", "center", "left", "left", "left", "right"]}
+        align={["left", "left", "left", "left", "left", "left", "right"]}
       >
         {users.map((u) => (
           <UserRowItem key={u.id} user={u} staffTypes={staffTypes} onPasswordRevealed={setRevealedPassword} />
@@ -179,6 +200,15 @@ function UserRowItem({
   const [rateError, setRateError] = useState<string | null>(null);
   const access = user.user_app_access;
   const isAdmin = user.role === "admin";
+  const [pagesOpen, setPagesOpen] = useState(false);
+  const pageOn = (key: PageKey) => !!access?.[key];
+  const pagesOn = ALL_PAGES.filter((p) => pageOn(p.key));
+
+  function togglePage(key: PageKey, granted: boolean) {
+    if (key === "measures" || key === "costing") return toggleMc(key, granted);
+    if (key === "sales_authority") return toggleAuthority(granted);
+    toggleAccess(key, granted);
+  }
 
   function toggleAccess(app: AccessApp, granted: boolean) {
     startTransition(async () => {
@@ -275,44 +305,18 @@ function UserRowItem({
             <option value="sales">Sales</option>
           </select>
         </td>
-        {APPS.map(({ key }) => {
-          // Admins already have full access to every app regardless of
-          // these flags, so the other checkboxes are locked to "on" and
-          // uneditable for them. Sales is the exception: it also decides
-          // whether this person gets their own card on the Sales tracker
-          // page, which an admin may or may not want independently of
-          // their access level - so it stays real and editable for admins.
-          const forcedOnForAdmin = isAdmin && key !== "sales";
-          return (
-            <td key={key} className="py-2 pl-4 text-center">
-              <input
-                type="checkbox"
-                checked={forcedOnForAdmin ? true : !!access?.[key]}
-                disabled={isPending || forcedOnForAdmin}
-                onChange={(e) => toggleAccess(key, e.target.checked)}
-              />
-            </td>
-          );
-        })}
-        <td className="py-2 pl-4 text-center">
-          <input
-            type="checkbox"
-            checked={!!access?.sales_authority}
-            disabled={isPending}
-            onChange={(e) => toggleAuthority(e.target.checked)}
-          />
+        <td className="py-2 pl-4">
+          <button
+            type="button"
+            onClick={() => setPagesOpen((v) => !v)}
+            className="text-left text-sm"
+          >
+            <span className="block max-w-56 truncate text-ink">
+              {isAdmin ? "Everything (admin)" : pagesOn.length === 0 ? "No pages" : pagesOn.map((p) => p.label).join(", ")}
+            </span>
+            <span className="font-medium text-accent hover:text-accent-hover">{pagesOpen ? "Close" : "Choose pages"}</span>
+          </button>
         </td>
-        {(["measures", "costing"] as const).map((app) => (
-          // Admins see every costing and measure anyway.
-          <td key={app} className="py-2 pl-4 text-center">
-            <input
-              type="checkbox"
-              checked={isAdmin ? true : !!access?.[app]}
-              disabled={isPending || isAdmin}
-              onChange={(e) => toggleMc(app, e.target.checked)}
-            />
-          </td>
-        ))}
         <td className="py-2 pl-4">
           <select
             value={access?.default_app ?? "timesheets"}
@@ -388,6 +392,41 @@ function UserRowItem({
           </div>
         </td>
       </tr>
+      {pagesOpen && (
+        <tr>
+          <td colSpan={14} className="bg-background p-4">
+            <p className="mb-1 text-sm font-semibold text-ink">Pages {user.full_name} can see and open</p>
+            {isAdmin && (
+              <p className="mb-2 text-xs text-ink-soft">Admins can open every page. &quot;My sales&quot; and &quot;Team sales&quot; still decide whether they appear on the Sales tracker.</p>
+            )}
+            <div className="grid gap-4 sm:grid-cols-3">
+              {PAGE_GROUPS.map((g) => (
+                <fieldset key={g.title}>
+                  <legend className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">{g.title}</legend>
+                  <div className="flex flex-col gap-1">
+                    {g.pages.map((p) => {
+                      // Admins have everything except the two sales-tracker choices.
+                      const locked = isAdmin && p.key !== "sales" && p.key !== "sales_authority";
+                      return (
+                        <label key={p.key} className="flex min-h-9 items-center gap-2 text-sm text-ink">
+                          <input
+                            type="checkbox"
+                            checked={locked ? true : pageOn(p.key)}
+                            disabled={isPending || locked}
+                            onChange={(e) => togglePage(p.key, e.target.checked)}
+                          />
+                          {p.label}
+                          {p.hint && <span className="text-xs text-ink-soft">({p.hint})</span>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              ))}
+            </div>
+          </td>
+        </tr>
+      )}
       {passwordOpen && (
         <tr>
           <td colSpan={14} className="bg-background p-4">
