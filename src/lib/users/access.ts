@@ -1,4 +1,4 @@
-export type AccessApp = "timesheets" | "fleet" | "orders" | "jobs" | "sales" | "production" | "schedule" | "safety";
+export type AccessApp = "timesheets" | "fleet" | "orders" | "jobs" | "sales" | "production" | "schedule" | "safety" | "invoices";
 export type Role = "admin" | "supervisor" | "painter" | "sales";
 
 // Where someone lands after signing in - the "Default app" on the Users
@@ -60,11 +60,11 @@ export function defaultAppAllowed(app: DefaultApp, role: string, flags: AppFlags
 }
 
 export function defaultAccessForRole(role: Role): Record<AccessApp, boolean> {
-  const none = { production: false, schedule: false, safety: false };
+  const none = { production: false, schedule: false, safety: false, invoices: false };
   if (role === "admin")
-    return { timesheets: true, fleet: true, orders: true, jobs: true, sales: true, production: true, schedule: true, safety: true };
+    return { timesheets: true, fleet: true, orders: true, jobs: true, sales: true, production: true, schedule: true, safety: true, invoices: true };
   if (role === "supervisor")
-    return { timesheets: true, fleet: true, orders: true, jobs: false, sales: false, production: true, schedule: true, safety: true };
+    return { timesheets: true, fleet: true, orders: true, jobs: false, sales: false, production: true, schedule: true, safety: true, invoices: true };
   if (role === "sales")
     return { timesheets: true, fleet: true, orders: false, jobs: false, sales: true, ...none };
   return { timesheets: true, fleet: false, orders: false, jobs: false, sales: false, ...none, safety: true };

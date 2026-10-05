@@ -1,14 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAppAccess } from "@/lib/auth/requireAppAccess";
+import { requireInvoices } from "@/lib/auth/pageAccess";
 import { findOrCreateSupplierId } from "@/lib/jobs/findOrCreateSupplier";
 
 // The supplier dropdown on the upload form - "type a new one" style, same
 // as job categories. Ordered with Resene first (the only one with a PDF
 // parser today) rather than alphabetically, so it stays the obvious default.
 export async function fetchSuppliersAction() {
-  const supabase = await requireAppAccess("jobs");
+  const supabase = await requireInvoices();
   const { data, error } = await supabase
     .from("suppliers")
     .select("id, name")
@@ -32,7 +32,7 @@ export async function createManualInvoiceAction(input: {
   invoiceDate: string | null;
   lines: { description: string; amount: number }[];
 }) {
-  const supabase = await requireAppAccess("jobs");
+  const supabase = await requireInvoices();
 
   const supplier = await findOrCreateSupplierId(supabase, input.supplierName);
   if ("error" in supplier) return { error: supplier.error };
@@ -94,7 +94,7 @@ export async function createManualInvoiceAction(input: {
 // (most never need splitting) - MatchedInvoiceRow calls this on demand,
 // only once someone actually clicks "Split across jobs".
 export async function fetchInvoiceLinesAction(invoiceId: string) {
-  const supabase = await requireAppAccess("jobs");
+  const supabase = await requireInvoices();
 
   const { data, error } = await supabase
     .from("supplier_invoice_lines")
@@ -108,7 +108,7 @@ export async function fetchInvoiceLinesAction(invoiceId: string) {
 }
 
 export async function assignInvoiceJobAction(invoiceId: string, jobId: string) {
-  const supabase = await requireAppAccess("jobs");
+  const supabase = await requireInvoices();
 
   if (!jobId) return { error: "Choose a job." };
 
@@ -141,7 +141,7 @@ export async function splitInvoiceLinesAction(
   invoiceId: string,
   assignments: { lineId: string; jobId: string }[]
 ) {
-  const supabase = await requireAppAccess("jobs");
+  const supabase = await requireInvoices();
 
   const cleaned = assignments.filter((a) => a.jobId);
   if (cleaned.length === 0) return { error: "Choose a job for at least one line." };
@@ -175,7 +175,7 @@ export async function splitInvoiceLinesAction(
 // these tables, so a move puts the costs back if the invoice update fails
 // rather than leaving them split across two jobs.
 export async function moveInvoiceToJobAction(invoiceId: string, newJobId: string | null) {
-  const supabase = await requireAppAccess("jobs");
+  const supabase = await requireInvoices();
 
   const { data: invoice, error: invoiceError } = await supabase
     .from("supplier_invoices")
@@ -274,7 +274,7 @@ export async function moveInvoiceToJobAction(invoiceId: string, newJobId: string
 // worse than losing that cost line. The PDF is removed from storage and
 // the invoice_lines rows cascade with the invoice row itself.
 export async function deleteInvoiceAction(invoiceId: string) {
-  const supabase = await requireAppAccess("jobs");
+  const supabase = await requireInvoices();
 
   const { data: invoice, error: invoiceError } = await supabase
     .from("supplier_invoices")

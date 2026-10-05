@@ -5,7 +5,7 @@
 // invoices are listed here for manual linking; approving individual lines
 // into actual costs happens on the job's own page.
 import Link from "next/link";
-import { requireAppAccess } from "@/lib/auth/requireAppAccess";
+import { requireInvoices } from "@/lib/auth/pageAccess";
 import { Panel } from "@/components/ui";
 import { InvoiceUploadForm } from "@/components/jobs/InvoiceUploadForm";
 import { AssignInvoiceJobRow } from "@/components/jobs/AssignInvoiceJobRow";
@@ -40,7 +40,8 @@ function fmtMoney(n: number) {
 }
 
 export default async function SupplierInvoicesPage() {
-  const supabase = await requireAppAccess("jobs");
+  // Admins, and anyone with Supplier invoices ticked on the Users page.
+  const supabase = await requireInvoices();
 
   const [{ data: invoices }, { data: jobs }, { data: suppliers }, { data: orders }, { data: sites }, { data: entries }] =
     await Promise.all([

@@ -85,6 +85,7 @@ export function staffNav(access: {
   production?: boolean;
   schedule?: boolean;
   safety?: boolean;
+  invoices?: boolean;
   // Painters: just their own things (clock in, timesheet, fuel) - no Hub home.
   painter?: boolean;
 }): NavItem[] {
@@ -105,6 +106,7 @@ export function staffNav(access: {
     items.push({ href: "/timesheets/timesheet", label: "My timesheet", icon: CalendarX });
   }
   if (access.orders) items.push({ href: "/orders", label: "Orders", icon: ShoppingCart });
+  if (access.invoices) items.push({ href: "/jobs/invoices", label: "Supplier invoices", icon: Receipt });
   if (access.safety) items.push({ href: "/safety", label: "Safety", icon: ShieldCheck });
   if (access.fleet) {
     items.push(

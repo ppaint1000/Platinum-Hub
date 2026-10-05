@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { invoicesClient } from "@/lib/auth/pageAccess";
 import { extractText, getDocumentProxy } from "unpdf";
 import { parseReseneInvoice, type ParsedInvoice } from "@/lib/resene/parseInvoice";
 import { parseAaltoInvoice } from "@/lib/aalto/parseInvoice";
@@ -22,21 +22,9 @@ const PARSERS: Record<string, (text: string) => ParsedInvoice[]> = {
 };
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (profile?.role !== "admin") {
+  // Admins, and anyone with Supplier invoices ticked on the Users page.
+  const supabase = await invoicesClient();
+  if (!supabase) {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 

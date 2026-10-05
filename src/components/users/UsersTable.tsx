@@ -47,6 +47,7 @@ export type UserRow = {
     production?: boolean;
     schedule?: boolean;
     safety?: boolean;
+    invoices?: boolean;
   } | null;
   payRate: PayRate | null;
   staff_type_id: string | null;
@@ -74,6 +75,7 @@ const PAGE_GROUPS: { title: string; pages: { key: PageKey; label: string; hint?:
       { key: "production", label: "Production board", hint: "no $" },
       { key: "schedule", label: "Schedule" },
       { key: "orders", label: "Orders" },
+      { key: "invoices", label: "Supplier invoices", hint: "upload and match to jobs" },
     ],
   },
   {
@@ -164,7 +166,7 @@ export function UsersTable({ users, staffTypes }: { users: UserRow[]; staffTypes
         headers={[
           "Name",
           "Role",
-          "Pages",
+          "Page access",
           "Default app",
           "Active",
           "Pay rate",
@@ -309,12 +311,10 @@ function UserRowItem({
           <button
             type="button"
             onClick={() => setPagesOpen((v) => !v)}
-            className="text-left text-sm"
+            title={isAdmin ? "Everything (admin)" : pagesOn.map((p) => p.label).join(", ") || "No pages"}
+            className="whitespace-nowrap text-sm font-medium text-accent hover:text-accent-hover"
           >
-            <span className="block max-w-56 truncate text-ink">
-              {isAdmin ? "Everything (admin)" : pagesOn.length === 0 ? "No pages" : pagesOn.map((p) => p.label).join(", ")}
-            </span>
-            <span className="font-medium text-accent hover:text-accent-hover">{pagesOpen ? "Close" : "Choose pages"}</span>
+            {pagesOpen ? "Close" : "Page access"}
           </button>
         </td>
         <td className="py-2 pl-4">
@@ -395,7 +395,7 @@ function UserRowItem({
       {pagesOpen && (
         <tr>
           <td colSpan={14} className="bg-background p-4">
-            <p className="mb-1 text-sm font-semibold text-ink">Pages {user.full_name} can see and open</p>
+            <p className="mb-1 text-sm font-semibold text-ink">Page access for {user.full_name} - ticked pages they can see and open</p>
             {isAdmin && (
               <p className="mb-2 text-xs text-ink-soft">Admins can open every page. &quot;My sales&quot; and &quot;Team sales&quot; still decide whether they appear on the Sales tracker.</p>
             )}

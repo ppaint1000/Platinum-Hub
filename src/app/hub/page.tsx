@@ -38,6 +38,7 @@ type AppAccess = {
   production?: boolean;
   schedule?: boolean;
   safety?: boolean;
+  invoices?: boolean;
 };
 
 export default async function HubPage() {
@@ -54,7 +55,7 @@ export default async function HubPage() {
       .single(),
     supabase
       .from("user_app_access")
-      .select("timesheets, fleet, orders, jobs, sales, measures, costing, production, schedule, safety")
+      .select("timesheets, fleet, orders, jobs, sales, measures, costing, production, schedule, safety, invoices")
       .eq("user_id", user?.id ?? "")
       .maybeSingle<AppAccess>(),
   ]);
@@ -91,7 +92,7 @@ export default async function HubPage() {
         { href: "/production", icon: <Kanban className="h-5 w-5" />, title: "Production board", description: "Won jobs from To be scheduled through to Paid.", show: isAdmin || !!access?.production },
         { href: "/schedule", icon: <CalendarDays className="h-5 w-5" />, title: "Schedule", description: "Which crew is on which job, week by week.", show: isAdmin || !!access?.schedule },
         { href: "/orders", icon: <ClipboardList className="h-5 w-5" />, title: "Orders", description: "Supplier orders by job, with line items and totals.", show: isAdmin || !!access?.orders },
-        { href: "/jobs/invoices", icon: <Receipt className="h-5 w-5" />, title: "Supplier invoices", description: "Upload supplier invoices and put their lines against jobs.", show: isAdmin || !!access?.jobs },
+        { href: "/jobs/invoices", icon: <Receipt className="h-5 w-5" />, title: "Supplier invoices", description: "Upload supplier invoices and put their lines against jobs.", show: isAdmin || !!access?.invoices },
       ],
     },
     {

@@ -92,7 +92,7 @@ async function landingCheck(supabase: Awaited<ReturnType<typeof requireAdmin>>, 
   const [{ data: flags }, { data: profile }] = await Promise.all([
     supabase
       .from("user_app_access")
-      .select("timesheets, fleet, orders, jobs, sales, measures, costing, production, schedule, safety, default_app")
+      .select("timesheets, fleet, orders, jobs, sales, measures, costing, production, schedule, safety, invoices, default_app")
       .eq("user_id", userId)
       .maybeSingle<AppFlags & { default_app: DefaultApp }>(),
     supabase.from("profiles").select("role").eq("id", userId).maybeSingle<{ role: Role }>(),
