@@ -2320,7 +2320,8 @@ export function QuoteEditor({
                     <table className="w-full text-sm">
                       <thead className="sticky top-0 z-30 bg-surface shadow-[0_1px_0_0_var(--color-border,#e5e7eb)]">
                         <tr className="border-b border-border text-left text-xs font-semibold uppercase tracking-wide text-muted">
-                          <th className="px-2 py-2">Surface</th>
+                          {/* Surface stays put when scrolling across. */}
+                          <th className="sticky left-0 z-40 bg-surface px-2 py-2 shadow-[1px_0_0_0_#e5e7eb]">Surface</th>
                           <th className="px-2 py-2">Girth</th>
                           <th className="px-2 py-2">Qty</th>
                           <th className="px-2 py-2">Coats</th>
@@ -2344,7 +2345,7 @@ export function QuoteEditor({
                           .filter((l) => l.line_type === "surface" || l.line_type === "hourly")
                           .map((line) => (
                           <tr key={line.id} className="border-b border-border last:border-b-0">
-                            <td className="px-2 py-1.5">
+                            <td className="sticky left-0 z-20 bg-surface px-2 py-1.5 shadow-[1px_0_0_0_#e5e7eb]">
                               <input
                                 className={inputClass + " line-input"}
                                 value={line.surface_name}
