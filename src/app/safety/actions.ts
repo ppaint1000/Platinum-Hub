@@ -152,15 +152,20 @@ export async function deleteTaskAction(id: string): Promise<Result> {
 
 // The file goes straight from the browser to storage (big PDFs), then is
 // listed here.
-export async function addDocumentAction(d: { name: string; category: string; path: string }): Promise<Result> {
+export async function addDocumentAction(d: { name: string; category: string; path: string; templateKey?: string }): Promise<Result> {
   if (!d.path.startsWith(d.category + "/")) return { error: "Upload the file first." };
   const supabase = await createClient();
-  const { error } = await supabase.from("safety_documents").insert({ name: d.name.trim() || d.path.split("/").pop(), category: d.category, storage_path: d.path });
+  const { error } = await supabase.from("safety_documents").insert({
+    name: d.name.trim() || d.path.split("/").pop(),
+    category: d.category,
+    storage_path: d.path,
+    template_key: d.templateKey ?? null,
+  });
   if (error) {
     await supabase.storage.from("safety-documents").remove([d.path]);
     return { error: error.message };
   }
-  revalidatePath("/safety/documents");
+  revalidatePath("/safety", "layout");
   return {};
 }
 
@@ -180,7 +185,7 @@ export async function deleteDocumentAction(id: string): Promise<Result> {
   const { error } = await supabase.from("safety_documents").delete().eq("id", id);
   if (error) return { error: error.message };
   await supabase.storage.from("safety-documents").remove([doc.storage_path]);
-  revalidatePath("/safety/documents");
+  revalidatePath("/safety", "layout");
   return {};
 }
 
