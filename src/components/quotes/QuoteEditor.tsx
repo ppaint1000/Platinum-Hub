@@ -2313,9 +2313,12 @@ export function QuoteEditor({
                     </button>
                   </div>
 
-                  <div className="overflow-x-auto">
+                  {/* The lines scroll inside the box with the Surface / Girth /
+                      Qty... headings pinned at the top, so they stay in view
+                      however far down a long area you go. */}
+                  <div className="max-h-[75vh] overflow-auto">
                     <table className="w-full text-sm">
-                      <thead>
+                      <thead className="sticky top-0 z-30 bg-surface shadow-[0_1px_0_0_var(--color-border,#e5e7eb)]">
                         <tr className="border-b border-border text-left text-xs font-semibold uppercase tracking-wide text-muted">
                           <th className="px-2 py-2">Surface</th>
                           <th className="px-2 py-2">Girth</th>
@@ -2483,9 +2486,18 @@ export function QuoteEditor({
                                   placeholder="Company default"
                                   emptyLabel="Use default"
                                   value={line.paint_product_id}
-                                  onChange={(id) =>
-                                    updateLine(building.id, line.id, { paint_product_id: id })
-                                  }
+                                  onChange={(id) => {
+                                    // The paint's own spread rate (Paint Products page) comes
+                                    // with it - its price follows automatically (material rate).
+                                    // Back to the company spread rate for "Use default".
+                                    const product = paintProducts.find((p) => p.id === id);
+                                    const spread = product?.coverage_sqm_per_litre || spreadRateSqmPerLitre;
+                                    updateLine(building.id, line.id, {
+                                      paint_product_id: id,
+                                      spread_rate: spread,
+                                      default_spread_rate: spread,
+                                    });
+                                  }}
                                   options={paintOptions}
                                 />
                               ) : null}

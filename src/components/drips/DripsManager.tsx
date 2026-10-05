@@ -24,6 +24,10 @@ export type DripData = {
   sends: { id: string; to_email: string; subject: string; sent: boolean; error: string | null; sent_at: string }[];
 };
 
+// Platinum Painters on Google Maps (21 Poland Road, Wairau Valley) - opens
+// the listing, where customers press "Write a review".
+const GOOGLE_LISTING = "https://www.google.com/maps?cid=14369214290828398332";
+
 const PLACEHOLDERS = ["{first_name}", "{job}", "{proposal_link}", "{proposal_code}", "{review_link}", "{phone}"];
 const input = "w-full rounded-lg border border-[#D9D6CC] bg-white px-3 py-2 text-sm text-[#16202E]";
 const when = (iso: string | null) =>
@@ -59,8 +63,34 @@ export function DripsManager({ data }: { data: DripData }) {
           <span className="font-semibold">Your Google review link</span>
           <input className={input} value={review} onChange={(e) => setReview(e.target.value)} placeholder="https://g.page/r/.../review" />
           <span className="text-xs text-[#5B6472]">
-            From your Google Business Profile: &quot;Ask for reviews&quot; → copy the link. Used for {"{review_link}"} - review emails
-            aren&apos;t sent until it&apos;s set.
+            Used for {"{review_link}"} - review emails wait until it&apos;s set. Best is the direct link from your Google Business
+            Profile (&quot;Ask for reviews&quot; → copy link), which opens the review box straight away.
+          </span>
+          <span className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold">
+            <a href={GOOGLE_LISTING} target="_blank" rel="noopener noreferrer" className="text-[#1F4E8C] hover:underline">
+              Our Google listing
+            </a>
+            <a href="https://business.google.com/" target="_blank" rel="noopener noreferrer" className="text-[#1F4E8C] hover:underline">
+              Google Business Profile (get the review link)
+            </a>
+            <a
+              href="https://support.google.com/business/answer/3474122"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#1F4E8C] hover:underline"
+            >
+              How to share your review link
+            </a>
+            {review && (
+              <a href={review} target="_blank" rel="noopener noreferrer" className="text-[#1F4E8C] hover:underline">
+                Test the link
+              </a>
+            )}
+            {review !== GOOGLE_LISTING && (
+              <button type="button" onClick={() => setReview(GOOGLE_LISTING)} className="text-[#1F4E8C] hover:underline">
+                Use our Google listing
+              </button>
+            )}
           </span>
         </label>
         <div className="flex flex-wrap items-center gap-3">
