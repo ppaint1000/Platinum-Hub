@@ -26,8 +26,8 @@ type OpenEntry = {
 }
 type Coords = { lat: number | null; lng: number | null }
 
+// How long the lunch break was (asked once they say they had one).
 const BREAK_OPTIONS = [
-  { value: 'none', label: 'None' },
   { value: '30', label: '30 mins' },
   { value: '45', label: '45 mins' },
   { value: '60', label: '60 mins' },
@@ -111,8 +111,20 @@ export function ClockWidget({
   const [stopped, setStopped] = useState(false)
   const [endedAtMs, setEndedAtMs] = useState<number | null>(null)
   const [endCoords, setEndCoords] = useState<Coords>({ lat: null, lng: null })
-  const [breakChoice, setBreakChoice] = useState<(typeof BREAK_OPTIONS)[number]['value']>('none')
+  // Clocking out asks: did you have a lunch break? Yes means picking how long.
+  const [hadLunch, setHadLunch] = useState<'yes' | 'no' | null>(null)
+  const [breakChoice, setBreakChoice] = useState<(typeof BREAK_OPTIONS)[number]['value'] | null>(null)
   const [customBreak, setCustomBreak] = useState('')
+  // Shown once they're clocked out: where from, when, and that nothing is still running.
+  const [done, setDone] = useState<{ site: string; at: string; stillRunning: number } | null>(null)
+  const breakMinutes =
+    hadLunch !== 'yes' || !breakChoice
+      ? 0
+      : breakChoice === 'custom'
+        ? Math.max(0, parseInt(customBreak, 10) || 0)
+        : Number(breakChoice)
+  const lunchAnswered =
+    hadLunch === 'no' || (hadLunch === 'yes' && !!breakChoice && (breakChoice !== 'custom' || breakMinutes > 0))
 
   const startMs = openEntry ? new Date(openEntry.clock_in_at).getTime() : null
   const now = useNow(Boolean(openEntry) && !stopped)
@@ -146,13 +158,8 @@ export function ClockWidget({
 
   function handleSave() {
     if (!openEntry || endedAtMs === null) return
-
-    const breakMinutes =
-      breakChoice === 'none'
-        ? 0
-        : breakChoice === 'custom'
-          ? Math.max(0, parseInt(customBreak, 10) || 0)
-          : Number(breakChoice)
+    if (hadLunch === null) return setError('Did you have a lunch break? Choose Yes or No.')
+    if (!lunchAnswered) return setError('Choose how long your lunch break was.')
 
     setError('')
     startTransition(async () => {
@@ -167,7 +174,50 @@ export function ClockWidget({
         deviceLabel: getDeviceLabel(),
       })
       if (result?.error) setError(result.error)
+      else
+        setDone({
+          site: openEntry.site_name,
+          at: result?.clockedOutAt ?? new Date(endedAtMs).toISOString(),
+          stillRunning: result?.stillRunning ?? 0,
+        })
     })
+  }
+
+  // Clocked out: confirm it, and that nothing is still running for them.
+  if (done) {
+    const at = formatTimestamp(new Date(done.at).getTime())
+    return (
+      <div className="w-full max-w-sm space-y-4 text-center">
+        <div className="rounded-lg border-2 border-green-600 bg-green-50 p-5">
+          <p className="text-lg font-semibold text-green-800">You&apos;re clocked out</p>
+          <p className="mt-1 text-sm text-green-900">
+            Logged off <span className="font-semibold">{done.site}</span> at {at.time}, {at.date}.
+          </p>
+          {done.stillRunning === 0 ? (
+            <p className="mt-2 text-sm text-green-900">Nothing is still running for you.</p>
+          ) : (
+            <p className="mt-2 text-sm font-semibold text-red-700">
+              You still have {done.stillRunning} other shift{done.stillRunning === 1 ? '' : 's'} open - check My Timesheet or tell the
+              office.
+            </p>
+          )}
+        </div>
+        <button
+          onClick={() => {
+            setDone(null)
+            setStopped(false)
+            setEndedAtMs(null)
+            setHadLunch(null)
+            setBreakChoice(null)
+            setCustomBreak('')
+            setNotes('')
+          }}
+          className="w-full rounded-md bg-black px-4 py-3 text-white"
+        >
+          OK
+        </button>
+      </div>
+    )
   }
 
   if (openEntry && startMs !== null) {
@@ -269,7 +319,27 @@ export function ClockWidget({
           </button>
         ) : (
           <div className="space-y-3 rounded-lg border border-black/10 p-4">
-            <p className="text-sm font-medium">Breaks</p>
+            <p className="text-sm font-medium">Did you have a lunch break?</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(['yes', 'no'] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => {
+                    setHadLunch(v)
+                    if (v === 'no') setBreakChoice(null)
+                  }}
+                  className={`rounded-lg px-3 py-3 text-sm font-semibold transition-colors ${
+                    hadLunch === v ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                  }`}
+                >
+                  {v === 'yes' ? 'Yes' : 'No'}
+                </button>
+              ))}
+            </div>
+            {hadLunch === 'yes' && (
+              <>
+            <p className="text-sm font-medium">How long?</p>
             <div className="flex flex-wrap gap-2">
               {BREAK_OPTIONS.map((option) => (
                 <button
@@ -298,12 +368,14 @@ export function ClockWidget({
                 className="w-full rounded-md border border-black/20 px-3 py-2 text-sm"
               />
             )}
+              </>
+            )}
             <button
               onClick={handleSave}
-              disabled={pending}
+              disabled={pending || !lunchAnswered}
               className="w-full rounded-md bg-black px-4 py-3 text-white disabled:opacity-50"
             >
-              {pending ? 'Saving…' : 'Save'}
+              {pending ? 'Clocking out…' : 'Clock out'}
             </button>
           </div>
         )}

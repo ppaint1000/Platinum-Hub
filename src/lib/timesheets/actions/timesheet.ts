@@ -135,11 +135,11 @@ export async function clockOut(
     deviceId?: string
     deviceLabel?: string
   } & Coords
-): Promise<ActionResult> {
+): Promise<{ error?: string; clockedOutAt?: string; stillRunning?: number } | undefined> {
   const profile = await getCurrentProfile()
   const supabase = await createClient()
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('timesheet_entries')
     .update({
       clock_out_at: input.clockOutAt,
@@ -152,10 +152,20 @@ export async function clockOut(
     })
     .eq('id', input.entryId)
     .eq('user_id', profile.id)
+    .select('id, clock_out_at')
 
   if (error) {
     return { error: error.message }
   }
+  if (!updated?.length) return { error: "Couldn't clock you out - please try again or tell the office." }
+
+  // Confirm nothing is still running for them (any other shift left open).
+  const { count } = await supabase
+    .from('timesheet_entries')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', profile.id)
+    .is('clock_out_at', null)
 
   revalidatePath('/timesheets/clock')
+  return { clockedOutAt: updated[0].clock_out_at as string, stillRunning: count ?? 0 }
 }
