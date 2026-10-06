@@ -84,24 +84,6 @@ export async function clockIn(
   revalidatePath('/timesheets/clock')
 }
 
-// After clocking out: the lunch break (and notes) onto the shift just
-// finished. Only their own, and only within 12 hours of clocking out.
-export async function setClockOutBreak(input: { entryId: string; breakMinutes: number; notes: string }): Promise<ActionResult> {
-  const profile = await getCurrentProfile()
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('timesheet_entries')
-    .update({ break_minutes: Math.max(0, Math.round(input.breakMinutes)), notes: input.notes.trim() || null })
-    .eq('id', input.entryId)
-    .eq('user_id', profile.id)
-    .not('clock_out_at', 'is', null)
-    .gte('clock_out_at', new Date(Date.now() - 12 * 3600 * 1000).toISOString())
-    .select('id')
-  if (error) return { error: error.message }
-  if (!data?.length) return { error: "Couldn't save your lunch break - tell the office how long it was." }
-  revalidatePath('/timesheets/clock')
-}
-
 // Admin-initiated clock in/out on behalf of a staff member who forgot -
 // no GPS (the admin isn't on site) and no safety-plan gate (that's a
 // self-confirmation only the person themselves can make).
