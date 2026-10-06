@@ -6,6 +6,7 @@
 export const PROPOSAL_SECTIONS = [
   { key: "letter", label: "Letter" },
   { key: "completed_projects", label: "Completed Projects" },
+  { key: "reference_photos", label: "Reference photos" },
   { key: "current_condition", label: "Current Condition photos" },
   { key: "site_plan", label: "Site Plan" },
   { key: "equipment", label: "Platinum Painters owned equipment" },

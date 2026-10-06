@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Copy, ExternalLink, ImagePlus, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, ExternalLink, FileText, ImagePlus, Plus, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Field, inputClass } from "@/components/quotes/Modal";
 import type { ProposalPricing } from "@/lib/quotes/proposalPricing";
@@ -29,6 +29,7 @@ export type BuilderProposal = {
   site_plan: ProposalImage[];
   site_plan_notes: string | null;
   condition_photos: ProposalImage[];
+  reference_photos: ProposalImage[];
   sections: SectionChoice[];
   pricing_labels: Record<string, string>;
   pricing_edits: PricingEdits;
@@ -98,6 +99,7 @@ export function ProposalBuilder({
   initial,
   livePricing,
   views,
+  referenceLibrary = [],
 }: {
   quoteId: string;
   jobName: string;
@@ -105,6 +107,8 @@ export function ProposalBuilder({
   initial: BuilderProposal;
   livePricing: ProposalPricing;
   views: ViewRow[];
+  // Settings > Proposal templates > Reference photos.
+  referenceLibrary?: ProposalImage[];
 }) {
   const router = useRouter();
   const [p, setP] = useState<BuilderProposal>(initial);
@@ -164,6 +168,7 @@ export function ProposalBuilder({
       site_plan: p.site_plan,
       site_plan_notes: p.site_plan_notes,
       condition_photos: p.condition_photos,
+      reference_photos: p.reference_photos ?? [],
       sections: p.sections,
       pricing_labels: p.pricing_labels,
       pricing_edits: edits,
@@ -220,6 +225,12 @@ export function ProposalBuilder({
     if (saved) window.open(`/p/${saved.token}?preview=1`, "_blank", "noopener");
   }
 
+  // Saves first, then downloads it as a Word document to edit.
+  async function downloadWord() {
+    const saved = await save();
+    if (saved) window.location.href = `/costing/${quoteId}/proposal/word`;
+  }
+
   async function uploadImages(files: FileList | null, key: "site_plan" | "condition_photos") {
     if (!files?.length) return;
     setUploading(key);
@@ -273,6 +284,14 @@ export function ProposalBuilder({
           >
             <Copy className="h-4 w-4" />
             Copy link
+          </button>
+          <button
+            onClick={downloadWord}
+            disabled={saving}
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3.5 py-2 text-sm font-semibold text-ink transition hover:bg-background disabled:opacity-60"
+          >
+            <FileText className="h-4 w-4" />
+            Download Word
           </button>
           {p.access_code && (
             <span className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted" title="The customer types this to open their link">
@@ -512,6 +531,51 @@ export function ProposalBuilder({
             Add row
           </button>
         </div>
+
+        {/* Reference photos, ticked from the library */}
+        {p.sections.some((c) => c.key === "reference_photos" && c.on) && (
+          <div className={card}>
+            <h2 className="mb-1 text-sm font-semibold text-ink">Reference photos</h2>
+            <p className="mb-3 text-xs text-muted">
+              Tick the photos to show in this proposal ({(p.reference_photos ?? []).length} ticked). Add to the library in Settings › Proposal
+              templates.
+            </p>
+            {referenceLibrary.length === 0 ? (
+              <p className="text-sm text-muted">No reference photos in the library yet.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {referenceLibrary.map((img) => {
+                  const picked = (p.reference_photos ?? []).some((r) => r.path === img.path);
+                  return (
+                    <label
+                      key={img.path}
+                      className={`cursor-pointer rounded-lg border-2 p-1.5 ${picked ? "border-brand-red" : "border-border"}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={proposalImageUrl(img.path)} alt="" className="aspect-[4/3] w-full rounded object-cover" />
+                      <span className="mt-1.5 flex items-start gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4 accent-brand-red"
+                          checked={picked}
+                          onChange={(e) =>
+                            set(
+                              "reference_photos",
+                              e.target.checked
+                                ? [...(p.reference_photos ?? []), img]
+                                : (p.reference_photos ?? []).filter((r) => r.path !== img.path)
+                            )
+                          }
+                        />
+                        <span>{img.caption || "No caption"}</span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Current condition */}
         <div className={card}>

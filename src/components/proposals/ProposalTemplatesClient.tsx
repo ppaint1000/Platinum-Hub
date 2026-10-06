@@ -250,6 +250,21 @@ export function ProposalTemplatesClient({ initial, neverSaved }: { initial: Temp
       </div>
 
       <div className={card}>
+        <h2 className="mb-1 text-sm font-semibold text-ink">Reference photos</h2>
+        <p className="mb-3 text-xs text-muted">
+          Your library of photos (past jobs, finishes, colours...). On each proposal, tick the ones to show in its Reference photos section.
+        </p>
+        <ImageList
+          images={t.reference_photos}
+          onChange={(v) => set("reference_photos", v)}
+          folder="reference-photos"
+          placeholder="e.g. Weatherboard villa - Resene Alabaster"
+          addLabel="Add reference photos"
+          onError={onError}
+        />
+      </div>
+
+      <div className={card}>
         <h2 className="mb-3 text-sm font-semibold text-ink">Equipment (under the site plan)</h2>
         <div className="mb-3 grid gap-3 sm:grid-cols-2">
           <Field label="Heading">

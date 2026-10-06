@@ -23,7 +23,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
   const [{ data: quote }, { data: existing }, { data: settings }, { data: buildings }] = await Promise.all([
     supabase.from("quotes").select("id, location, project, status, customers:clients(name, email, phone, address)").eq("id", id).single(),
     supabase.from("proposals").select("*").eq("quote_id", id).maybeSingle(),
-    supabase.from("proposal_settings").select("letter_intro").maybeSingle(),
+    supabase.from("proposal_settings").select("letter_intro, reference_photos").maybeSingle(),
     supabase
       .from("quote_buildings")
       .select("name, excludes, is_option, quote_building_lines(surface_name, qty, line_type)")
@@ -59,6 +59,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
         spec_rows: existing.spec_rows ?? [],
         site_plan: existing.site_plan ?? [],
         condition_photos: existing.condition_photos ?? [],
+        reference_photos: existing.reference_photos ?? [],
         sections: resolveSections(existing.sections),
       }
     : {
@@ -79,6 +80,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
         site_plan: [],
         site_plan_notes: "",
         condition_photos: [],
+        reference_photos: [],
         sections: resolveSections(null),
         pricing_labels: {},
         pricing_edits: {},
@@ -112,6 +114,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
       initial={proposal}
       livePricing={pricing}
       views={(views ?? []) as ViewRow[]}
+      referenceLibrary={(settings?.reference_photos ?? []) as { path: string; caption?: string }[]}
     />
   );
 }

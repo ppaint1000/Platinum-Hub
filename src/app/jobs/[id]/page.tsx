@@ -20,6 +20,7 @@ import {
 } from "@/components/jobs/ReseneInvoiceCostsSection";
 import { CostLinesSection, type CostLineRow } from "@/components/jobs/CostLinesSection";
 import { JobBudgetTable, type CategoryBudgetRow } from "@/components/jobs/JobBudgetTable";
+import { JobHealth, type HealthItem } from "@/components/jobs/JobHealth";
 import { fetchSalesTeam, needsSalesPerson } from "@/lib/jobs/salesTeam";
 import { AssignSalesPersonBanner } from "@/components/jobs/AssignSalesPersonBanner";
 import { jobMargin } from "@/lib/jobs/margin";
@@ -230,6 +231,19 @@ export default async function JobDetailPage({
   );
   const totalVariance = totals.actual - totals.budgeted;
 
+  // The job dashboard circles: the whole job, hours, then each category
+  // with a budget or spending - for jobs that are won and under way.
+  const healthItems: HealthItem[] = ["won", "scheduled", "in_progress", "complete", "invoiced", "paid"].includes(job.status)
+    ? [
+        // No category budgets yet: measured against the quoted price instead.
+        totals.budgeted > 0
+          ? { label: "Whole job", actual: totals.actual, budget: totals.budgeted }
+          : { label: "Whole job (vs quote)", actual: totals.actual, budget: Number(job.quoted_sell_total ?? 0) },
+        ...(job.quoted_hours ? [{ label: "Hours", actual: Number(hoursActual), budget: Number(job.quoted_hours), unit: "h" as const }] : []),
+        ...categoryBudgetRows.map((c) => ({ label: c.categoryLabel, actual: c.actual, budget: c.budgeted })),
+      ]
+    : [];
+
   return (
     <div className="mx-auto w-full max-w-4xl p-8">
       <div className="mb-4 flex items-center gap-4">
@@ -307,6 +321,8 @@ export default async function JobDetailPage({
       </div>
 
       {needsSalesPerson(job) && <AssignSalesPersonBanner jobId={job.id} salesTeam={salesTeam} />}
+
+      <JobHealth items={healthItems} />
 
       <div className="mb-4 flex border-b border-line pb-6">
         <SummaryStat label="Quoted" value={job.quoted_sell_total != null ? fmtMoney(job.quoted_sell_total) : "—"} />

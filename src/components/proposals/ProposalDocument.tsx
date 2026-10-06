@@ -31,6 +31,7 @@ export type ProposalData = {
     site_plan: ProposalImage[];
     site_plan_notes: string | null;
     condition_photos?: ProposalImage[];
+    reference_photos?: ProposalImage[];
     sections?: SectionChoice[] | null;
     pricing: ProposalPricing;
   };
@@ -313,6 +314,8 @@ export function ProposalDocument({
   const condition = p.condition_photos ?? [];
   const conditionPages = Array.from({ length: Math.ceil(condition.length / 6) }, (_, i) => condition.slice(i * 6, i * 6 + 6));
   const equipment = s.equipment_photos ?? [];
+  const references = p.reference_photos ?? [];
+  const referencePages = Array.from({ length: Math.ceil(references.length / 6) }, (_, i) => references.slice(i * 6, i * 6 + 6));
   const signer = lines(s.signer);
   const sections = resolveSections(p.sections);
 
@@ -341,7 +344,8 @@ export function ProposalDocument({
   );
   const blocks: Record<SectionKey, PageSpec[]> = {
     letter: [{ banner: s.letter_banner || undefined, body: (<>
-        <div className="mb-5 grid grid-cols-[1fr_13rem] gap-4">
+        {/* Bigger gaps: address, then the date, then "Dear ..." */}
+        <div className="mb-12 grid grid-cols-[1fr_13rem] gap-4">
           <div className="font-bold italic text-[#9A9A9A]">
             {p.recipient_name && <p>{p.recipient_name}</p>}
             {p.recipient_company && <p>{p.recipient_company}</p>}
@@ -357,7 +361,7 @@ export function ProposalDocument({
             </div>
           )}
         </div>
-        <p className="mb-5">
+        <p className="mb-12">
           <LongDate date={p.proposal_date} />
         </p>
         <p className="mb-3">{p.salutation?.trim() || `Dear ${p.recipient_name?.split(" ")[0] ?? "Sir/Madam"},`}</p>
@@ -392,6 +396,16 @@ export function ProposalDocument({
             </div>
           )}
 </>) }] : [],
+    reference_photos: referencePages.map((page) => ({
+      title: "Reference Photos",
+      body: (
+        <div className="grid grid-cols-2 gap-1 border-[3px] p-1" style={{ borderColor: RED }}>
+          {page.map((img) => (
+            <FramedPhoto key={img.path} src={proposalImageUrl(img.path)} caption={img.caption} />
+          ))}
+        </div>
+      ),
+    })),
     current_condition: conditionPages.map((page) => ({
       title: "Current Condition",
       body: (

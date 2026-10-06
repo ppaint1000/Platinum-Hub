@@ -129,6 +129,7 @@ export type SettingsRow = Partial<{
   equipment_photos: Img[] | null;
   back_pages: Img[] | null;
   why_text: string | null;
+  reference_photos: Img[] | null;
 }>;
 
 export function withTemplateDefaults(s: SettingsRow | null | undefined) {
@@ -150,6 +151,8 @@ export function withTemplateDefaults(s: SettingsRow | null | undefined) {
     equipment_photos: s?.equipment_photos ?? DEFAULT_EQUIPMENT_PHOTOS,
     back_pages: s?.back_pages ?? DEFAULT_BACK_PAGES,
     why_text: s?.why_text ?? DEFAULT_WHY_TEXT,
+    // The library to pick a proposal's reference photos from.
+    reference_photos: s?.reference_photos ?? [],
   };
 }
 
