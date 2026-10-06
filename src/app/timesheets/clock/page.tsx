@@ -80,6 +80,8 @@ export default async function ClockPage() {
         )
         .eq('user_id', profile.id)
         .is('clock_out_at', null)
+        .order('clock_in_at', { ascending: false })
+        .limit(1)
         .maybeSingle<OpenEntryRow>(),
       supabase
         .from('site_safety_acknowledgements')

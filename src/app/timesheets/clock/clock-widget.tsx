@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import { clockIn, clockOut } from '@/lib/timesheets/actions/timesheet'
+import { clockIn, clockOut, setClockOutBreak } from '@/lib/timesheets/actions/timesheet'
 import { getDeviceId, getDeviceLabel } from '@/lib/timesheets/deviceId'
 
 type ExtraDocument = { id: string; name: string }
@@ -110,12 +110,14 @@ export function ClockWidget({
 
   const [stopped, setStopped] = useState(false)
   const [endedAtMs, setEndedAtMs] = useState<number | null>(null)
-  const [endCoords, setEndCoords] = useState<Coords>({ lat: null, lng: null })
   // Clocking out asks: did you have a lunch break? Yes means picking how long.
   const [hadLunch, setHadLunch] = useState<'yes' | 'no' | null>(null)
   const [breakChoice, setBreakChoice] = useState<(typeof BREAK_OPTIONS)[number]['value'] | null>(null)
   const [customBreak, setCustomBreak] = useState('')
-  // Shown once they're clocked out: where from, when, and that nothing is still running.
+  // Stop clocks them out straight away (so leaving now can't keep a shift
+  // running); then the lunch question updates that same shift.
+  const [closed, setClosed] = useState<{ entryId: string; site: string; startMs: number; endMs: number; stillRunning: number } | null>(null)
+  // Shown once they've answered: where from, when, and that nothing is still running.
   const [done, setDone] = useState<{ site: string; at: string; stillRunning: number } | null>(null)
   const breakMinutes =
     hadLunch !== 'yes' || !breakChoice
@@ -126,7 +128,7 @@ export function ClockWidget({
   const lunchAnswered =
     hadLunch === 'no' || (hadLunch === 'yes' && !!breakChoice && (breakChoice !== 'custom' || breakMinutes > 0))
 
-  const startMs = openEntry ? new Date(openEntry.clock_in_at).getTime() : null
+  const startMs = closed ? closed.startMs : openEntry ? new Date(openEntry.clock_in_at).getTime() : null
   const now = useNow(Boolean(openEntry) && !stopped)
   const durationMs = startMs === null ? 0 : (stopped && endedAtMs ? endedAtMs : now) - startMs
 
@@ -146,40 +148,41 @@ export function ClockWidget({
     })
   }
 
+  // Stop = clocked out, there and then.
   function handleStop() {
+    if (!openEntry || startMs === null) return
     setError('')
     startTransition(async () => {
       const coords = await getPosition()
-      setEndCoords(coords)
-      setEndedAtMs(Date.now())
+      const endMs = Date.now()
+      const result = await clockOut({
+        entryId: openEntry.id,
+        notes,
+        breakMinutes: 0,
+        clockOutAt: new Date(endMs).toISOString(),
+        lat: coords.lat,
+        lng: coords.lng,
+        deviceId: getDeviceId(),
+        deviceLabel: getDeviceLabel(),
+      })
+      if (result?.error) return setError(result.error)
+      setEndedAtMs(endMs)
       setStopped(true)
+      setClosed({ entryId: openEntry.id, site: openEntry.site_name, startMs, endMs, stillRunning: result?.stillRunning ?? 0 })
     })
   }
 
+  // The lunch break (and any notes) onto the shift they've just finished.
   function handleSave() {
-    if (!openEntry || endedAtMs === null) return
+    if (!closed) return
     if (hadLunch === null) return setError('Did you have a lunch break? Choose Yes or No.')
     if (!lunchAnswered) return setError('Choose how long your lunch break was.')
 
     setError('')
     startTransition(async () => {
-      const result = await clockOut({
-        entryId: openEntry.id,
-        notes,
-        breakMinutes,
-        clockOutAt: new Date(endedAtMs).toISOString(),
-        lat: endCoords.lat,
-        lng: endCoords.lng,
-        deviceId: getDeviceId(),
-        deviceLabel: getDeviceLabel(),
-      })
-      if (result?.error) setError(result.error)
-      else
-        setDone({
-          site: openEntry.site_name,
-          at: result?.clockedOutAt ?? new Date(endedAtMs).toISOString(),
-          stillRunning: result?.stillRunning ?? 0,
-        })
+      const result = await setClockOutBreak({ entryId: closed.entryId, breakMinutes, notes })
+      if (result?.error) return setError(result.error)
+      setDone({ site: closed.site, at: new Date(closed.endMs).toISOString(), stillRunning: closed.stillRunning })
     })
   }
 
@@ -205,6 +208,7 @@ export function ClockWidget({
         <button
           onClick={() => {
             setDone(null)
+            setClosed(null)
             setStopped(false)
             setEndedAtMs(null)
             setHadLunch(null)
@@ -220,15 +224,21 @@ export function ClockWidget({
     )
   }
 
-  if (openEntry && startMs !== null) {
+  if ((openEntry || closed) && startMs !== null) {
+    const siteName = closed?.site ?? openEntry?.site_name ?? ''
     const started = formatTimestamp(startMs)
     const ended = stopped && endedAtMs ? formatTimestamp(endedAtMs) : null
 
     return (
       <div className="w-full max-w-sm space-y-4">
-        <p className="text-center text-sm text-black/60">{openEntry.site_name}</p>
+        <p className="text-center text-sm text-black/60">{siteName}</p>
+        {closed && (
+          <p className="rounded-md bg-green-50 px-3 py-2 text-center text-sm font-semibold text-green-800">
+            You&apos;re clocked out. One last question:
+          </p>
+        )}
 
-        {openEntry.site_id &&
+        {openEntry && !closed && openEntry.site_id &&
           (openEntry.workOrderUrl ||
             openEntry.hasExtentOfWork ||
             openEntry.hasSafetyPlan ||
@@ -315,7 +325,7 @@ export function ClockWidget({
             disabled={pending}
             className="w-full rounded-md bg-red-600 px-4 py-3 text-white disabled:opacity-50"
           >
-            {pending ? 'Stopping…' : 'Stop'}
+            {pending ? 'Clocking out…' : 'Stop and clock out'}
           </button>
         ) : (
           <div className="space-y-3 rounded-lg border border-black/10 p-4">
@@ -375,7 +385,7 @@ export function ClockWidget({
               disabled={pending || !lunchAnswered}
               className="w-full rounded-md bg-black px-4 py-3 text-white disabled:opacity-50"
             >
-              {pending ? 'Clocking out…' : 'Clock out'}
+              {pending ? 'Saving…' : 'Done'}
             </button>
           </div>
         )}

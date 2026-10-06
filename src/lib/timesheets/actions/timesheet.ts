@@ -49,6 +49,20 @@ export async function clockIn(
     }
   }
 
+  // Only ever one shift running: clocking in again (a double tap, a second
+  // phone) is refused while one is open. The database enforces it too.
+  const { data: running } = await supabase
+    .from('timesheet_entries')
+    .select('id, clock_in_at, sites(name)')
+    .eq('user_id', profile.id)
+    .is('clock_out_at', null)
+    .order('clock_in_at', { ascending: false })
+    .limit(1)
+  if (running?.length) {
+    revalidatePath('/timesheets/clock')
+    return { error: "You're already clocked in - clock out of that shift first." }
+  }
+
   const { error } = await supabase.from('timesheet_entries').insert({
     user_id: profile.id,
     site_id: input.siteId,
@@ -59,9 +73,32 @@ export async function clockIn(
   })
 
   if (error) {
+    // The one-open-shift rule in the database (a clock-in from two places at once).
+    if (error.code === '23505') {
+      revalidatePath('/timesheets/clock')
+      return { error: "You're already clocked in - clock out of that shift first." }
+    }
     return { error: error.message }
   }
 
+  revalidatePath('/timesheets/clock')
+}
+
+// After clocking out: the lunch break (and notes) onto the shift just
+// finished. Only their own, and only within 12 hours of clocking out.
+export async function setClockOutBreak(input: { entryId: string; breakMinutes: number; notes: string }): Promise<ActionResult> {
+  const profile = await getCurrentProfile()
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('timesheet_entries')
+    .update({ break_minutes: Math.max(0, Math.round(input.breakMinutes)), notes: input.notes.trim() || null })
+    .eq('id', input.entryId)
+    .eq('user_id', profile.id)
+    .not('clock_out_at', 'is', null)
+    .gte('clock_out_at', new Date(Date.now() - 12 * 3600 * 1000).toISOString())
+    .select('id')
+  if (error) return { error: error.message }
+  if (!data?.length) return { error: "Couldn't save your lunch break - tell the office how long it was." }
   revalidatePath('/timesheets/clock')
 }
 
@@ -78,6 +115,7 @@ export async function adminClockIn(userId: string, siteId: string): Promise<Acti
   })
 
   if (error) {
+    if (error.code === '23505') return { error: 'They are already clocked in - clock them out first.' }
     return { error: error.message }
   }
 
