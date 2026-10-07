@@ -127,7 +127,7 @@ export async function assignInvoiceJobAction(invoiceId: string, jobId: string) {
   if (linesError) return { error: linesError.message };
 
   revalidatePath("/jobs/invoices");
-  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${jobId}`, "layout");
   return {};
 }
 
@@ -160,7 +160,7 @@ export async function splitInvoiceLinesAction(
   revalidatePath("/jobs/invoices");
   revalidatePath("/jobs");
   for (const jobId of new Set(cleaned.map((a) => a.jobId))) {
-    revalidatePath(`/jobs/${jobId}`);
+    revalidatePath(`/jobs/${jobId}`, "layout");
   }
   return {};
 }
@@ -262,8 +262,8 @@ export async function moveInvoiceToJobAction(invoiceId: string, newJobId: string
 
   revalidatePath("/jobs/invoices");
   revalidatePath("/jobs");
-  if (oldJobId) revalidatePath(`/jobs/${oldJobId}`);
-  if (newJobId) revalidatePath(`/jobs/${newJobId}`);
+  if (oldJobId) revalidatePath(`/jobs/${oldJobId}`, "layout");
+  if (newJobId) revalidatePath(`/jobs/${newJobId}`, "layout");
   return {};
 }
 
@@ -309,6 +309,6 @@ export async function deleteInvoiceAction(invoiceId: string) {
 
   revalidatePath("/jobs/invoices");
   revalidatePath("/jobs");
-  if (invoice.job_id) revalidatePath(`/jobs/${invoice.job_id}`);
+  if (invoice.job_id) revalidatePath(`/jobs/${invoice.job_id}`, "layout");
   return {};
 }

@@ -57,7 +57,7 @@ export async function updateReseneInvoiceLineAction(
       );
   }
 
-  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${jobId}`, "layout");
   return {};
 }
 
@@ -96,7 +96,7 @@ export async function approveReseneInvoiceLineAction(lineId: string, jobId: stri
 
   if (updateError) return { error: updateError.message };
 
-  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${jobId}`, "layout");
   return {};
 }
 
@@ -120,7 +120,7 @@ export async function addManualActualCostAction(
 
   if (error) return { error: error.message };
 
-  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${jobId}`, "layout");
   return {};
 }
 
@@ -178,7 +178,7 @@ export async function setCategoryActualAction(
 
   if (error) return { error: error.message };
 
-  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${jobId}`, "layout");
   return {};
 }
 
@@ -207,7 +207,7 @@ export async function updateActualCostAction(
 
   if (error) return { error: error.message };
 
-  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${jobId}`, "layout");
   return {};
 }
 
@@ -246,8 +246,8 @@ export async function moveActualCostToJobAction(costId: string, fromJobId: strin
   if (error) return { error: error.message };
   if (!moved || moved.length === 0) return { error: "Cost line could not be moved." };
 
-  revalidatePath(`/jobs/${fromJobId}`);
-  revalidatePath(`/jobs/${toJobId}`);
+  revalidatePath(`/jobs/${fromJobId}`, "layout");
+  revalidatePath(`/jobs/${toJobId}`, "layout");
   return {};
 }
 
@@ -273,6 +273,6 @@ export async function deleteActualCostAction(costId: string, jobId: string) {
       .eq("id", existing.resene_invoice_line_id);
   }
 
-  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${jobId}`, "layout");
   return {};
 }

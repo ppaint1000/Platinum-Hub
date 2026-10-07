@@ -138,7 +138,13 @@ export default async function JobsPage() {
   return (
     <div className="mx-auto w-full max-w-5xl p-8">
       <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <Link href="/jobs/live" className="text-sm font-semibold text-accent hover:text-accent-hover">
+            Live jobs
+          </Link>
+          <Link href="/jobs/forecast" className="text-sm font-semibold text-accent hover:text-accent-hover">
+            Forecast
+          </Link>
           <Link href="/jobs/hours" className="text-sm font-medium text-accent hover:text-accent-hover">
             Hours to approve
           </Link>

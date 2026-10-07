@@ -85,7 +85,7 @@ export async function updateJobCoreDetailsAction(
 
   if (error) return { error: error.message };
 
-  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${jobId}`, "layout");
   revalidatePath("/jobs");
   return {};
 }
@@ -102,7 +102,7 @@ export async function assignSalesPersonAction(jobId: string, leadByUserId: strin
 
   if (error) return { error: error.message };
 
-  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${jobId}`, "layout");
   revalidatePath("/jobs");
   revalidatePath("/sales");
   return {};
@@ -146,7 +146,7 @@ export async function addJobCategoryAction(jobId: string, label: string) {
 
   if (error) return { error: error.message };
 
-  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${jobId}`, "layout");
   return {};
 }
 
@@ -163,7 +163,7 @@ export async function renameJobCategoryAction(jobId: string, categoryId: string,
 
   if (error) return { error: error.message };
 
-  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${jobId}`, "layout");
   return {};
 }
 

@@ -34,7 +34,7 @@ export async function setCategoryBudgetAction(
   });
   if (insertError) return { error: insertError.message };
 
-  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${jobId}`, "layout");
   return {};
 }
 
@@ -52,6 +52,6 @@ export async function deleteCategoryBudgetAction(jobId: string, categoryId: stri
 
   if (error) return { error: error.message };
 
-  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${jobId}`, "layout");
   return {};
 }
