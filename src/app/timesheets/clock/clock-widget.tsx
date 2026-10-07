@@ -159,6 +159,7 @@ export function ClockWidget({
     if (!openEntry) return
     if (hadLunch === null) return setError('Did you have a lunch break? Choose Yes or No.')
     if (!lunchAnswered) return setError('Choose how long your lunch break was.')
+    if (breakMinutes * 60000 >= durationMs) return setError('Your lunch break is longer than your shift - check the time.')
 
     setError('')
     startTransition(async () => {

@@ -159,6 +159,20 @@ export async function clockOut(
   const profile = await getCurrentProfile()
   const supabase = await createClient()
 
+  // The lunch break can't be longer than the shift itself.
+  if (input.breakMinutes > 0) {
+    const { data: shift } = await supabase
+      .from('timesheet_entries')
+      .select('clock_in_at')
+      .eq('id', input.entryId)
+      .eq('user_id', profile.id)
+      .maybeSingle()
+    const shiftMinutes = shift ? (new Date(input.clockOutAt).getTime() - new Date(shift.clock_in_at).getTime()) / 60000 : 0
+    if (shift && input.breakMinutes >= shiftMinutes) {
+      return { error: 'Your lunch break is longer than your shift - check the time.' }
+    }
+  }
+
   const { data: updated, error } = await supabase
     .from('timesheet_entries')
     .update({
