@@ -187,9 +187,19 @@ export function ClockWidget({
   if (done) {
     const at = formatTimestamp(new Date(done.at).getTime())
     return (
-      <div className="w-full max-w-sm space-y-4 text-center">
+      // A pop-up over the whole screen so it can't be missed.
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="clocked-off-title"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+      >
+      <div className="w-full max-w-sm space-y-4 rounded-xl bg-white p-5 text-center shadow-2xl">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-600 text-3xl text-white" aria-hidden>
+          ✓
+        </div>
         <div className="rounded-lg border-2 border-green-600 bg-green-50 p-5">
-          <p className="text-lg font-semibold text-green-800">You&apos;re clocked out</p>
+          <p id="clocked-off-title" className="text-xl font-bold text-green-800">You have clocked off</p>
           <p className="mt-1 text-sm text-green-900">
             Logged off <span className="font-semibold">{done.site}</span> at {at.time}, {at.date}.
           </p>
@@ -211,10 +221,12 @@ export function ClockWidget({
             resetLunch()
             setNotes('')
           }}
+          autoFocus
           className="w-full rounded-md bg-black px-4 py-3 text-white"
         >
           OK
         </button>
+      </div>
       </div>
     )
   }
