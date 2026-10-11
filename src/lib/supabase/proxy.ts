@@ -57,7 +57,8 @@ export async function updateSession(request: NextRequest) {
   // Server-to-server webhook from Measures (a separate app/Supabase
   // project — no Hub session cookie to check here). Auth is the shared
   // secret each route verifies itself, see src/lib/integrations/quotesWebhook.ts.
-  const isIntegrationWebhook = path.startsWith("/api/integrations/");
+  // Scheduled jobs (Supabase's scheduler) - each route checks its own token.
+  const isIntegrationWebhook = path.startsWith("/api/integrations/") || path.startsWith("/api/cron/");
 
   // A customer's proposal link (/p/<token>) and the proposal page reporting
   // a view or acceptance: no sign-in - the link plus the proposal's 6-digit

@@ -6,6 +6,9 @@ import { getCurrentProfile } from '@/lib/supabase/profile'
 import { requireAdmin } from '@/lib/timesheets/authGuards'
 import { getReportEntries } from '@/lib/timesheets/reports'
 import { sendTimesheetConfirmationEmail } from '@/lib/timesheets/email/confirmTimesheet'
+import { sendClockOutNoteAlert } from '@/lib/timesheets/email/clockReminders'
+import { after } from 'next/server'
+import { headers } from 'next/headers'
 
 type Coords = { lat: number | null; lng: number | null }
 type ActionResult = { error?: string } | undefined
@@ -199,6 +202,14 @@ export async function clockOut(
     .select('id', { count: 'exact', head: true })
     .eq('user_id', profile.id)
     .is('clock_out_at', null)
+
+  // A note left at clock-out: let admins and supervisors know (after the
+  // response, so clocking out isn't held up by the email).
+  if (input.notes.trim()) {
+    const h = await headers()
+    const origin = h.get('origin') ?? `https://${h.get('host')}`
+    after(() => sendClockOutNoteAlert(input.entryId, origin))
+  }
 
   revalidatePath('/timesheets/clock')
   return { clockedOutAt: updated[0].clock_out_at as string, stillRunning: count ?? 0 }

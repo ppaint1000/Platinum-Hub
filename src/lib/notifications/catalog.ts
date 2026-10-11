@@ -133,6 +133,14 @@ export const EMAIL_NOTIFICATIONS: EmailNotification[] = [
     alsoFixedAddress: true,
   },
   {
+    key: "clock_out_note",
+    group: "Timesheets",
+    label: "When someone leaves a note at clock-out",
+    description: "A painter wrote a note when clocking off - the note, who and which site.",
+    audiences: ["admin", "supervisor"],
+    defaultOn: { admin: true, supervisor: true },
+  },
+  {
     key: "weekly_timesheet_report",
     group: "Timesheets",
     label: "Weekly timesheet report",
@@ -167,6 +175,7 @@ export const HUB_ALERTS: HubAlert[] = [
   { group: "Jobs & production", label: "Timesheet hours waiting for approval", where: "Red count on Jobs, Hours to approve", audiences: ["admin"] },
   { group: "Jobs & production", label: "Jobs brought across with no salesperson", where: "Jobs list and the job's page", audiences: ["admin"] },
   { group: "Timesheets", label: "Staff not clocked in by 9am on a weekday", where: "Red count on Absences", audiences: ["admin"] },
+  { group: "Timesheets", label: "Staff get an email at 8am to clock on, and at 4:30pm if still clocked on (working days)", where: "Their own inbox", audiences: ["admin", "supervisor"] },
   { group: "Timesheets", label: "Painters with job hours but no hourly rate", where: "Red count on Users, Hours to approve", audiences: ["admin"] },
   { group: "Fleet", label: "WOF, rego and services due; fuel entries missing numbers", where: "Fleet → Needs attention", audiences: ["admin"] },
   { group: "Fleet", label: "Vehicles more than 10% off the fleet average", where: "Fleet → Kilometres and fuel by vehicle", audiences: ["admin"] },
