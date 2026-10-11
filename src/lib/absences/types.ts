@@ -2,6 +2,7 @@ export const ABSENCE_TYPES = [
   { value: "sick", label: "Off sick" },
   { value: "authorised_leave", label: "Authorised leave" },
   { value: "unauthorised_leave", label: "Unauthorised leave" },
+  { value: "rained_off", label: "Rained off" },
   { value: "not_rostered", label: "Not rostered / public holiday" },
 ] as const;
 
@@ -15,8 +16,9 @@ export function isAbsenceType(value: unknown): value is AbsenceType {
   return ABSENCE_TYPES.some((t) => t.value === value);
 }
 
-// "Not rostered / public holiday" clears a false alarm - it's kept on record
-// but never counted as an absence in the stats.
+// "Not rostered / public holiday" clears a false alarm, and "Rained off" is
+// the weather, not the person - both kept on record but never counted as an
+// absence in the stats.
 export const COUNTED_TYPES: AbsenceType[] = ["sick", "authorised_leave", "unauthorised_leave"];
 
 export const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] as const;

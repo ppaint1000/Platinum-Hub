@@ -33,7 +33,7 @@ export async function recordAbsenceAction(formData: FormData) {
   const reason = String(formData.get("reason") ?? "").trim();
   const page = `/absences/${id}`;
 
-  if (!isAbsenceType(type)) back(page, "Pick whether they were sick, on leave or not rostered.");
+  if (!isAbsenceType(type)) back(page, "Pick whether they were sick, on leave, rained off or not rostered.");
   if (!reason) back(page, "Please give a reason.");
 
   const { error } = await supabase
@@ -59,7 +59,7 @@ export async function addAbsenceAction(formData: FormData) {
 
   if (!userId) back("/absences", "Pick who was away.");
   if (!DATE.test(from) || !DATE.test(to) || to < from) back("/absences", "Check the dates.");
-  if (!isAbsenceType(type)) back("/absences", "Pick whether they were sick, on leave or not rostered.");
+  if (!isAbsenceType(type)) back("/absences", "Pick whether they were sick, on leave, rained off or not rostered.");
   if (!reason) back("/absences", "Please give a reason.");
 
   // One row per weekday in the range.

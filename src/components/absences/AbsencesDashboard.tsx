@@ -11,7 +11,7 @@ import {
   fmtDate,
 } from "@/components/dashboard/parts";
 import { RANGE_LABEL, absencesHref, type AbsenceRange, type AbsencesData } from "@/lib/absences/data";
-import { ABSENCE_LABEL, ABSENCE_TYPES, type AbsenceType } from "@/lib/absences/types";
+import { ABSENCE_LABEL, ABSENCE_TYPES, COUNTED_TYPES, type AbsenceType } from "@/lib/absences/types";
 import {
   addAbsenceAction,
   addClosedDaysAction,
@@ -254,7 +254,7 @@ function StackedBars({ bars, height, caption }: { bars: Stack[]; height: number;
         <thead>
           <tr>
             <th scope="col"></th>
-            {ABSENCE_TYPES.filter((t) => t.value !== "not_rostered").map((t) => (
+            {ABSENCE_TYPES.filter((t) => COUNTED_TYPES.includes(t.value)).map((t) => (
               <th key={t.value} scope="col">
                 {t.label}
               </th>

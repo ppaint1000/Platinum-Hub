@@ -38,6 +38,7 @@ const ABSENCE: Record<string, string> = {
   authorised_leave: "Leave",
   unauthorised_leave: "Away",
   not_rostered: "Not rostered",
+  rained_off: "Rained off",
 };
 
 const input = "w-full rounded-lg border border-[#E3E1DA] bg-white px-3 py-2 text-sm text-[#16202E]";
