@@ -145,6 +145,9 @@ export default async function JobsPage() {
           <Link href="/jobs/forecast" className="text-sm font-semibold text-accent hover:text-accent-hover">
             Forecast
           </Link>
+          <Link href="/jobs/lead-sources" className="text-sm font-semibold text-accent hover:text-accent-hover">
+            Lead sources
+          </Link>
           <Link href="/jobs/hours" className="text-sm font-medium text-accent hover:text-accent-hover">
             Hours to approve
           </Link>

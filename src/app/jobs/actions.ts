@@ -228,3 +228,18 @@ export async function deleteJobAction(jobId: string) {
   revalidatePath("/sales");
   return {};
 }
+
+// The Lead sources page: set where one or more jobs' enquiries came from
+// ("" clears it). Admin-only, like the job's own Edit details.
+export async function setLeadSourceAction(jobIds: string[], leadSource: string) {
+  const supabase = await requireAdmin();
+  if (jobIds.length === 0) return { error: "No jobs chosen." };
+  const { error } = await supabase
+    .from("jobs")
+    .update({ lead_source: leadSource.trim() || null })
+    .in("id", jobIds);
+  if (error) return { error: error.message };
+  revalidatePath("/jobs/lead-sources");
+  revalidatePath("/reports/marketing");
+  return {};
+}

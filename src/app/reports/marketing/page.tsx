@@ -137,7 +137,11 @@ export default async function MarketingPage({ searchParams }: { searchParams: Pr
           </table>
         </Card>
         <p className="text-xs text-[#5B6472]">
-          Set each job&apos;s lead source on the job (Edit details) - jobs without one show as &quot;Not recorded&quot;. Win rate = won ÷ (won + lost). Return: green is 3× or
+          Jobs without a lead source show as &quot;Not recorded&quot; -{" "}
+          <Link href="/jobs/lead-sources" className="font-semibold text-[#1F4E8C] hover:underline">
+            set them on the Lead sources page
+          </Link>
+          . Win rate = won ÷ (won + lost). Return: green is 3× or
           better, red is less than the spend back.
         </p>
       </section>
