@@ -150,6 +150,22 @@ export const EMAIL_NOTIFICATIONS: EmailNotification[] = [
     alsoFixedAddress: true,
   },
   {
+    key: "daily_alerts",
+    group: "Reports",
+    label: "Daily alerts",
+    description: "7am on working days, only when something needs a look: no new enquiries for a week, win rate dropping, a job over budget, finished but not invoiced, someone still clocked on. Each one is sent once.",
+    audiences: ["admin"],
+    defaultOn: { admin: true },
+  },
+  {
+    key: "monthly_report",
+    group: "Reports",
+    label: "Monthly business report",
+    description: "On the 1st: last month's enquiries, quotes, wins, claims, hours and absences against the month before.",
+    audiences: ["admin"],
+    defaultOn: { admin: true },
+  },
+  {
     key: "fuel_missing_numbers",
     group: "Fleet",
     label: "When a fuel entry is missing its numbers",
@@ -181,7 +197,7 @@ export const HUB_ALERTS: HubAlert[] = [
   { group: "Fleet", label: "Vehicles more than 10% off the fleet average", where: "Fleet → Kilometres and fuel by vehicle", audiences: ["admin"] },
 ];
 
-export const GROUP_ORDER = ["Quotes & proposals", "Jobs & production", "Timesheets", "Fleet"];
+export const GROUP_ORDER = ["Quotes & proposals", "Jobs & production", "Timesheets", "Reports", "Fleet"];
 
 export function notificationByKey(key: string) {
   return EMAIL_NOTIFICATIONS.find((n) => n.key === key) ?? null;

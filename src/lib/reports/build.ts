@@ -69,6 +69,8 @@ export const OTHER_REPORT_GROUPS: { title: string; reports: { href: string; titl
   {
     title: "Clients and sales",
     reports: [
+      { href: "/reports/monthly", title: "Monthly Report", description: "Last month against the month before - emailed on the 1st." },
+      { href: "/reports/marketing", title: "Marketing ROI", description: "Quotes and wins by lead source against what you spend on each." },
       { href: "/sales", title: "Sales Overview", description: "The team's quoted and won against budget." },
       { href: "/sales/budgets", title: "Sales Budgets", description: "Quoted and won against each salesperson's budget." },
       { href: "/clients/dashboard", title: "Clients Dashboard", description: "Quoted, won, lost and win rate across clients." },
