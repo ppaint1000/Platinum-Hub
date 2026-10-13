@@ -19,7 +19,8 @@ export type PreviewRow = {
 }
 
 type Props = {
-  staff: { id: string; name: string }[]
+  // defaultRateId: their usual pay item when it isn't the one for everyone (Salary for supervisors and sales).
+  staff: { id: string; name: string; defaultRateId: string | null }[]
   links: Record<string, string>
   // A person's own pay item, when it isn't the usual one.
   personRates: Record<string, string>
@@ -234,7 +235,7 @@ export function XeroPayrollPanel(p: Props) {
                   className={`${select} py-1 text-xs ${personRates[s.id] ? 'border-[#13B5EA] bg-sky-50' : ''}`}
                   aria-label={`Pay item for ${s.name}`}
                 >
-                  <option value="">Usual{rate ? ` (${rateName(rate)})` : ''}</option>
+                  <option value="">Usual{(s.defaultRateId ?? rate) ? ` (${rateName(s.defaultRateId ?? rate)})` : ''}</option>
                   {p.rates.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.name}

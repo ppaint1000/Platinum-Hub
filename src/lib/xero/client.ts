@@ -159,6 +159,11 @@ export async function xeroCalendars(): Promise<XeroCalendar[]> {
   }))
 }
 
+// Supervisors and sales staff are paid salary: their hours go on Xero's
+// "Salary" pay item unless they've been given their own.
+export const SALARY_ROLES = ['supervisor', 'sales']
+export const salaryRateId = (rates: XeroEarningsRate[]) => rates.find((r) => r.name.trim().toLowerCase() === 'salary')?.earningsRateID ?? null
+
 export async function xeroEarningsRates(): Promise<XeroEarningsRate[]> {
   const r = await payrollNz<{ earningsRates: XeroEarningsRate[] }>('/EarningsRates')
   return (r.earningsRates ?? []).filter((e) => e.currentRecord !== false)

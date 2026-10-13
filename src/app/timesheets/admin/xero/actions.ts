@@ -4,7 +4,7 @@
 import { revalidatePath } from 'next/cache'
 import { getCurrentProfile } from '@/lib/supabase/profile'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { disconnectXero, xeroEmployees } from '@/lib/xero/client'
+import { disconnectXero, SALARY_ROLES, salaryRateId, xeroEarningsRates, xeroEmployees } from '@/lib/xero/client'
 import { sendTimesheet, type SendResult } from '@/lib/xero/timesheets'
 
 async function admin() {
@@ -72,9 +72,11 @@ export async function sendTimesheetsAction(input: {
   const [{ data: conn }, { data: links }, { data: people }, employees] = await Promise.all([
     db.from('xero_connection').select('earnings_rate_id').eq('id', 1).maybeSingle(),
     db.from('xero_employee_links').select('user_id, xero_employee_id, earnings_rate_id').in('user_id', input.userIds),
-    db.from('profiles').select('id, full_name').in('id', input.userIds),
+    db.from('profiles').select('id, full_name, role').in('id', input.userIds),
     xeroEmployees(),
   ])
+  const salaryId = salaryRateId(await xeroEarningsRates())
+  const roleOf = new Map((people ?? []).map((p) => [p.id as string, p.role as string]))
   if (!conn?.earnings_rate_id) return { error: 'Choose the pay item for hours first.' }
   const nameOf = new Map((people ?? []).map((p) => [p.id as string, p.full_name as string]))
   const calendarOf = new Map(employees.map((e) => [e.employeeID, e.payrollCalendarID]))
@@ -93,7 +95,11 @@ export async function sendTimesheetsAction(input: {
         employeeId: link.xero_employee_id as string,
         calendarId: input.calendarId,
         // Their own pay item if they have one, else the usual one.
-        earningsRateId: (link.earnings_rate_id as string | null) || (conn.earnings_rate_id as string),
+        // Their own pay item, else Salary for supervisors and sales, else the usual one.
+        earningsRateId:
+          (link.earnings_rate_id as string | null) ||
+          (SALARY_ROLES.includes(roleOf.get(link.user_id as string) ?? '') ? salaryId : null) ||
+          (conn.earnings_rate_id as string),
         start: input.start,
         end: input.end,
         pushedBy: profile.id,
