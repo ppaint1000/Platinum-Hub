@@ -14,8 +14,12 @@ import { resolveSections, type SectionChoice, type SectionKey } from "@/lib/quot
 export type ProposalImage = { path: string; caption?: string };
 export type SpecRow = { surface: string; prime: string; coat1: string; coat2: string; coat3: string };
 
+// How a proposal's number is shown: P-1001.
+export const proposalRef = (n: number | null | undefined) => (n ? `P-${n}` : null);
+
 export type ProposalData = {
   proposal: {
+    proposal_number?: number | null;
     proposal_date: string;
     recipient_name: string | null;
     recipient_role: string | null;
@@ -37,7 +41,7 @@ export type ProposalData = {
     pricing: ProposalPricing;
   };
   settings: ProposalTemplates;
-  quote: { location: string | null; valid_until: string | null };
+  quote: { location: string | null; valid_until: string | null; project?: string | null };
   customer: { name: string | null };
   // The quote's salesperson, from their Profile in the Hub (not shown at
   // the moment - see the proposal link page).
@@ -288,6 +292,34 @@ export function PricingTables({ pricing }: { pricing: ProposalPricing }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// The top of the Acceptance page: exactly which proposal is being accepted.
+function AcceptanceSummary({ data, siteLines }: { data: ProposalData; siteLines: string[] }) {
+  const { proposal: p, quote, customer } = data;
+  const forWho = [p.recipient_name, p.recipient_company || customer.name].filter(Boolean).join(", ");
+  const work = p.subject?.trim() || quote.project?.trim();
+  const rows: [string, React.ReactNode][] = [
+    ...(proposalRef(p.proposal_number) ? [["Proposal no.", proposalRef(p.proposal_number)] as [string, React.ReactNode]] : []),
+    ["Proposal date", <LongDate key="d" date={p.proposal_date} />],
+    ...(forWho ? [["Prepared for", forWho] as [string, React.ReactNode]] : []),
+    ...(siteLines.length ? [["Site", siteLines.join(", ")] as [string, React.ReactNode]] : []),
+    ...(work ? [["Work", work] as [string, React.ReactNode]] : []),
+    ["Price", `${money(p.pricing.total)} + GST${p.pricing.options.length ? " (plus any options chosen below)" : ""}`],
+  ];
+  return (
+    <div className="mb-6 border-[3px] p-3 text-[13px]" style={{ borderColor: RED }}>
+      <p className="mb-2 font-bold">You are accepting:</p>
+      <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1">
+        {rows.map(([label, value]) => (
+          <div key={label} className="contents">
+            <dt className="font-bold">{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
@@ -553,7 +585,7 @@ export function ProposalDocument({
       <style>{"@page { size: A4; margin: 0; }"}</style>
 
       {/* Cover */}
-      <section className="mx-auto mb-6 flex min-h-[297mm] w-full max-w-[210mm] flex-col items-center bg-white px-[12mm] pb-[12mm] pt-[30mm] text-center shadow-sm print:mb-0 print:max-w-none print:shadow-none">
+      <section className="mx-auto mb-6 flex min-h-[297mm] w-full max-w-[210mm] flex-col items-center bg-white px-[12mm] pb-[12mm] pt-[30mm] text-center shadow-sm print:mb-0 print:h-[290mm] print:min-h-0 print:max-w-none print:break-inside-avoid print:overflow-hidden print:pt-[24mm] print:shadow-none">
         <Image src="/measures-logo.webp" alt="Platinum Painters" width={420} height={168} priority className="h-auto w-[70%]" />
         <h1 className="mt-[25mm] text-[32px] font-bold tracking-wide text-black">{s.cover_title}</h1>
         <div className="mt-8 space-y-2 text-[19px] font-bold uppercase tracking-wide text-black">
@@ -579,6 +611,7 @@ export function ProposalDocument({
 
       {acceptance && (
         <Page footer={footer} title="Acceptance">
+          <AcceptanceSummary data={data} siteLines={siteLines} />
           {acceptance}
         </Page>
       )}

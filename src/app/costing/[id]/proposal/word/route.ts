@@ -347,10 +347,30 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (body.length > before) lastKey = key;
   }
 
-  // Acceptance, then the back pages.
+  // Acceptance (saying exactly which proposal), then the back pages.
+  const client = quote.customers as { name: string | null } | { name: string | null }[] | null;
+  const clientName = Array.isArray(client) ? client[0]?.name : client?.name;
+  const forWho = [p.recipient_name, p.recipient_company || clientName].filter(Boolean).join(", ");
+  const work = (p.subject as string | null)?.trim() || quote.project?.trim();
+  const summary: [string, string][] = [
+    ...(p.proposal_number ? [["Proposal no.", `P-${p.proposal_number}`] as [string, string]] : []),
+    ["Proposal date", longDate(p.proposal_date)],
+    ...(forWho ? [["Prepared for", forWho] as [string, string]] : []),
+    ...(siteLines.length ? [["Site", siteLines.join(", ")] as [string, string]] : []),
+    ...(work ? [["Work", work] as [string, string]] : []),
+    ...(p.pricing
+      ? [["Price", `${money(p.pricing.total)} + GST${p.pricing.options.length ? " (plus any options chosen)" : ""}`] as [string, string]]
+      : []),
+  ];
   body.push(
     pageBreak(),
     heading("Acceptance"),
+    para("You are accepting:", { bold: true, after: 100 }),
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: summary.map(([label, value]) => new TableRow({ children: [cellOf(label, true), cellOf(value)] })),
+    }),
+    new Paragraph({ children: [], spacing: { after: 300 } }),
     para("I accept this proposal, including the terms and conditions.", { after: 400 }),
     para("Name: ______________________________________", { after: 400 }),
     para("Signature: __________________________________", { after: 400 }),

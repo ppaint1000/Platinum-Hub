@@ -14,6 +14,7 @@ export type BuilderProposal = {
   token: string | null;
   // The 6-digit code the customer needs to open their link.
   access_code?: string | null;
+  proposal_number?: number | null;
   proposal_date: string;
   recipient_name: string | null;
   recipient_role: string | null;
@@ -181,14 +182,14 @@ export function ProposalBuilder({
     const { data, error } = await supabase
       .from("proposals")
       .upsert(payload, { onConflict: "quote_id" })
-      .select("id, token, access_code")
+      .select("id, token, access_code, proposal_number")
       .single();
     setSaving(false);
     if (error || !data) {
       setMessage({ kind: "error", text: "Couldn't save — " + (error?.message ?? "try again.") });
       return null;
     }
-    setP((prev) => ({ ...prev, id: data.id, token: data.token, access_code: data.access_code, pricing }));
+    setP((prev) => ({ ...prev, id: data.id, token: data.token, access_code: data.access_code, proposal_number: data.proposal_number, pricing }));
     setMessage({ kind: "ok", text: "Saved." });
     router.refresh();
     return data;
@@ -295,6 +296,11 @@ export function ProposalBuilder({
             <FileText className="h-4 w-4" />
             Download Word
           </button>
+          {p.proposal_number && (
+            <span className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted">
+              Proposal <span className="font-semibold text-ink">P-{p.proposal_number}</span>
+            </span>
+          )}
           {p.access_code && (
             <span className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-muted" title="The customer types this to open their link">
               Code <span className="font-mono font-semibold tracking-wider text-ink">{p.access_code}</span>
