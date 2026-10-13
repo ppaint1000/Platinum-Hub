@@ -153,7 +153,14 @@ export function ClaimsManager({ jobId, claims, contractValue }: { jobId: string;
                 ) : (
                   <tr key={c.id} className="border-b border-line/60">
                     <td className="py-2 pr-2 whitespace-nowrap">{nzDate(c.claim_date)}</td>
-                    <td className="px-2 py-2 font-mono text-xs">{c.reference ?? "—"}</td>
+                    <td className="px-2 py-2 font-mono text-xs">
+                      {c.reference ?? "—"}
+                      {c.xero_invoice_id && (
+                        <span className="ml-1.5 rounded bg-sky-100 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-sky-800" title="From Xero - change it in Xero">
+                          Xero{c.xero_status === "PAID" ? " · paid" : ""}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-2 py-2 text-ink-soft">{c.notes}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{money(c.amount, true)}</td>
                     <td className="px-2 py-2 text-right tabular-nums text-ink-soft">
@@ -161,6 +168,10 @@ export function ClaimsManager({ jobId, claims, contractValue }: { jobId: string;
                       {contractValue > 0 && <span className="block text-xs">{Math.round((toDate / contractValue) * 100)}%</span>}
                     </td>
                     <td className="py-2 pl-2 text-right whitespace-nowrap">
+                      {c.xero_invoice_id ? (
+                        <span className="text-xs text-ink-faint">In Xero</span>
+                      ) : (
+                      <>
                       <button onClick={() => setEditing(c.id)} className="rounded p-1.5 text-ink-soft hover:bg-black/5" title="Edit" aria-label="Edit claim">
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -172,6 +183,8 @@ export function ClaimsManager({ jobId, claims, contractValue }: { jobId: string;
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
+                      </>
+                      )}
                     </td>
                   </tr>
                 );

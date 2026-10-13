@@ -7,6 +7,8 @@ import { Panel, StatusLabel } from "@/components/ui";
 import { jobMargin } from "@/lib/jobs/margin";
 import { categoryGroup, fetchClaims, fetchVariations, groupBy, LIVE_STATUSES, money, variationTotals } from "@/lib/jobs/jobFinance";
 import { jobStatusLabel } from "@/design/tailwind.tokens";
+import { CheckXeroButton } from "@/components/jobs/CheckXeroButton";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { JobStatus } from "@/lib/jobs/status";
 
 type JobRow = {
@@ -77,6 +79,11 @@ export default async function LiveJobsPage({
     .returns<JobRow[]>();
 
   const live = allJobs ?? [];
+  const { count: unmatchedXero } = await createAdminClient()
+    .from("xero_unmatched_invoices")
+    .select("xero_invoice_id", { count: "exact", head: true })
+    .is("job_id", null)
+    .eq("dismissed", false);
   const q = (filters.q ?? "").trim().toLowerCase();
   const jobs = live.filter(
     (j) =>
@@ -157,7 +164,15 @@ export default async function LiveJobsPage({
         </Link>
       </div>
       <h1 className="text-3xl font-bold text-ink">Live jobs</h1>
-      <p className="mb-6 text-sm text-ink-soft">Every job won and not yet paid{filtered ? " - filtered" : ""}.</p>
+      <p className="mb-3 text-sm text-ink-soft">Every job won and not yet paid{filtered ? " - filtered" : ""}.</p>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <CheckXeroButton />
+        {!!unmatchedXero && (
+          <Link href="/jobs/xero-invoices" className="rounded-md bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-800 hover:bg-amber-200">
+            {unmatchedXero} Xero invoice{unmatchedXero === 1 ? "" : "s"} need a job →
+          </Link>
+        )}
+      </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         <Kpi label="Live jobs" value={String(rows.length)} sub={overBudget ? `${overBudget} over budget` : "None over budget"} />

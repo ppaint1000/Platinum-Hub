@@ -28,6 +28,9 @@ export type Claim = {
   reference: string | null;
   amount: number;
   notes: string | null;
+  // Set when it came from a Xero invoice (managed in Xero, not here).
+  xero_invoice_id: string | null;
+  xero_status: string | null;
 };
 
 // Jobs that are won and not yet paid - what's "live".
@@ -52,7 +55,7 @@ export async function fetchClaims(supabase: SupabaseClient, jobIds: string[]): P
   if (jobIds.length === 0) return [];
   const { data } = await supabase
     .from("job_claims")
-    .select("id, job_id, claim_date, reference, amount, notes")
+    .select("id, job_id, claim_date, reference, amount, notes, xero_invoice_id, xero_status")
     .in("job_id", jobIds)
     .order("claim_date");
   return (data ?? []).map((c) => ({ ...c, amount: Number(c.amount) })) as Claim[];

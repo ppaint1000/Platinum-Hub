@@ -4,6 +4,7 @@ import { isWorkingDay } from '@/lib/timesheets/email/clockReminders'
 import { sendDailyAlerts } from '@/lib/reports/dailyAlerts'
 import { emailMonthlyReport, shiftMonth } from '@/lib/reports/monthlyReport'
 import { nzTodayDateString } from '@/lib/timesheets/formatNZ'
+import { syncXeroInvoices } from '@/lib/xero/invoices'
 
 // Called by Supabase's scheduler (supabase/marketing_and_alerts.sql) at 7am
 // NZ time: the daily alerts on working days, and on the 1st last month's
@@ -29,6 +30,13 @@ export async function POST(request: NextRequest) {
   const origin = request.nextUrl.origin
   const today = nzTodayDateString()
   const result: Record<string, unknown> = {}
+
+  // Customer invoices from Xero onto their jobs - every day.
+  try {
+    result.xeroInvoices = await syncXeroInvoices()
+  } catch (e) {
+    result.xeroInvoices = { error: e instanceof Error ? e.message : 'failed' }
+  }
 
   if (await isWorkingDay(today)) result.alerts = await sendDailyAlerts(origin)
 

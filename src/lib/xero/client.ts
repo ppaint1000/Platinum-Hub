@@ -12,7 +12,9 @@ const PAYROLL_NZ = 'https://api.xero.com/payroll.xro/2.0'
 
 // Read employees and pay settings, write timesheets; offline_access keeps
 // the connection going without signing in again.
-export const XERO_SCOPES = 'openid profile email offline_access payroll.employees.read payroll.timesheets payroll.settings.read'
+// accounting.invoices.read: customer invoices become job claims (read only).
+export const XERO_SCOPES =
+  'openid profile email offline_access payroll.employees.read payroll.timesheets payroll.settings.read accounting.invoices.read'
 
 export type XeroConnection = {
   tenant_id: string
@@ -131,6 +133,21 @@ export async function payrollNz<T>(path: string, init: { method?: string; body?:
     cache: 'no-store',
   })
   const json = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(problemText(json, res.status))
+  return json as T
+}
+
+// The Accounting API (invoices). Throws MISSING_INVOICE_PERMISSION when the
+// connection was made before invoices were added - reconnect to fix.
+export async function accountingGet<T>(path: string, headers: Record<string, string> = {}): Promise<T> {
+  const { token, tenantId } = await accessToken()
+  const res = await fetch(`https://api.xero.com/api.xro/2.0${path}`, {
+    headers: { Authorization: `Bearer ${token}`, 'Xero-Tenant-Id': tenantId, Accept: 'application/json', ...headers },
+    cache: 'no-store',
+  })
+  if (res.status === 304) return { Invoices: [] } as T
+  const json = await res.json().catch(() => null)
+  if (res.status === 401 || res.status === 403) throw new Error('MISSING_INVOICE_PERMISSION')
   if (!res.ok) throw new Error(problemText(json, res.status))
   return json as T
 }

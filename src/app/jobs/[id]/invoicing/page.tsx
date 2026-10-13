@@ -3,6 +3,7 @@
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { SummaryStat } from "@/components/ui";
 import { ClaimsManager } from "@/components/jobs/ClaimsManager";
+import { CheckXeroButton } from "@/components/jobs/CheckXeroButton";
 import { fetchClaims, fetchVariations, money, variationTotals } from "@/lib/jobs/jobFinance";
 
 export default async function JobInvoicingPage({ params }: { params: Promise<{ id: string }> }) {
@@ -10,7 +11,7 @@ export default async function JobInvoicingPage({ params }: { params: Promise<{ i
   const supabase = await requireAppAccess("jobs");
 
   const [{ data: job }, variations, claims] = await Promise.all([
-    supabase.from("jobs").select("quoted_sell_total").eq("id", id).single<{ quoted_sell_total: number | null }>(),
+    supabase.from("jobs").select("quoted_sell_total, job_number").eq("id", id).single<{ quoted_sell_total: number | null; job_number: string | null }>(),
     fetchVariations(supabase, [id]),
     fetchClaims(supabase, [id]),
   ]);
@@ -32,9 +33,19 @@ export default async function JobInvoicingPage({ params }: { params: Promise<{ i
           style={{ width: `${Math.min(100, pct)}%`, background: claimed > contractValue ? "#B91C1C" : "#15803D" }}
         />
       </div>
+      <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm">
+        <p className="text-ink">
+          <b>Invoicing in Xero?</b> Put <b className="font-mono">{job?.job_number ?? "the job number"}</b> in the invoice&apos;s <b>Reference</b> and it appears
+          here once approved in Xero - checked every morning, or now:
+        </p>
+        <div className="mt-2">
+          <CheckXeroButton />
+        </div>
+      </div>
       <ClaimsManager jobId={id} claims={claims} contractValue={contractValue} />
       <p className="text-xs text-ink-soft">
-        Record each invoice you send the customer here (excl GST). It drives Claimed to date and Left to claim on Live jobs, and the Forecast.
+        Claims from Xero are marked Xero and change when the invoice changes in Xero. Anything not invoiced through Xero can be added here by hand (excl GST).
+        Claims drive Claimed to date and Left to claim on Live jobs, and the Forecast.
       </p>
     </div>
   );
