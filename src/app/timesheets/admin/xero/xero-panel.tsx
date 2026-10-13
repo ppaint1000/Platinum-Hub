@@ -20,6 +20,8 @@ export type PreviewRow = {
 type Props = {
   staff: { id: string; name: string }[]
   links: Record<string, string>
+  // A person's own pay item, when it isn't the usual one.
+  personRates: Record<string, string>
   employees: { id: string; name: string; calendarId: string | null }[]
   rates: { id: string; name: string; type: string }[]
   rateId: string | null
@@ -83,9 +85,13 @@ export function XeroPayrollPanel(p: Props) {
   }, [p.links, p.staff, p.employees])
   const [links, setLinks] = useState<Record<string, string>>(suggested)
   const [renameToXero, setRenameToXero] = useState(true)
+  const [personRates, setPersonRates] = useState<Record<string, string>>(p.personRates)
+  const rateName = (id: string) => p.rates.find((r) => r.id === id)?.name ?? null
   const xeroNameOf = (userId: string) => p.employees.find((e) => e.id === links[userId])?.name ?? null
   const renames = p.staff.filter((s) => links[s.id] && xeroNameOf(s.id) && xeroNameOf(s.id) !== s.name)
-  const dirty = p.staff.some((s) => (links[s.id] ?? '') !== (p.links[s.id] ?? ''))
+  const dirty = p.staff.some(
+    (s) => (links[s.id] ?? '') !== (p.links[s.id] ?? '') || (personRates[s.id] ?? '') !== (p.personRates[s.id] ?? '')
+  )
 
   // Ordinary hours is the usual pay item.
   const defaultRate = p.rateId ?? p.rates.find((r) => /ordinary/i.test(r.name) || r.type === 'OrdinaryEarnings')?.id ?? ''
@@ -164,7 +170,13 @@ export function XeroPayrollPanel(p: Props) {
                   run(
                     () =>
                       saveEmployeeLinksAction(
-                        p.staff.map((s) => ({ userId: s.id, xeroEmployeeId: links[s.id] || null, xeroName: xeroNameOf(s.id) })),
+                        p.staff.map((s) => ({
+                          userId: s.id,
+                          xeroEmployeeId: links[s.id] || null,
+                          xeroName: xeroNameOf(s.id),
+                          rateId: personRates[s.id] || null,
+                          rateName: personRates[s.id] ? rateName(personRates[s.id]) : null,
+                        })),
                         renameToXero
                       ),
                     renameToXero && renames.length ? `Saved - ${renames.length} name${renames.length === 1 ? '' : 's'} changed to match Xero.` : 'Saved.'
@@ -183,9 +195,10 @@ export function XeroPayrollPanel(p: Props) {
             </div>
           )}
         </div>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-x-6 gap-y-3 lg:grid-cols-2">
           {p.staff.map((s) => (
-            <label key={s.id} className="flex items-center gap-3 text-sm">
+            <div key={s.id} className="flex flex-col gap-1">
+            <label className="flex items-center gap-3 text-sm">
               <span className="w-40 shrink-0 font-medium">
                 {s.name}
                 {unsure.has(s.id) && links[s.id] === suggested[s.id] && (
@@ -208,6 +221,25 @@ export function XeroPayrollPanel(p: Props) {
                 ))}
               </select>
             </label>
+            {links[s.id] && (
+              <label className="flex items-center gap-3 text-xs text-black/60">
+                <span className="w-40 shrink-0 text-right">Pay item</span>
+                <select
+                  value={personRates[s.id] ?? ''}
+                  onChange={(e) => setPersonRates({ ...personRates, [s.id]: e.target.value })}
+                  className={`${select} py-1 text-xs ${personRates[s.id] ? 'border-[#13B5EA] bg-sky-50' : ''}`}
+                  aria-label={`Pay item for ${s.name}`}
+                >
+                  <option value="">Usual{rate ? ` (${rateName(rate)})` : ''}</option>
+                  {p.rates.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            </div>
           ))}
         </div>
       </section>

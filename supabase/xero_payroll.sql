@@ -47,3 +47,8 @@ create table if not exists public.xero_timesheet_pushes (
   unique (user_id, period_start)
 );
 alter table public.xero_timesheet_pushes enable row level security;
+
+-- A person's own pay item, when it isn't the usual one (e.g. a set hourly
+-- rate earnings line). Null = the pay item chosen for everyone.
+alter table public.xero_employee_links add column if not exists earnings_rate_id text;
+alter table public.xero_employee_links add column if not exists earnings_rate_name text;

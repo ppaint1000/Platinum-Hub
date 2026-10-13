@@ -98,7 +98,7 @@ export default async function XeroPayrollPage({
   const db = createAdminClient()
   const [{ data: access }, { data: links }] = await Promise.all([
     db.from('user_app_access').select('user_id').eq('timesheets', true),
-    db.from('xero_employee_links').select('user_id, xero_employee_id, xero_name'),
+    db.from('xero_employee_links').select('user_id, xero_employee_id, xero_name, earnings_rate_id'),
   ])
   const ids = (access ?? []).map((a) => a.user_id as string)
   const { data: people } = ids.length
@@ -106,6 +106,7 @@ export default async function XeroPayrollPage({
     : { data: [] as { id: string; full_name: string }[] }
   const staff = (people ?? []).map((p) => ({ id: p.id as string, name: p.full_name as string }))
   const linkOf = new Map((links ?? []).map((l) => [l.user_id as string, l.xero_employee_id as string]))
+  const rateOf = Object.fromEntries((links ?? []).filter((l) => l.earnings_rate_id).map((l) => [l.user_id as string, l.earnings_rate_id as string]))
 
   // The pay calendar: chosen, else the one most linked staff are on.
   const calOf = new Map(employees.map((e) => [e.employeeID, e.payrollCalendarID]))
@@ -201,6 +202,7 @@ export default async function XeroPayrollPage({
           <XeroPayrollPanel
             staff={staff}
             links={Object.fromEntries(linkOf)}
+            personRates={rateOf}
             employees={employees.map((e) => ({ id: e.employeeID, name: `${e.firstName} ${e.lastName}`.trim(), calendarId: e.payrollCalendarID }))}
             rates={rates.map((r) => ({ id: r.earningsRateID, name: r.name, type: r.earningsType }))}
             rateId={conn.earnings_rate_id}

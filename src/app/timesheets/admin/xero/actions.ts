@@ -17,7 +17,7 @@ async function admin() {
 // name in the Hub (Xero's is the payroll-correct spelling). Everything is
 // linked by person, not name, so their history stays with them.
 export async function saveEmployeeLinksAction(
-  links: { userId: string; xeroEmployeeId: string | null; xeroName: string | null }[],
+  links: { userId: string; xeroEmployeeId: string | null; xeroName: string | null; rateId?: string | null; rateName?: string | null }[],
   renameToXero = false
 ) {
   await admin()
@@ -32,7 +32,14 @@ export async function saveEmployeeLinksAction(
   const clear = links.filter((l) => !l.xeroEmployeeId).map((l) => l.userId)
   if (keep.length) {
     const { error } = await db.from('xero_employee_links').upsert(
-      keep.map((l) => ({ user_id: l.userId, xero_employee_id: l.xeroEmployeeId, xero_name: l.xeroName, updated_at: new Date().toISOString() })),
+      keep.map((l) => ({
+        user_id: l.userId,
+        xero_employee_id: l.xeroEmployeeId,
+        xero_name: l.xeroName,
+        earnings_rate_id: l.rateId || null,
+        earnings_rate_name: l.rateId ? l.rateName ?? null : null,
+        updated_at: new Date().toISOString(),
+      })),
       { onConflict: 'user_id' }
     )
     if (error) return { error: error.message }
@@ -64,7 +71,7 @@ export async function sendTimesheetsAction(input: {
   const db = createAdminClient()
   const [{ data: conn }, { data: links }, { data: people }, employees] = await Promise.all([
     db.from('xero_connection').select('earnings_rate_id').eq('id', 1).maybeSingle(),
-    db.from('xero_employee_links').select('user_id, xero_employee_id').in('user_id', input.userIds),
+    db.from('xero_employee_links').select('user_id, xero_employee_id, earnings_rate_id').in('user_id', input.userIds),
     db.from('profiles').select('id, full_name').in('id', input.userIds),
     xeroEmployees(),
   ])
@@ -85,7 +92,8 @@ export async function sendTimesheetsAction(input: {
         name,
         employeeId: link.xero_employee_id as string,
         calendarId: input.calendarId,
-        earningsRateId: conn.earnings_rate_id as string,
+        // Their own pay item if they have one, else the usual one.
+        earningsRateId: (link.earnings_rate_id as string | null) || (conn.earnings_rate_id as string),
         start: input.start,
         end: input.end,
         pushedBy: profile.id,
