@@ -34,7 +34,7 @@ export function shiftPeriod(start: string, end: string, by: number) {
   return { start: addDays(start, by * len), end: addDays(end, by * len) }
 }
 
-export async function hoursForPeriod(userId: string, start: string, end: string): Promise<PeriodHours> {
+export async function hoursForPeriod(userId: string, start: string, end: string): Promise<PeriodHours & { entryIds: string[] }> {
   const entries = await getReportEntries({ userId, from: start, to: end })
   const { dayTotals } = applyPayRounding(entries)
   const days: Record<string, number> = {}
@@ -54,6 +54,8 @@ export async function hoursForPeriod(userId: string, start: string, end: string)
     total: Object.values(days).reduce((s, n) => s + n, 0),
     needsCheck: dayTotals.filter((d) => d.needsCheck).map((d) => d.date),
     openShifts: entries.filter((e) => !e.clock_out_at).length,
+    // Finished shifts - approved onto their jobs once sent to Xero.
+    entryIds: entries.filter((e) => e.clock_out_at).map((e) => e.id),
     noLunch: [...byDay]
       .filter(([d, v]) => d >= start && d <= end && v.hours > LUNCH_FLAG_HOURS && v.breakMinutes === 0)
       .map(([d]) => d)
@@ -114,6 +116,22 @@ export async function sendTimesheet(opts: {
       },
     })
 
+    // Sent to Xero = checked: approve these shifts onto their jobs (Labour
+    // and Hours), the same as Jobs -> Hours to approve. Changing a shift
+    // later takes the approval away again, as it always has.
+    let approved = 0
+    if (hours.entryIds.length) {
+      const { data: done } = await db.from('job_hours_approvals').select('entry_id').in('entry_id', hours.entryIds)
+      const already = new Set((done ?? []).map((d) => d.entry_id as string))
+      const fresh = hours.entryIds.filter((id) => !already.has(id))
+      if (fresh.length) {
+        const { error } = await db
+          .from('job_hours_approvals')
+          .upsert(fresh.map((id) => ({ entry_id: id, approved_by: opts.pushedBy })), { onConflict: 'entry_id', ignoreDuplicates: true })
+        if (!error) approved = fresh.length
+      }
+    }
+
     await db.from('xero_timesheet_pushes').upsert(
       {
         user_id: userId,
@@ -131,7 +149,7 @@ export async function sendTimesheet(opts: {
       name,
       ok: true,
       hours: hours.total,
-      message: `${hours.total} h sent as a draft${previous ? ' (replaced the earlier one)' : ''}.`,
+      message: `${hours.total} h sent as a draft${previous ? ' (replaced the earlier one)' : ''}${approved ? ` · ${approved} shift${approved === 1 ? '' : 's'} approved onto jobs` : ''}.`,
     }
   } catch (e) {
     return { userId, name, ok: false, message: e instanceof Error ? e.message : 'Failed to send.' }

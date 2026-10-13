@@ -107,6 +107,8 @@ export async function sendTimesheetsAction(input: {
     )
   }
   revalidatePath('/timesheets/admin/xero')
+  // Shifts were approved onto jobs too.
+  revalidatePath('/jobs', 'layout')
   return { results }
 }
 
