@@ -30,6 +30,28 @@ type Props = {
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
+const words = (s: string) => s.toLowerCase().split(/[^a-z]+/).filter(Boolean)
+
+// Letters that differ between two words (small typos like Laurance/Laurence).
+function distance(a: string, b: string) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)])
+  for (let j = 1; j <= b.length; j++) d[0][j] = j
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+  return d[a.length][b.length]
+}
+
+// How alike a Hub name and a Xero name are: 3 = the same, 2 = first and
+// last swapped, 1 = close (a typo, or a short name like Sai for Saimone).
+function likeness(hub: string, xero: string): number {
+  if (norm(hub) === norm(xero)) return 3
+  const h = words(hub)
+  const x = words(xero)
+  if (h.length && [...h].sort().join() === [...x].sort().join()) return 2
+  const close = (a: string, b: string) => a === b || (a.length >= 3 && (b.startsWith(a) || a.startsWith(b))) || distance(a, b) <= (Math.min(a.length, b.length) > 4 ? 2 : 1)
+  const pairs = h.length === 2 && x.length === 2 && ((close(h[0], x[0]) && close(h[1], x[1])) || (close(h[0], x[1]) && close(h[1], x[0])))
+  return pairs ? 1 : 0
+}
 const dayLabel = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric' })
 const box = 'rounded-lg border border-black/10 bg-white p-5'
 const select = 'w-full rounded-md border border-black/20 bg-white px-2 py-1.5 text-sm'
@@ -40,17 +62,29 @@ export function XeroPayrollPanel(p: Props) {
   const [message, setMessage] = useState('')
   const [results, setResults] = useState<SendResult[] | null>(null)
 
-  // Suggest a Xero employee by matching names for anyone not linked yet.
-  const suggested = useMemo(() => {
+  // Suggest a Xero employee for anyone not linked yet - the closest name,
+  // never one already taken. Anything short of an exact match is flagged.
+  const { suggested, unsure } = useMemo(() => {
     const out: Record<string, string> = { ...p.links }
-    for (const s of p.staff) {
-      if (out[s.id]) continue
-      const m = p.employees.find((e) => norm(e.name) === norm(s.name))
-      if (m) out[s.id] = m.id
+    const unsure = new Set<string>()
+    const taken = new Set(Object.values(p.links))
+    const candidates = p.staff
+      .filter((s) => !out[s.id])
+      .flatMap((s) => p.employees.map((e) => ({ s, e, score: likeness(s.name, e.name) })))
+      .filter((c) => c.score > 0)
+      .sort((a, b) => b.score - a.score)
+    for (const c of candidates) {
+      if (out[c.s.id] || taken.has(c.e.id)) continue
+      out[c.s.id] = c.e.id
+      taken.add(c.e.id)
+      if (c.score < 3) unsure.add(c.s.id)
     }
-    return out
+    return { suggested: out, unsure }
   }, [p.links, p.staff, p.employees])
   const [links, setLinks] = useState<Record<string, string>>(suggested)
+  const [renameToXero, setRenameToXero] = useState(true)
+  const xeroNameOf = (userId: string) => p.employees.find((e) => e.id === links[userId])?.name ?? null
+  const renames = p.staff.filter((s) => links[s.id] && xeroNameOf(s.id) && xeroNameOf(s.id) !== s.name)
   const dirty = p.staff.some((s) => (links[s.id] ?? '') !== (p.links[s.id] ?? ''))
 
   // Ordinary hours is the usual pay item.
@@ -122,32 +156,45 @@ export function XeroPayrollPanel(p: Props) {
               {unlinked.length ? ` - ${unlinked.length} not saved yet` : ''}.
             </p>
           </div>
-          {dirty && (
-            <button
-              disabled={pending}
-              onClick={() =>
-                run(
-                  () =>
-                    saveEmployeeLinksAction(
-                      p.staff.map((s) => ({
-                        userId: s.id,
-                        xeroEmployeeId: links[s.id] || null,
-                        xeroName: p.employees.find((e) => e.id === links[s.id])?.name ?? null,
-                      }))
-                    ),
-                  'Saved.'
-                )
-              }
-              className="rounded-md bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              Save matches
-            </button>
+          {(dirty || renames.length > 0) && (
+            <div className="flex flex-col items-end gap-1">
+              <button
+                disabled={pending}
+                onClick={() =>
+                  run(
+                    () =>
+                      saveEmployeeLinksAction(
+                        p.staff.map((s) => ({ userId: s.id, xeroEmployeeId: links[s.id] || null, xeroName: xeroNameOf(s.id) })),
+                        renameToXero
+                      ),
+                    renameToXero && renames.length ? `Saved - ${renames.length} name${renames.length === 1 ? '' : 's'} changed to match Xero.` : 'Saved.'
+                  )
+                }
+                className="rounded-md bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                Save matches
+              </button>
+              {renames.length > 0 && (
+                <label className="flex items-center gap-2 text-xs text-black/70">
+                  <input type="checkbox" checked={renameToXero} onChange={(e) => setRenameToXero(e.target.checked)} />
+                  Change {renames.length} Hub name{renames.length === 1 ? '' : 's'} to match Xero
+                </label>
+              )}
+            </div>
           )}
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           {p.staff.map((s) => (
             <label key={s.id} className="flex items-center gap-3 text-sm">
-              <span className="w-40 shrink-0 font-medium">{s.name}</span>
+              <span className="w-40 shrink-0 font-medium">
+                {s.name}
+                {unsure.has(s.id) && links[s.id] === suggested[s.id] && (
+                  <span className="block text-xs font-normal text-amber-700">Close match - check</span>
+                )}
+                {renameToXero && xeroNameOf(s.id) && xeroNameOf(s.id) !== s.name && (
+                  <span className="block text-xs font-normal text-black/50">→ becomes {xeroNameOf(s.id)}</span>
+                )}
+              </span>
               <select
                 value={links[s.id] ?? ''}
                 onChange={(e) => setLinks({ ...links, [s.id]: e.target.value })}

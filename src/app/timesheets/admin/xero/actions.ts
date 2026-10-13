@@ -13,9 +13,21 @@ async function admin() {
   return profile
 }
 
-export async function saveEmployeeLinksAction(links: { userId: string; xeroEmployeeId: string | null; xeroName: string | null }[]) {
+// Save who's who; with `renameToXero`, matched people also take their Xero
+// name in the Hub (Xero's is the payroll-correct spelling). Everything is
+// linked by person, not name, so their history stays with them.
+export async function saveEmployeeLinksAction(
+  links: { userId: string; xeroEmployeeId: string | null; xeroName: string | null }[],
+  renameToXero = false
+) {
   await admin()
   const db = createAdminClient()
+  if (renameToXero) {
+    for (const l of links.filter((x) => x.xeroEmployeeId && x.xeroName?.trim())) {
+      const { error } = await db.from('profiles').update({ full_name: l.xeroName!.trim() }).eq('id', l.userId)
+      if (error) return { error: error.message }
+    }
+  }
   const keep = links.filter((l) => l.xeroEmployeeId)
   const clear = links.filter((l) => !l.xeroEmployeeId).map((l) => l.userId)
   if (keep.length) {
@@ -26,7 +38,8 @@ export async function saveEmployeeLinksAction(links: { userId: string; xeroEmplo
     if (error) return { error: error.message }
   }
   if (clear.length) await db.from('xero_employee_links').delete().in('user_id', clear)
-  revalidatePath('/timesheets/admin/xero')
+  // Names show all over the Hub.
+  revalidatePath(renameToXero ? '/' : '/timesheets/admin/xero', renameToXero ? 'layout' : 'page')
   return {}
 }
 
