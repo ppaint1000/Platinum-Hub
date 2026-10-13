@@ -141,6 +141,14 @@ export const EMAIL_NOTIFICATIONS: EmailNotification[] = [
     defaultOn: { admin: true, supervisor: true },
   },
   {
+    key: "staff_reply",
+    group: "Timesheets",
+    label: "When someone replies to the clock-on reminder",
+    description: "They tapped 'I'm sick today', 'On leave', 'Rained off' or 'Running late' in the 8am email (absences are recorded for you).",
+    audiences: ["admin", "supervisor"],
+    defaultOn: { admin: true, supervisor: true },
+  },
+  {
     key: "weekly_timesheet_report",
     group: "Timesheets",
     label: "Weekly timesheet report",

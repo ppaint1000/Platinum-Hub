@@ -14,6 +14,28 @@ import { sendEmail } from "@/lib/email/mailer";
 import { publicHolidayOn } from "@/lib/absences/holidays";
 import { nzDayStartUtcIso, nzTimeString, nzTodayDateString } from "@/lib/timesheets/formatNZ";
 import { notificationRecipients } from "@/lib/notifications/recipients";
+import { REPLIES, replyLink, type ReplyKey } from "@/lib/timesheets/replyLinks";
+
+// The 8am email: a Clock on button, and one-tap replies for anyone not in
+// today ("I'm sick today", "I'm on leave", "Rained off", "Running late").
+export function clockOnEmail(first: string, clockLink: string, replies: { label: string; url: string }[]) {
+  const text =
+    `Morning ${first},\n\nYou haven't clocked on yet today. Clock on here when you arrive on site:\n${clockLink}\n\n` +
+    `Not working today? Tap one to let the office know:\n${replies.map((r) => `${r.label}: ${r.url}`).join("\n")}\n\nPlatinum Painters`;
+  const button = (href: string, label: string, dark: boolean) =>
+    `<a href="${href}" style="display:inline-block;margin:0 6px 8px 0;padding:12px 16px;border-radius:8px;text-decoration:none;font-weight:bold;` +
+    (dark ? `background:#16202E;color:#ffffff;` : `background:#F1F0EC;color:#16202E;border:1px solid #DDD9CF;`) +
+    `">${label}</a>`;
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;color:#16202E;max-width:520px;font-size:15px;line-height:1.5">` +
+    `<p>Morning ${first},</p>` +
+    `<p>You haven&#39;t clocked on yet today. Tap below when you arrive on site.</p>` +
+    `<p>${button(clockLink, "Clock on", true)}</p>` +
+    `<p style="margin-top:24px">Not working today? Tap one to let the office know:</p>` +
+    `<p>${replies.map((r) => button(r.url, r.label, false)).join("")}</p>` +
+    `<p style="color:#5B6472;font-size:13px;margin-top:24px">Platinum Painters</p></div>`;
+  return { text, html };
+}
 
 export type ReminderKind = "on" | "off";
 
@@ -98,15 +120,20 @@ export async function sendClockReminders(kind: ReminderKind, origin: string, opt
   for (const p of due.filter((d) => claimedIds.has(d.id))) {
     const first = p.full_name.split(" ")[0];
     const shift = openBy.get(p.id);
+    // Not in today? One tap tells the office (and records the absence).
+    const replies =
+      kind === "on"
+        ? await Promise.all(
+            (Object.keys(REPLIES) as ReplyKey[]).map(async (k) => ({ label: REPLIES[k].label, url: await replyLink(origin, p.id, day, k) }))
+          )
+        : [];
     const result =
       kind === "on"
         ? await sendEmail({
             to: p.email!,
             fromName: "Platinum Painters Hub",
             subject: "Reminder: clock on for today",
-            text:
-              `Morning ${first},\n\nYou haven't clocked on yet today. Clock on here when you arrive on site:\n${link}\n\n` +
-              `If you're not working today, let the office know.\n\nPlatinum Painters`,
+            ...clockOnEmail(first, link, replies),
           })
         : await sendEmail({
             to: p.email!,
