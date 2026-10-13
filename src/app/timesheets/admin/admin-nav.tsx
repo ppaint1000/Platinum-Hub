@@ -12,6 +12,7 @@ const links = [
   { href: '/timesheets/admin/change-requests', label: 'Change Requests', adminOnly: true },
   { href: '/timesheets/admin/reports', label: 'Reports', adminOnly: true },
   { href: '/timesheets/admin/reports/by-job', label: 'Hours by Job', adminOnly: true },
+  { href: '/timesheets/admin/xero', label: 'Xero Payroll', adminOnly: true },
   { href: '/absences', label: 'Absences', adminOnly: true },
   { href: '/clients', label: 'Clients', adminOnly: true },
   { href: '/timesheets/admin/sites', label: 'Sites' },
