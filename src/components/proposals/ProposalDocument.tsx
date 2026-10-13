@@ -18,6 +18,7 @@ export type ProposalData = {
   proposal: {
     proposal_date: string;
     recipient_name: string | null;
+    recipient_role: string | null;
     recipient_company: string | null;
     recipient_address: string | null;
     salutation: string | null;
@@ -320,7 +321,25 @@ export function ProposalDocument({
   const sections = resolveSections(p.sections);
 
   // Each section's page(s); empty when there's nothing to show.
-  type PageSpec = { title?: string; banner?: string; body: React.ReactNode };
+  // lines: roughly how much of an A4 page the section fills, in body-text
+  // lines (about 38 fit) - used to put a short section on the page before.
+  type PageSpec = { title?: string; banner?: string; body: React.ReactNode; lines?: number };
+  const textLines = (t: string | null | undefined, perLine = 95) =>
+    lines(t).reduce((n, l) => n + Math.max(1, Math.ceil(l.length / perLine)), 0);
+  const TITLE_LINES = 2;
+  const ROW_LINES = 1.5;
+  const extentLines =
+    TITLE_LINES + [...includes, ...excludes].reduce((n, l) => n + Math.max(1, Math.ceil(l.length / 70)), 0) + (includes.length && excludes.length ? 1 : 0);
+  const specLines = TITLE_LINES + (p.spec_intro ? textLines(p.spec_intro) + 1 : 0) + (spec.length ? (spec.length + 1) * ROW_LINES : 0);
+  const pricingLines =
+    TITLE_LINES +
+    2 +
+    (p.pricing.items.length + 1 + (p.pricing.items.length > 1 ? 1 : 0)) * ROW_LINES +
+    1 +
+    [...new Set(p.pricing.options.map((o) => o.group))].reduce(
+      (n, g) => n + 2 + (p.pricing.options.filter((o) => o.group === g).length + 1) * ROW_LINES,
+      0
+    );
   const equipmentBody = equipment.length > 0 && (
     <div className="border-[3px]" style={{ borderColor: RED }}>
       <div className="grid grid-cols-2 gap-1 p-1">
@@ -348,6 +367,7 @@ export function ProposalDocument({
         <div className="mb-12 grid grid-cols-[1fr_13rem] gap-4">
           <div className="font-bold italic text-[#9A9A9A]">
             {p.recipient_name && <p>{p.recipient_name}</p>}
+            {p.recipient_role && <p>{p.recipient_role}</p>}
             {p.recipient_company && <p>{p.recipient_company}</p>}
             {lines(p.recipient_address).map((l, i) => (
               <p key={i}>{l}</p>
@@ -432,7 +452,7 @@ export function ProposalDocument({
     extent: includes.length > 0 || excludes.length > 0 ? [{ title: "Extent of Work", body: (<>
           {includes.length > 0 && <LabelledList label="Surfaces" items={includes} />}
           {excludes.length > 0 && <LabelledList label="Exclusions" items={excludes} />}
-</>) }] : [],
+</>), lines: extentLines }] : [],
     methodology: s.methodology ? [{ title: "Methodology", body: (<>
           <div className="text-[13px]">
             <RichText text={s.methodology} />
@@ -474,9 +494,9 @@ export function ProposalDocument({
               </table>
             </div>
           )}
-</>) }] : [],
-    pricing: [{ title: "Pricing", body: pricingBody }],
-    why: s.why_text?.trim() ? [{ title: "Why Platinum Painters", body: <RichText text={s.why_text} /> }] : [],
+</>), lines: specLines }] : [],
+    pricing: [{ title: "Pricing", body: pricingBody, lines: pricingLines }],
+    why: s.why_text?.trim() ? [{ title: "Why Platinum Painters", body: <RichText text={s.why_text} />, lines: TITLE_LINES + textLines(s.why_text) }] : [],
     terms: s.terms ? [{ title: "Terms and Conditions:", body: (<>
           <div className="text-[12.5px]">
             <RichText text={s.terms} />
@@ -488,15 +508,26 @@ export function ProposalDocument({
   // Equipment straight after the site plan, and Why Platinum Painters
   // straight after the pricing, share that page (as in the printed quotes).
   const SHARES_PAGE_WITH: Partial<Record<SectionKey, SectionKey>> = { equipment: "site_plan", why: "pricing" };
+  // These go on the page before only if there's room: the Specification
+  // after the Extent of Work, the Pricing after the Specification.
+  const FILLS_PAGE_AFTER: Partial<Record<SectionKey, SectionKey>> = { specification: "extent", pricing: "specification" };
+  const PAGE_LINES = 38;
   const pages: PageSpec[] = [];
   let prev: SectionKey | null = null;
+  let lastShared = false; // the last page already holds more than one section
   for (const { key, on } of sections) {
     if (!on || !blocks[key].length) continue;
     const last = pages[pages.length - 1];
-    if (last && prev && SHARES_PAGE_WITH[key] === prev) {
-      const [b] = blocks[key];
+    const [b] = blocks[key];
+    const fits = !!last && (last.lines ?? PAGE_LINES) + (b.lines ?? PAGE_LINES) + 2 <= PAGE_LINES;
+    const shares =
+      !!last &&
+      !!prev &&
+      ((SHARES_PAGE_WITH[key] === prev && (!lastShared || fits)) || (FILLS_PAGE_AFTER[key] === prev && blocks[key].length === 1 && fits));
+    if (shares && last) {
       pages[pages.length - 1] = {
         ...last,
+        lines: (last.lines ?? PAGE_LINES) + (b.lines ?? 0) + 2,
         body: (
           <>
             {last.body}
@@ -507,8 +538,10 @@ export function ProposalDocument({
           </>
         ),
       };
+      lastShared = true;
     } else {
       pages.push(...blocks[key]);
+      lastShared = false;
     }
     prev = key;
   }

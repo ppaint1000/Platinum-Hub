@@ -67,6 +67,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
         token: null,
         proposal_date: todayNZ(),
         recipient_name: "",
+        recipient_role: "",
         recipient_company: customer?.name ?? "",
         recipient_address: customer?.address ?? "",
         salutation: "",

@@ -46,7 +46,8 @@ const para = (t: string, opts: { bold?: boolean; size?: number; color?: string; 
   new Paragraph({ children: [text(t, opts)], alignment: opts.align, spacing: { after: opts.after ?? 80 } });
 
 const heading = (t: string) =>
-  new Paragraph({ children: [new TextRun({ text: t, font: "Times New Roman", size: 40, bold: true, color: RED })], spacing: { after: 200 } });
+  // keepNext: a heading never sits alone at the foot of a page.
+  new Paragraph({ children: [new TextRun({ text: t, font: "Times New Roman", size: 40, bold: true, color: RED })], spacing: { after: 200 }, keepNext: true });
 
 const pageBreak = () => new Paragraph({ children: [new PageBreak()] });
 
@@ -178,13 +179,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     para("www.platinumpainters.co.nz", { align: AlignmentType.CENTER, color: "1F4E8C" })
   );
 
+  // The Specification after the Extent of Work, and the Pricing after the
+  // Specification, carry on the same page - Word moves them over if there
+  // isn't room. Everything else (Terms included) starts a new page.
+  const FLOWS_AFTER: Partial<Record<SectionKey, SectionKey>> = { specification: "extent", pricing: "specification" };
+  let lastKey: SectionKey | null = null;
   const add = async (key: SectionKey) => {
-    const start = () => body.push(pageBreak());
+    const start = () =>
+      body.push(FLOWS_AFTER[key] && FLOWS_AFTER[key] === lastKey ? new Paragraph({ children: [], spacing: { before: 400 } }) : pageBreak());
     switch (key) {
       case "letter": {
         start();
         if (s.letter_banner) body.push(para(s.letter_banner, { bold: true, size: 44, color: RED, align: AlignmentType.CENTER, after: 300 }));
-        for (const l of [p.recipient_name, p.recipient_company, ...lines(p.recipient_address as string | null)] as (string | null)[])
+        for (const l of [p.recipient_name, p.recipient_role, p.recipient_company, ...lines(p.recipient_address as string | null)] as (string | null)[])
           if (l) body.push(para(l, { bold: true, color: "808080" }));
         // Bigger gaps: address, then the date, then "Dear ..."
         body.push(new Paragraph({ children: [], spacing: { after: 600 } }), para(longDate(p.proposal_date), { after: 720 }));
@@ -333,7 +340,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
   };
-  for (const { key, on } of sections) if (on && key !== "back_pages") await add(key);
+  for (const { key, on } of sections) {
+    if (!on || key === "back_pages") continue;
+    const before = body.length;
+    await add(key);
+    if (body.length > before) lastKey = key;
+  }
 
   // Acceptance, then the back pages.
   body.push(

@@ -16,6 +16,7 @@ export type BuilderProposal = {
   access_code?: string | null;
   proposal_date: string;
   recipient_name: string | null;
+  recipient_role: string | null;
   recipient_company: string | null;
   recipient_address: string | null;
   salutation: string | null;
@@ -155,6 +156,7 @@ export function ProposalBuilder({
       quote_id: quoteId,
       proposal_date: p.proposal_date,
       recipient_name: p.recipient_name?.trim() || null,
+      recipient_role: p.recipient_role?.trim() || null,
       recipient_company: p.recipient_company?.trim() || null,
       recipient_address: p.recipient_address?.trim() || null,
       salutation: p.salutation?.trim() || null,
@@ -436,6 +438,9 @@ export function ProposalBuilder({
             </Field>
             <Field label="To (contact name)">
               <input className={inputClass} value={p.recipient_name ?? ""} onChange={(e) => set("recipient_name", e.target.value)} placeholder="Emma Hallberg" />
+            </Field>
+            <Field label="Role (under their name)">
+              <input className={inputClass} value={p.recipient_role ?? ""} onChange={(e) => set("recipient_role", e.target.value)} placeholder="Property Manager" />
             </Field>
             <Field label="Company">
               <input className={inputClass} value={p.recipient_company ?? ""} onChange={(e) => set("recipient_company", e.target.value)} />
