@@ -1,14 +1,15 @@
 "use server";
 
 // Order numbers from the paper order book, each against the job it was for,
-// so the supplier's bill in Xero lands on that job. Admins and supervisors.
+// so the supplier's bill in Xero lands on that job. Admins and anyone with
+// "Log an order" ticked.
 import { revalidatePath } from "next/cache";
-import { getCurrentProfile } from "@/lib/supabase/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+import { canLogOrders } from "./access";
+
 async function allowed() {
-  const p = await getCurrentProfile();
-  if (p.role !== "admin" && p.role !== "supervisor") throw new Error("Admins and supervisors only.");
+  if (!(await canLogOrders()).ok) throw new Error("You don't have Log an order - ask the office to tick it for you.");
 }
 
 export async function addOrderNumberAction(orderNumber: string, jobId: string) {

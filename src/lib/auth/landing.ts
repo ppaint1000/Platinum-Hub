@@ -31,6 +31,8 @@ export function landingPath(role: string, access: LandingAccess): string {
         return "/site-measures";
       case "orders":
         return "/orders";
+      case "order_log":
+        return "/jobs/order-numbers";
       case "fleet":
         return "/fleet";
       case "timesheets":

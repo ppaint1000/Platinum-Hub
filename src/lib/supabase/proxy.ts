@@ -65,7 +65,11 @@ export async function updateSession(request: NextRequest) {
   // code is the key (checked in the database). Work order links (/w/) need a
   // Hub sign-in like everything else.
   const isTokenLink =
-    path.startsWith("/p/") || /^\/api\/proposals\/[^/]+\/(viewed|accepted|declined)$/.test(path) || path.startsWith("/u/");
+    path.startsWith("/p/") ||
+    /^\/api\/proposals\/[^/]+\/(viewed|accepted|declined)$/.test(path) ||
+    path.startsWith("/u/") ||
+    // Replies from the 8am clock-on reminder (signed per person and day).
+    path.startsWith("/r/");
 
   if (isPublicAsset || isIntegrationWebhook || isTokenLink) return response;
 
@@ -82,7 +86,7 @@ export async function updateSession(request: NextRequest) {
         .maybeSingle<Profile>(),
       supabase
         .from("user_app_access")
-        .select("timesheets, fleet, orders, jobs, sales, sales_authority, measures, costing, production, default_app")
+        .select("timesheets, fleet, orders, jobs, sales, sales_authority, measures, costing, production, order_log, default_app")
         .eq("user_id", user.id)
         .maybeSingle<AppAccess>(),
     ]);

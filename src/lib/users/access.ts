@@ -1,4 +1,4 @@
-export type AccessApp = "timesheets" | "fleet" | "orders" | "jobs" | "sales" | "production" | "schedule" | "safety" | "invoices";
+export type AccessApp = "timesheets" | "fleet" | "orders" | "jobs" | "sales" | "production" | "schedule" | "safety" | "invoices" | "order_log";
 export type Role = "admin" | "supervisor" | "painter" | "sales";
 
 // Where someone lands after signing in - the "Default app" on the Users
@@ -13,6 +13,7 @@ export type DefaultApp =
   | "costing"
   | "measures"
   | "orders"
+  | "order_log"
   | "fleet";
 
 export const DEFAULT_APP_OPTIONS: { value: DefaultApp; label: string }[] = [
@@ -25,6 +26,7 @@ export const DEFAULT_APP_OPTIONS: { value: DefaultApp; label: string }[] = [
   { value: "costing", label: "Costing" },
   { value: "measures", label: "Site Measures" },
   { value: "orders", label: "Orders" },
+  { value: "order_log", label: "Log an order" },
   { value: "fleet", label: "Fleet" },
 ];
 
@@ -52,6 +54,7 @@ export function defaultAppAllowed(app: DefaultApp, role: string, flags: AppFlags
     case "sales":
     case "jobs":
     case "orders":
+    case "order_log":
     case "fleet":
     case "costing":
     case "measures":
@@ -60,12 +63,12 @@ export function defaultAppAllowed(app: DefaultApp, role: string, flags: AppFlags
 }
 
 export function defaultAccessForRole(role: Role): Record<AccessApp, boolean> {
-  const none = { production: false, schedule: false, safety: false, invoices: false };
+  const none = { production: false, schedule: false, safety: false, invoices: false, order_log: false };
   if (role === "admin")
-    return { timesheets: true, fleet: true, orders: true, jobs: true, sales: true, production: true, schedule: true, safety: true, invoices: true };
+    return { timesheets: true, fleet: true, orders: true, jobs: true, sales: true, production: true, schedule: true, safety: true, invoices: true, order_log: true };
   if (role === "supervisor")
-    return { timesheets: true, fleet: true, orders: true, jobs: false, sales: false, production: true, schedule: true, safety: true, invoices: true };
+    return { timesheets: true, fleet: true, orders: true, jobs: false, sales: false, production: true, schedule: true, safety: true, invoices: true, order_log: true };
   if (role === "sales")
-    return { timesheets: true, fleet: true, orders: false, jobs: false, sales: true, ...none };
+    return { timesheets: true, fleet: true, orders: false, jobs: false, sales: true, ...none, order_log: true };
   return { timesheets: true, fleet: false, orders: false, jobs: false, sales: false, ...none, safety: true };
 }

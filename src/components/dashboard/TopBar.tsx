@@ -87,6 +87,7 @@ export function staffNav(access: {
   schedule?: boolean;
   safety?: boolean;
   invoices?: boolean;
+  orderLog?: boolean;
   // Painters: just their own things (clock in, timesheet, fuel) - no Hub home.
   painter?: boolean;
 }): NavItem[] {
@@ -107,8 +108,8 @@ export function staffNav(access: {
     items.push({ href: "/timesheets/timesheet", label: "My timesheet", icon: CalendarX });
   }
   if (access.orders) items.push({ href: "/orders", label: "Orders", icon: ShoppingCart });
-  // Supervisors run jobs (Production) - they log paper order book numbers.
-  if (access.production) items.push({ href: "/jobs/order-numbers", label: "Log an order", icon: ShoppingCart });
+  // Paper order book numbers against jobs (Users -> Page access).
+  if (access.orderLog) items.push({ href: "/jobs/order-numbers", label: "Log an order", icon: ShoppingCart });
   if (access.invoices) items.push({ href: "/jobs/invoices", label: "Supplier invoices", icon: Receipt });
   if (access.safety) items.push({ href: "/safety", label: "Safety", icon: ShieldCheck });
   if (access.fleet) {

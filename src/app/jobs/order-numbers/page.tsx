@@ -1,15 +1,16 @@
 // Log an order - the order number from the paper order book page and the job
 // it's for. When the supplier's bill arrives in Xero quoting that order
-// number, it goes onto the job's costs. Admins and supervisors.
+// number, it goes onto the job's costs. Admins, and anyone with "Log an
+// order" ticked on Users -> Page access.
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getCurrentProfile } from "@/lib/supabase/profile";
+import { canLogOrders } from "./access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { OrderNumberForm, RemoveOrderNumber } from "./order-form";
 
 export default async function OrderNumbersPage() {
-  const profile = await getCurrentProfile();
-  if (profile.role !== "admin" && profile.role !== "supervisor") redirect("/hub");
+  const access = await canLogOrders();
+  if (!access.ok) redirect("/hub");
   const db = createAdminClient();
   const [{ data: jobs }, { data: recent }] = await Promise.all([
     db
@@ -28,7 +29,7 @@ export default async function OrderNumbersPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl p-4 sm:p-8">
-      {profile.role === "admin" && (
+      {access.admin && (
         <Link href="/jobs/xero-bills" className="text-sm font-medium text-ink-soft hover:text-ink">
           ← Xero bills
         </Link>

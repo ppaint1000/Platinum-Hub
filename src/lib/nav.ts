@@ -17,6 +17,7 @@ type Access = {
   schedule?: boolean;
   safety?: boolean;
   invoices?: boolean;
+  order_log?: boolean;
 };
 
 export async function navForViewer(): Promise<NavItem[]> {
@@ -25,7 +26,7 @@ export async function navForViewer(): Promise<NavItem[]> {
   const supabase = await createClient();
   const { data: access } = await supabase
     .from("user_app_access")
-    .select("timesheets, jobs, orders, fleet, sales, sales_authority, measures, costing, production, schedule, safety, invoices")
+    .select("timesheets, jobs, orders, fleet, sales, sales_authority, measures, costing, production, schedule, safety, invoices, order_log")
     .eq("user_id", profile.id)
     .maybeSingle<Access>();
   if (profile.role === "supervisor") {
@@ -38,6 +39,7 @@ export async function navForViewer(): Promise<NavItem[]> {
       schedule: access?.schedule,
       safety: access?.safety,
       invoices: access?.invoices,
+      orderLog: access?.order_log,
     }).filter((i) => i.href !== "/hub");
     const [timesheets, allApps] = [SUPERVISOR_NAV.find((i) => i.href === "/timesheets/admin")!, SUPERVISOR_NAV[SUPERVISOR_NAV.length - 1]];
     return [...ticked.filter((i) => i.href === "/production" || i.href === "/schedule"), timesheets, ...ticked.filter((i) => i.href !== "/production" && i.href !== "/schedule"), allApps];
@@ -54,6 +56,7 @@ export async function navForViewer(): Promise<NavItem[]> {
     schedule: access?.schedule,
     safety: access?.safety,
     invoices: access?.invoices,
+    orderLog: access?.order_log,
     sales: access?.sales || profile.role === "sales",
     painter: profile.role === "painter",
   });

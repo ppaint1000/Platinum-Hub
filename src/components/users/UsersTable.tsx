@@ -48,6 +48,7 @@ export type UserRow = {
     schedule?: boolean;
     safety?: boolean;
     invoices?: boolean;
+    order_log?: boolean;
   } | null;
   payRate: PayRate | null;
   staff_type_id: string | null;
@@ -76,6 +77,7 @@ const PAGE_GROUPS: { title: string; pages: { key: PageKey; label: string; hint?:
       { key: "schedule", label: "Schedule" },
       { key: "orders", label: "Orders" },
       { key: "invoices", label: "Supplier invoices", hint: "upload and match to jobs" },
+      { key: "order_log", label: "Log an order", hint: "order book numbers to jobs" },
     ],
   },
   {
