@@ -128,12 +128,13 @@ export async function syncXeroInvoices(): Promise<SyncResult> {
   return result
 }
 
-// Invoiced jobs whose Xero invoices are all paid and that are fully claimed
-// (quote + approved variations) move to Paid.
+// Jobs fully claimed through Xero (quote + approved variations) move along
+// by themselves: Job completed -> Invoiced, and once every one of those
+// invoices is paid in Xero, Invoiced -> Paid.
 async function markPaidJobs(jobIds: string[]): Promise<number> {
   if (jobIds.length === 0) return 0
   const db = createAdminClient()
-  const { data: jobs } = await db.from('jobs').select('id, status, quoted_sell_total').in('id', jobIds).eq('status', 'invoiced')
+  const { data: jobs } = await db.from('jobs').select('id, status, quoted_sell_total').in('id', jobIds).in('status', ['complete', 'invoiced'])
   if (!jobs?.length) return 0
   const ids = jobs.map((j) => j.id as string)
   const [{ data: claims }, variations] = await Promise.all([
@@ -148,9 +149,12 @@ async function markPaidJobs(jobIds: string[]): Promise<number> {
     const fromXero = cs.filter((c) => c.xero_invoice_id)
     const contract = Number(j.quoted_sell_total ?? 0) + variationTotals(varsBy.get(j.id as string) ?? []).approvedAmount
     const claimed = cs.reduce((s, c) => s + Number(c.amount), 0)
-    if (fromXero.length && fromXero.every((c) => c.xero_status === 'PAID') && contract > 0 && claimed >= contract - 1) {
-      await db.from('jobs').update({ status: 'paid' }).eq('id', j.id)
-      n++
+    if (!fromXero.length || contract <= 0 || claimed < contract - 1) continue
+    const allPaid = fromXero.every((c) => c.xero_status === 'PAID')
+    const next = allPaid ? 'paid' : j.status === 'complete' ? 'invoiced' : null
+    if (next) {
+      await db.from('jobs').update({ status: next }).eq('id', j.id)
+      if (next === 'paid') n++
     }
   }
   return n

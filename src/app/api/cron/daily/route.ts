@@ -5,6 +5,8 @@ import { sendDailyAlerts } from '@/lib/reports/dailyAlerts'
 import { emailMonthlyReport, shiftMonth } from '@/lib/reports/monthlyReport'
 import { nzTodayDateString } from '@/lib/timesheets/formatNZ'
 import { syncXeroInvoices } from '@/lib/xero/invoices'
+import { syncXeroBills } from '@/lib/xero/bills'
+import { autoSendTimesheets, weeklyBudgetTrend } from '@/lib/automation/weekly'
 
 // Called by Supabase's scheduler (supabase/marketing_and_alerts.sql) at 7am
 // NZ time: the daily alerts on working days, and on the 1st last month's
@@ -31,11 +33,27 @@ export async function POST(request: NextRequest) {
   const today = nzTodayDateString()
   const result: Record<string, unknown> = {}
 
-  // Customer invoices from Xero onto their jobs - every day.
-  try {
-    result.xeroInvoices = await syncXeroInvoices()
-  } catch (e) {
-    result.xeroInvoices = { error: e instanceof Error ? e.message : 'failed' }
+  // Customer invoices and supplier bills from Xero onto their jobs - every day.
+  const safely = async (key: string, fn: () => Promise<unknown>) => {
+    try {
+      result[key] = await fn()
+    } catch (e) {
+      result[key] = { error: e instanceof Error ? e.message : 'failed' }
+    }
+  }
+  await safely('xeroInvoices', syncXeroInvoices)
+  await safely('xeroBills', syncXeroBills)
+
+  // Mondays: last week's timesheets to Xero, and the budget trend - once.
+  const isMonday = new Date(`${today}T00:00:00Z`).getUTCDay() === 1
+  if (isMonday) {
+    const key = `weekly_auto:${today}`
+    const { data: ran } = await db.from('hub_alert_log').select('key').eq('key', key).maybeSingle()
+    if (!ran) {
+      await db.from('hub_alert_log').upsert({ key, detail: 'Monday automation' }, { onConflict: 'key', ignoreDuplicates: true })
+      await safely('weeklyTimesheets', () => autoSendTimesheets(origin))
+      await safely('weeklyBudget', () => weeklyBudgetTrend(origin))
+    }
   }
 
   if (await isWorkingDay(today)) result.alerts = await sendDailyAlerts(origin)

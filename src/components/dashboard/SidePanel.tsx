@@ -64,6 +64,8 @@ const GROUPS: { title: string; links: Link_[] }[] = [
       { href: "/jobs", label: "Jobs", icon: Briefcase },
       { href: "/jobs/live", label: "Live jobs", icon: Activity },
       { href: "/jobs/forecast", label: "Forecast", icon: LineChart },
+      { href: "/jobs/order-numbers", label: "Log an order", icon: ShoppingCart },
+      { href: "/jobs/xero-bills", label: "Xero bills", icon: Receipt },
       { href: "/production", label: "Production", icon: Kanban },
       { href: "/schedule", label: "Schedule", icon: CalendarDays },
       { href: "/safety", label: "Health & safety", icon: ShieldCheck },

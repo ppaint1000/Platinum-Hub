@@ -12,9 +12,29 @@ const PAYROLL_NZ = 'https://api.xero.com/payroll.xro/2.0'
 
 // Read employees and pay settings, write timesheets; offline_access keeps
 // the connection going without signing in again.
-// accounting.invoices.read: customer invoices become job claims (read only).
+// accounting.invoices: customer invoices and supplier bills onto jobs (read),
+// and approved variations as draft invoices (write - drafts only).
+// accounting.contacts.read: find the customer for a variation invoice.
 export const XERO_SCOPES =
-  'openid profile email offline_access payroll.employees.read payroll.timesheets payroll.settings.read accounting.invoices.read'
+  'openid profile email offline_access payroll.employees.read payroll.timesheets payroll.settings.read accounting.invoices accounting.contacts.read'
+
+// Accounting API writes (variation draft invoices).
+export async function accountingPost<T>(path: string, body: unknown): Promise<T> {
+  const { token, tenantId } = await accessToken()
+  const res = await fetch(`https://api.xero.com/api.xro/2.0${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Xero-Tenant-Id': tenantId, Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  })
+  const json = await res.json().catch(() => null)
+  if (res.status === 401 || res.status === 403) throw new Error('MISSING_INVOICE_PERMISSION')
+  if (!res.ok) {
+    const j = json as { Message?: string; Elements?: { ValidationErrors?: { Message: string }[] }[] } | null
+    throw new Error(j?.Elements?.[0]?.ValidationErrors?.map((v) => v.Message).join('; ') || j?.Message || `Xero error ${res.status}`)
+  }
+  return json as T
+}
 
 export type XeroConnection = {
   tenant_id: string

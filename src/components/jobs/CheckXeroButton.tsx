@@ -11,7 +11,7 @@ import { checkXeroNowAction } from "@/app/jobs/xero-actions";
 export function CheckXeroButton() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState<{ text: string; bad?: boolean; reconnect?: boolean; unmatched?: number } | null>(null);
+  const [message, setMessage] = useState<{ text: string; bad?: boolean; reconnect?: boolean; unmatched?: number; unmatchedBills?: number } | null>(null);
 
   function check() {
     setMessage(null);
@@ -26,8 +26,15 @@ export function CheckXeroButton() {
         r.updated && `${r.updated} updated`,
         r.removed && `${r.removed} removed (draft or voided)`,
         r.paidJobs && `${r.paidJobs} job${r.paidJobs === 1 ? "" : "s"} moved to Paid`,
+        r.bills?.added && `${r.bills.added} bill${r.bills.added === 1 ? "" : "s"} added to job costs`,
+        r.bills?.updated && `${r.bills.updated} bill${r.bills.updated === 1 ? "" : "s"} updated`,
+        r.bills?.removed && `${r.bills.removed} bill${r.bills.removed === 1 ? "" : "s"} taken off`,
       ].filter(Boolean);
-      setMessage({ text: parts.length ? parts.join(", ") + "." : "Up to date - nothing new in Xero.", unmatched: r.unmatched });
+      setMessage({
+        text: parts.length ? parts.join(", ") + "." : "Up to date - nothing new in Xero.",
+        unmatched: r.unmatched,
+        unmatchedBills: r.bills?.unmatched,
+      });
       router.refresh();
     });
   }
@@ -51,6 +58,14 @@ export function CheckXeroButton() {
               <a href="/api/xero/connect" className="font-semibold underline">
                 Reconnect Xero
               </a>
+            </>
+          )}
+          {!!message.unmatchedBills && (
+            <>
+              {" "}
+              <Link href="/jobs/xero-bills" className="font-semibold text-amber-700 underline">
+                {message.unmatchedBills} bill{message.unmatchedBills === 1 ? "" : "s"} need a job
+              </Link>
             </>
           )}
           {!!message.unmatched && (

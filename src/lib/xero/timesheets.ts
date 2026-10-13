@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getReportEntries } from '@/lib/timesheets/reports'
 import { applyPayRounding } from '@/lib/timesheets/payroll'
 import { addDays, nzDateKey } from '@/lib/timesheets/formatNZ'
-import { payrollNz } from './client'
+import { payrollNz, SALARY_ROLES, salaryRateId, xeroEarningsRates, xeroEmployees } from './client'
 
 export type PeriodHours = {
   days: Record<string, number>
@@ -154,4 +154,60 @@ export async function sendTimesheet(opts: {
   } catch (e) {
     return { userId, name, ok: false, message: e instanceof Error ? e.message : 'Failed to send.' }
   }
+}
+
+// Send a pay period for these people (the Send button, and the Monday
+// automatic send). Pay item: their own, else Salary for supervisors and
+// sales, else the usual one. With skipSent, anyone already sent for this
+// period is left alone.
+export async function sendPeriod(input: {
+  calendarId: string
+  start: string
+  end: string
+  userIds: string[]
+  pushedBy: string
+  skipSent?: boolean
+}): Promise<{ error?: string; results?: SendResult[] }> {
+  const db = createAdminClient()
+  const [{ data: conn }, { data: links }, { data: people }, employees, rates, { data: sent }] = await Promise.all([
+    db.from('xero_connection').select('earnings_rate_id').eq('id', 1).maybeSingle(),
+    db.from('xero_employee_links').select('user_id, xero_employee_id, earnings_rate_id').in('user_id', input.userIds),
+    db.from('profiles').select('id, full_name, role').in('id', input.userIds),
+    xeroEmployees(),
+    xeroEarningsRates(),
+    db.from('xero_timesheet_pushes').select('user_id').eq('period_start', input.start),
+  ])
+  if (!conn?.earnings_rate_id) return { error: 'Choose the pay item for hours first.' }
+  const salaryId = salaryRateId(rates)
+  const roleOf = new Map((people ?? []).map((p) => [p.id as string, p.role as string]))
+  const nameOf = new Map((people ?? []).map((p) => [p.id as string, p.full_name as string]))
+  const calendarOf = new Map(employees.map((e) => [e.employeeID, e.payrollCalendarID]))
+  const alreadySent = new Set((sent ?? []).map((s) => s.user_id as string))
+
+  const results: SendResult[] = []
+  for (const link of links ?? []) {
+    const userId = link.user_id as string
+    const name = nameOf.get(userId) ?? 'Someone'
+    if (calendarOf.get(link.xero_employee_id as string) !== input.calendarId) {
+      results.push({ userId, name, ok: false, message: 'Not on this pay calendar in Xero - skipped.' })
+      continue
+    }
+    if (input.skipSent && alreadySent.has(userId)) continue
+    results.push(
+      await sendTimesheet({
+        userId,
+        name,
+        employeeId: link.xero_employee_id as string,
+        calendarId: input.calendarId,
+        earningsRateId:
+          (link.earnings_rate_id as string | null) ||
+          (SALARY_ROLES.includes(roleOf.get(userId) ?? '') ? salaryId : null) ||
+          (conn.earnings_rate_id as string),
+        start: input.start,
+        end: input.end,
+        pushedBy: input.pushedBy,
+      })
+    )
+  }
+  return { results }
 }

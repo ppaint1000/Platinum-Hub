@@ -158,6 +158,22 @@ export const EMAIL_NOTIFICATIONS: EmailNotification[] = [
     defaultOn: { admin: true },
   },
   {
+    key: "weekly_xero_timesheets",
+    group: "Reports",
+    label: "Monday: last week's timesheets sent to Xero",
+    description: "Hours go to Xero as drafts automatically each Monday at 7am - this is the summary, with anything worth checking before you approve.",
+    audiences: ["admin"],
+    defaultOn: { admin: true },
+  },
+  {
+    key: "weekly_budget_trend",
+    group: "Reports",
+    label: "Monday: jobs to watch on budget",
+    description: "Live jobs at 80% or more of their budget, or that used 15% or more of it in the past week.",
+    audiences: ["admin"],
+    defaultOn: { admin: true },
+  },
+  {
     key: "monthly_report",
     group: "Reports",
     label: "Monthly business report",

@@ -5,8 +5,10 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import type { VariationStatus } from "@/lib/jobs/jobFinance";
+import { draftInvoiceForVariation } from "@/lib/xero/variationInvoice";
 
-type Result = { error?: string };
+// notice: what happened in Xero (an approved variation's draft invoice).
+type Result = { error?: string; notice?: string };
 
 export type VariationInput = {
   name: string;
@@ -42,15 +44,21 @@ export async function createVariationAction(jobId: string, input: VariationInput
 
   // V01, V02... per job.
   const { count } = await supabase.from("job_variations").select("id", { count: "exact", head: true }).eq("job_id", jobId);
-  const { error } = await supabase.from("job_variations").insert({
-    job_id: jobId,
-    reference: `V${String((count ?? 0) + 1).padStart(2, "0")}`,
-    ...cleanVariation(input),
-    approved_at: input.status === "approved" ? new Date().toISOString() : null,
-  });
+  const { data: created, error } = await supabase
+    .from("job_variations")
+    .insert({
+      job_id: jobId,
+      reference: `V${String((count ?? 0) + 1).padStart(2, "0")}`,
+      ...cleanVariation(input),
+      approved_at: input.status === "approved" ? new Date().toISOString() : null,
+    })
+    .select("id")
+    .single();
   if (error) return { error: error.message };
+  // Approved straight away: a draft invoice in Xero to send the customer.
+  const xero = input.status === "approved" && created ? await draftInvoiceForVariation(created.id) : null;
   refresh(jobId);
-  return {};
+  return xero ? { notice: `Xero: ${xero.message}` } : {};
 }
 
 export async function updateVariationAction(jobId: string, variationId: string, input: VariationInput): Promise<Result> {
@@ -68,8 +76,10 @@ export async function updateVariationAction(jobId: string, variationId: string, 
     .eq("id", variationId)
     .eq("job_id", jobId);
   if (error) return { error: error.message };
+  // Just approved: a draft invoice in Xero to send the customer.
+  const xero = input.status === "approved" && before?.status !== "approved" ? await draftInvoiceForVariation(variationId) : null;
   refresh(jobId);
-  return {};
+  return xero ? { notice: `Xero: ${xero.message}` } : {};
 }
 
 export async function deleteVariationAction(jobId: string, variationId: string): Promise<Result> {

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { linkUnmatchedInvoice, syncXeroInvoices, type SyncResult } from "@/lib/xero/invoices";
+import { syncXeroBills, type BillSyncResult } from "@/lib/xero/bills";
 
 async function admin() {
   const profile = await getCurrentProfile();
@@ -16,11 +17,13 @@ const refresh = () => {
   revalidatePath("/reports", "layout");
 };
 
-export async function checkXeroNowAction(): Promise<SyncResult> {
+// Customer invoices and supplier bills, both.
+export async function checkXeroNowAction(): Promise<SyncResult & { bills?: BillSyncResult }> {
   await admin();
   const r = await syncXeroInvoices();
+  const bills = r.error ? undefined : await syncXeroBills();
   refresh();
-  return r;
+  return { ...r, error: r.error ?? bills?.error, bills };
 }
 
 export async function linkXeroInvoiceAction(xeroInvoiceId: string, jobId: string) {

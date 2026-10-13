@@ -110,13 +110,16 @@ export function VariationsManager({
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<string | "new" | null>(variations.length === 0 ? "new" : null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const categoryLabel = new Map(categories.map((c) => [c.id, c.label]));
 
-  const run = (fn: () => Promise<{ error?: string }>, after?: () => void) => {
+  const run = (fn: () => Promise<{ error?: string; notice?: string }>, after?: () => void) => {
     setError("");
+    setNotice("");
     startTransition(async () => {
       const r = await fn();
       if (r.error) return setError(r.error);
+      if (r.notice) setNotice(r.notice);
       after?.();
       router.refresh();
     });
@@ -144,6 +147,7 @@ export function VariationsManager({
       </div>
 
       {error && <p className="mb-3 text-sm text-red-700">{error}</p>}
+      {notice && <p className="mb-3 rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-900">{notice}</p>}
 
       {editing === "new" && (
         <div className="mb-4">

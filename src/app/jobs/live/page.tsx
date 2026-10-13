@@ -167,6 +167,12 @@ export default async function LiveJobsPage({
       <p className="mb-3 text-sm text-ink-soft">Every job won and not yet paid{filtered ? " - filtered" : ""}.</p>
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <CheckXeroButton />
+        <Link href="/jobs/xero-bills" className="text-sm font-semibold text-accent hover:text-accent-hover">
+          Xero bills
+        </Link>
+        <Link href="/jobs/order-numbers" className="text-sm font-semibold text-accent hover:text-accent-hover">
+          Log an order
+        </Link>
         {!!unmatchedXero && (
           <Link href="/jobs/xero-invoices" className="rounded-md bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-800 hover:bg-amber-200">
             {unmatchedXero} Xero invoice{unmatchedXero === 1 ? "" : "s"} need a job →
