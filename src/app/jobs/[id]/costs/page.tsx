@@ -9,6 +9,8 @@ import {
   type AwaitingInvoiceOrderRow,
 } from "@/components/jobs/ReseneInvoiceCostsSection";
 import { CostLinesSection, type CostLineRow } from "@/components/jobs/CostLinesSection";
+import { JobTimesheetLog, type TimesheetLogRow } from "@/components/jobs/JobTimesheetLog";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { JobBudgetTable, type CategoryBudgetRow } from "@/components/jobs/JobBudgetTable";
 import { jobMargin } from "@/lib/jobs/margin";
 import { money } from "@/lib/jobs/jobFinance";
@@ -82,6 +84,38 @@ export default async function JobCostsPage({ params }: { params: Promise<{ id: s
     supabase.rpc("job_hours_pending", { p_job_id: id }),
     supabase.from("supplier_invoices").select("customer_po_number").not("customer_po_number", "is", null),
   ]);
+
+  // Every shift clocked at this job's site(s), and which are approved.
+  // Read with the service role: timesheets aren't visible to a Jobs
+  // session, and this page is already limited to Jobs users.
+  const admin = createAdminClient();
+  const { data: jobSites } = await admin.from("sites").select("id, name").eq("job_id", id);
+  const siteIds = (jobSites ?? []).map((s) => s.id as string);
+  const siteName = new Map((jobSites ?? []).map((s) => [s.id as string, s.name as string]));
+  const { data: shifts } = siteIds.length
+    ? await admin
+        .from("timesheet_entries")
+        .select("id, site_id, clock_in_at, clock_out_at, break_minutes, notes, profiles(full_name)")
+        .in("site_id", siteIds)
+        .order("clock_in_at", { ascending: false })
+    : { data: [] };
+  const { data: approvals } = (shifts ?? []).length
+    ? await admin.from("job_hours_approvals").select("entry_id").in("entry_id", (shifts ?? []).map((e) => e.id as string))
+    : { data: [] };
+  const approvedIds = new Set((approvals ?? []).map((a) => a.entry_id as string));
+  const timesheetRows: TimesheetLogRow[] = (shifts ?? []).map((e) => {
+    const p = e.profiles as { full_name: string } | { full_name: string }[] | null;
+    return {
+      id: e.id as string,
+      person: (Array.isArray(p) ? p[0]?.full_name : p?.full_name) ?? "—",
+      site: siteName.get(e.site_id as string) ?? "",
+      clockIn: e.clock_in_at as string,
+      clockOut: (e.clock_out_at as string | null) ?? null,
+      breakMinutes: Number(e.break_minutes ?? 0),
+      notes: (e.notes as string | null) ?? null,
+      approved: approvedIds.has(e.id as string),
+    };
+  });
 
   // "Awaiting invoice" = a Resene order on this job whose project_number
   // has no matching supplier_invoices.customer_po_number yet.
@@ -170,6 +204,8 @@ export default async function JobCostsPage({ params }: { params: Promise<{ id: s
       <ReseneInvoiceCostsSection jobId={id} lines={invoiceLines ?? []} awaitingInvoice={awaitingInvoice} categories={categoryOptions} />
 
       <CostLinesSection jobId={id} lines={costLines} categories={categoryOptions} jobOptions={otherJobs ?? []} />
+
+      <JobTimesheetLog rows={timesheetRows} />
     </div>
   );
 }
