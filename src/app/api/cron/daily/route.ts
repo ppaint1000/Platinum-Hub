@@ -7,6 +7,7 @@ import { nzTodayDateString } from '@/lib/timesheets/formatNZ'
 import { syncXeroInvoices } from '@/lib/xero/invoices'
 import { syncXeroBills } from '@/lib/xero/bills'
 import { autoSendTimesheets, weeklyBudgetTrend } from '@/lib/automation/weekly'
+import { fillMissingBudgets } from '@/lib/quotes/costingBudget'
 
 // Called by Supabase's scheduler (supabase/marketing_and_alerts.sql) at 7am
 // NZ time: the daily alerts on working days, and on the 1st last month's
@@ -43,6 +44,8 @@ export async function POST(request: NextRequest) {
   }
   await safely('xeroInvoices', syncXeroInvoices)
   await safely('xeroBills', syncXeroBills)
+  // Won jobs priced in Costing with no budget yet get the costing's cost figures.
+  await safely('budgetsFromCosting', () => fillMissingBudgets(db))
 
   // Mondays: last week's timesheets to Xero, and the budget trend - once.
   const isMonday = new Date(`${today}T00:00:00Z`).getUTCDay() === 1

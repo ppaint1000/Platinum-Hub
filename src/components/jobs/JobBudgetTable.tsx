@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Panel, Money, Button } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
-import { setCategoryBudgetAction, deleteCategoryBudgetAction } from "@/app/jobs/budget/actions";
+import { setCategoryBudgetAction, deleteCategoryBudgetAction, copyBudgetFromCostingAction } from "@/app/jobs/budget/actions";
 import { setCategoryActualAction } from "@/app/jobs/costs/actions";
 import {
   CostLineItem,
@@ -28,6 +28,7 @@ export function JobBudgetTable({
   costLines,
   categories,
   jobOptions,
+  fromCosting = false,
 }: {
   jobId: string;
   rows: CategoryBudgetRow[];
@@ -35,14 +36,17 @@ export function JobBudgetTable({
   costLines: CostLineRow[];
   categories: CategoryOption[];
   jobOptions: JobOption[];
+  // The job was priced in Costing - its cost figures can be copied in.
+  fromCosting?: boolean;
 }) {
   const datalistId = useId();
 
   return (
     <Panel className="mb-8 p-4">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">
-        Budget by category
-      </h2>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-faint">Budget by category</h2>
+        {fromCosting && <CopyFromCostingButton jobId={jobId} hasBudget={rows.some((r) => r.budgeted > 0)} />}
+      </div>
 
       {rows.length === 0 ? (
         <p className="mb-3 text-sm text-ink-soft">
@@ -77,6 +81,45 @@ export function JobBudgetTable({
 
       <AddCategoryBudgetForm jobId={jobId} datalistId={datalistId} categoryLabels={categoryLabels} />
     </Panel>
+  );
+}
+
+// Labour, Paint, Scaffold, EWP and Other from the costing's cost figures.
+function CopyFromCostingButton({ jobId, hasBudget }: { jobId: string; hasBudget: boolean }) {
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function copy() {
+    setSaving(true);
+    setError(null);
+    const result = await copyBudgetFromCostingAction(jobId);
+    setSaving(false);
+    setConfirming(false);
+    if (result.error) return setError(result.error);
+    router.refresh();
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      {error && <span style={{ color: overBudgetColor }}>{error}</span>}
+      {confirming ? (
+        <>
+          <span className="text-ink-soft">Replace Labour, Paint, Scaffold, EWP and Other with the costing&apos;s figures?</span>
+          <Button onClick={copy} disabled={saving}>
+            {saving ? "Copying…" : "Replace"}
+          </Button>
+          <Button variant="secondary" onClick={() => setConfirming(false)}>
+            Cancel
+          </Button>
+        </>
+      ) : (
+        <Button variant="secondary" onClick={() => (hasBudget ? setConfirming(true) : copy())} disabled={saving}>
+          {saving ? "Copying…" : "Copy budget from costing"}
+        </Button>
+      )}
+    </div>
   );
 }
 

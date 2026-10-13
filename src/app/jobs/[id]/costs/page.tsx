@@ -14,6 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { JobBudgetTable, type CategoryBudgetRow } from "@/components/jobs/JobBudgetTable";
 import { jobMargin } from "@/lib/jobs/margin";
 import { money } from "@/lib/jobs/jobFinance";
+import { fillBudgetFromCosting } from "@/lib/quotes/costingBudget";
 
 type BudgetVsActualRow = {
   category_id: string;
@@ -36,6 +37,15 @@ type ActualCostRow = {
 export default async function JobCostsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await requireAppAccess("jobs");
+  const admin = createAdminClient();
+
+  // A won job priced in Costing with no budget yet starts from the costing's
+  // cost figures (also done each morning for every won job).
+  const { data: jobInfo } = await admin.from("jobs").select("status, source_quote_id").eq("id", id).maybeSingle<{ status: string; source_quote_id: string | null }>();
+  const fromCosting = !!jobInfo?.source_quote_id;
+  if (fromCosting && ["won", "scheduled", "in_progress"].includes(jobInfo!.status)) {
+    await fillBudgetFromCosting(admin, id, { onlyIfEmpty: true });
+  }
 
   const [
     { data: job },
@@ -88,7 +98,6 @@ export default async function JobCostsPage({ params }: { params: Promise<{ id: s
   // Every shift clocked at this job's site(s), and which are approved.
   // Read with the service role: timesheets aren't visible to a Jobs
   // session, and this page is already limited to Jobs users.
-  const admin = createAdminClient();
   const { data: jobSites } = await admin.from("sites").select("id, name").eq("job_id", id);
   const siteIds = (jobSites ?? []).map((s) => s.id as string);
   const siteName = new Map((jobSites ?? []).map((s) => [s.id as string, s.name as string]));
@@ -199,6 +208,7 @@ export default async function JobCostsPage({ params }: { params: Promise<{ id: s
         costLines={costLines}
         categories={categoryOptions}
         jobOptions={otherJobs ?? []}
+        fromCosting={fromCosting}
       />
 
       <ReseneInvoiceCostsSection jobId={id} lines={invoiceLines ?? []} awaitingInvoice={awaitingInvoice} categories={categoryOptions} />

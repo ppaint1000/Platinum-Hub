@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { findOrCreateCategoryId } from "@/lib/jobs/findOrCreateCategory";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { fillBudgetFromCosting } from "@/lib/quotes/costingBudget";
 
 // Budget is one $ figure per category per job — what job_budget_vs_actual's
 // "Budgeted" column reads from. Needed for any job priced by hand rather
@@ -34,6 +36,17 @@ export async function setCategoryBudgetAction(
   });
   if (insertError) return { error: insertError.message };
 
+  revalidatePath(`/jobs/${jobId}`, "layout");
+  return {};
+}
+
+// Copies the costing's cost figures onto this job's budget (Labour, Paint,
+// Scaffold, EWP, Other) - replacing those categories, leaving any added by
+// hand. Read with the service role: a Jobs user may not see the costing.
+export async function copyBudgetFromCostingAction(jobId: string) {
+  await requireAppAccess("jobs");
+  const result = await fillBudgetFromCosting(createAdminClient(), jobId);
+  if (result.error) return { error: result.error };
   revalidatePath(`/jobs/${jobId}`, "layout");
   return {};
 }
