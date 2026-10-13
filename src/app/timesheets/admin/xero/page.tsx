@@ -143,6 +143,7 @@ export default async function XeroPayrollPage({
           days: h.days,
           total: h.total,
           needsCheck: h.needsCheck,
+          noLunch: h.noLunch,
           openShifts: h.openShifts,
           sent: p ? { hours: Number(p.hours), at: p.pushed_at as string } : null,
         }

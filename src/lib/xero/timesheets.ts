@@ -5,7 +5,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getReportEntries } from '@/lib/timesheets/reports'
 import { applyPayRounding } from '@/lib/timesheets/payroll'
-import { addDays } from '@/lib/timesheets/formatNZ'
+import { addDays, nzDateKey } from '@/lib/timesheets/formatNZ'
 import { payrollNz } from './client'
 
 export type PeriodHours = {
@@ -15,7 +15,12 @@ export type PeriodHours = {
   needsCheck: string[]
   // Shifts in the period never clocked out - not counted.
   openShifts: number
+  // Days worked over 5 hours with no lunch break recorded.
+  noLunch: string[]
 }
+
+// Worked more than this in a day with no break recorded = flagged.
+const LUNCH_FLAG_HOURS = 5
 
 export function periodDates(start: string, end: string): string[] {
   const out: string[] = []
@@ -34,11 +39,25 @@ export async function hoursForPeriod(userId: string, start: string, end: string)
   const { dayTotals } = applyPayRounding(entries)
   const days: Record<string, number> = {}
   for (const d of dayTotals) if (d.date >= start && d.date <= end) days[d.date] = (days[d.date] ?? 0) + d.hours
+  // A day's finished shifts: time on site and breaks taken.
+  const byDay = new Map<string, { hours: number; breakMinutes: number }>()
+  for (const e of entries) {
+    if (!e.clock_out_at) continue
+    const d = nzDateKey(e.clock_in_at)
+    const cur = byDay.get(d) ?? { hours: 0, breakMinutes: 0 }
+    cur.hours += (Date.parse(e.clock_out_at) - Date.parse(e.clock_in_at)) / 3600000
+    cur.breakMinutes += e.break_minutes ?? 0
+    byDay.set(d, cur)
+  }
   return {
     days,
     total: Object.values(days).reduce((s, n) => s + n, 0),
     needsCheck: dayTotals.filter((d) => d.needsCheck).map((d) => d.date),
     openShifts: entries.filter((e) => !e.clock_out_at).length,
+    noLunch: [...byDay]
+      .filter(([d, v]) => d >= start && d <= end && v.hours > LUNCH_FLAG_HOURS && v.breakMinutes === 0)
+      .map(([d]) => d)
+      .sort(),
   }
 }
 

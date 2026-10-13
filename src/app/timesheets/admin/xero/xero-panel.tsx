@@ -13,6 +13,7 @@ export type PreviewRow = {
   days: Record<string, number>
   total: number
   needsCheck: string[]
+  noLunch: string[]
   openShifts: number
   sent: { hours: number; at: string } | null
 }
@@ -56,6 +57,9 @@ function likeness(hub: string, xero: string): number {
 }
 const dayLabel = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric' })
 const box = 'rounded-lg border border-black/10 bg-white p-5'
+// The Timesheet Report for one person and dates (opens in a new tab so
+// nothing chosen here is lost).
+const reportLink = (userId: string, from: string, to: string) => `/timesheets/admin/reports?userId=${userId}&from=${from}&to=${to}`
 const select = 'w-full rounded-md border border-black/20 bg-white px-2 py-1.5 text-sm'
 
 export function XeroPayrollPanel(p: Props) {
@@ -288,11 +292,42 @@ export function XeroPayrollPanel(p: Props) {
                       <td className="py-2 pr-2 font-medium">
                         {r.name}
                         {r.openShifts > 0 && <span className="block text-xs text-red-700">{r.openShifts} shift still clocked on - not counted</span>}
-                        {r.needsCheck.length > 0 && <span className="block text-xs text-amber-700">Rounded on {r.needsCheck.length} day(s) - worth a look</span>}
+                        {r.noLunch.length > 0 && p.period && (
+                          <a
+                            href={reportLink(r.userId, r.noLunch[0], r.noLunch[r.noLunch.length - 1])}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block text-xs font-semibold text-red-700 underline hover:text-red-900"
+                          >
+                            No lunch break on {r.noLunch.length} day(s) - see them ↗
+                          </a>
+                        )}
+                        {r.needsCheck.length > 0 && p.period && (
+                          <a
+                            href={reportLink(r.userId, p.period.start, p.period.end)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block text-xs text-amber-700 underline hover:text-amber-900"
+                          >
+                            Rounded on {r.needsCheck.length} day(s) - see them ↗
+                          </a>
+                        )}
                       </td>
                       {p.dates.map((d) => (
-                        <td key={d} className={`px-1 py-2 text-right tabular-nums ${r.needsCheck.includes(d) ? 'text-amber-700' : ''}`}>
-                          {r.days[d] ? r.days[d] : '–'}
+                        <td
+                          key={d}
+                          className={`px-1 py-2 text-right tabular-nums ${r.noLunch.includes(d) ? 'font-semibold text-red-700' : r.needsCheck.includes(d) ? 'text-amber-700' : ''}`}
+                        >
+                          {r.noLunch.includes(d) || r.needsCheck.includes(d) ? (
+                            <a href={reportLink(r.userId, d, d)} target="_blank" rel="noreferrer" className="underline" title={r.noLunch.includes(d) ? 'No lunch break recorded - open this day in the Timesheet Report' : 'Rounded - open this day in the Timesheet Report'}>
+                              {r.days[d] ?? 0}
+                              {r.noLunch.includes(d) && ' ⚠'}
+                            </a>
+                          ) : r.days[d] ? (
+                            r.days[d]
+                          ) : (
+                            '–'
+                          )}
                         </td>
                       ))}
                       <td className="px-2 py-2 text-right font-semibold tabular-nums">{r.total}</td>
