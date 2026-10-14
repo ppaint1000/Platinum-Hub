@@ -7,12 +7,13 @@ import { redirect } from "next/navigation";
 import { canLogOrders } from "./access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { OrderNumberForm, RemoveOrderNumber } from "./order-form";
+import { byRecentClockIn, latestClockInByJob } from "@/lib/jobs/recentClockIns";
 
 export default async function OrderNumbersPage() {
   const access = await canLogOrders();
   if (!access.ok) redirect("/hub");
   const db = createAdminClient();
-  const [{ data: jobs }, { data: recent }] = await Promise.all([
+  const [{ data: jobs }, { data: recent }, latest] = await Promise.all([
     db
       .from("jobs")
       .select("id, job_number, name, client:clients(name)")
@@ -24,8 +25,10 @@ export default async function OrderNumbersPage() {
       .select("id, order_number, created_at, jobs(job_number, name)")
       .order("created_at", { ascending: false })
       .limit(40),
+    latestClockInByJob(),
   ]);
-  const jobOptions = (jobs ?? []).map((j) => ({ id: j.id, label: `${j.job_number ?? ""} ${j.name}${j.client?.name ? ` (${j.client.name})` : ""}`.trim() }));
+  // The jobs crews clocked in to most recently first.
+  const jobOptions = byRecentClockIn(jobs ?? [], latest).map((j) => ({ id: j.id, label: `${j.job_number ?? ""} ${j.name}${j.client?.name ? ` (${j.client.name})` : ""}`.trim() }));
 
   return (
     <div className="mx-auto w-full max-w-2xl p-4 sm:p-8">

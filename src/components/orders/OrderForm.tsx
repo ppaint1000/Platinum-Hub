@@ -8,6 +8,8 @@ import { useUserRole } from "@/lib/supabase/useUserRole";
 import { Field, inputClass } from "@/components/fleet/Modal";
 import { ConfirmDialog } from "@/components/orders/ConfirmDialog";
 import { fmtDate, fmtDateTime, fmtMoney } from "@/lib/orders/format";
+import { latestClockInsAction } from "@/lib/jobs/recentClockInsAction";
+import { byRecentClockIn } from "@/lib/jobs/jobOrder";
 
 type LineItem = {
   key: string;
@@ -122,14 +124,17 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
         setSupplierOptions(byUsage);
       });
 
-    supabase
-      .from("jobs")
-      .select("id, name, job_number")
-      .in("status", ["won", "scheduled", "in_progress"])
-      .order("won_at", { ascending: false })
-      .then(({ data }) => {
-        setJobOptions(data ?? []);
-      });
+    // The jobs crews clocked in to most recently first, then the latest won.
+    Promise.all([
+      supabase
+        .from("jobs")
+        .select("id, name, job_number")
+        .in("status", ["won", "scheduled", "in_progress"])
+        .order("won_at", { ascending: false }),
+      latestClockInsAction().catch(() => ({}) as Record<string, string>),
+    ]).then(([{ data }, latest]) => {
+      setJobOptions(byRecentClockIn(data ?? [], new Map(Object.entries(latest))));
+    });
 
     Promise.all([
       supabase.from("sites").select("name").eq("is_active", true),
