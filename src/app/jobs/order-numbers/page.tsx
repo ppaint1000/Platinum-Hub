@@ -16,10 +16,11 @@ export default async function OrderNumbersPage() {
   const [{ data: jobs }, { data: recent }, latest] = await Promise.all([
     db
       .from("jobs")
-      .select("id, job_number, name, client:clients(name)")
-      .in("status", ["won", "scheduled", "in_progress", "complete"])
+      .select("id, job_number, name, status, client:clients(name)")
+      // Finished jobs too - a bill can still come in after the job's done.
+      .in("status", ["won", "scheduled", "in_progress", "complete", "invoiced", "paid"])
       .order("job_number", { ascending: false })
-      .returns<{ id: string; job_number: string | null; name: string; client: { name: string } | null }[]>(),
+      .returns<{ id: string; job_number: string | null; name: string; status: string; client: { name: string } | null }[]>(),
     db
       .from("job_order_numbers")
       .select("id, order_number, created_at, jobs(job_number, name)")

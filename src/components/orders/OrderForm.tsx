@@ -124,12 +124,13 @@ export function OrderForm({ existing }: { existing?: ExistingOrder }) {
         setSupplierOptions(byUsage);
       });
 
-    // The jobs crews clocked in to most recently first, then the latest won.
+    // Clocked into today, then In progress, then the rest (finished jobs
+    // too - orders can still go on them), latest clock-in / won first.
     Promise.all([
       supabase
         .from("jobs")
-        .select("id, name, job_number")
-        .in("status", ["won", "scheduled", "in_progress"])
+        .select("id, name, job_number, status")
+        .in("status", ["won", "scheduled", "in_progress", "complete", "invoiced", "paid"])
         .order("won_at", { ascending: false }),
       latestClockInsAction().catch(() => ({}) as Record<string, string>),
     ]).then(([{ data }, latest]) => {
