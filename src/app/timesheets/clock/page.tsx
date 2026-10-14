@@ -19,13 +19,46 @@ type SiteRow = {
 }
 
 // The site's job, and its work order from the Costing app if it has one.
-type JobRelation =
-  | { status: string; work_order_url: string | null }
-  | { status: string; work_order_url: string | null }[]
-  | null
+type JobFields = { status: string; work_order_url: string | null; in_progress_at: string | null }
+type JobRelation = JobFields | JobFields[] | null
+
+const jobOf = (relation: JobRelation) => (Array.isArray(relation) ? relation[0] : relation) ?? null
 
 function workOrderUrl(relation: JobRelation): string | null {
-  return (Array.isArray(relation) ? relation[0]?.work_order_url : relation?.work_order_url) ?? null
+  return jobOf(relation)?.work_order_url ?? null
+}
+
+const nzDay = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' })
+
+// Order: sites clocked into today (busiest first), then the newest activity -
+// the later of the last clock-in there and when the job went In progress - so
+// a job just started sits near the top.
+async function clockInOrder(admin: ReturnType<typeof createAdminClient>, siteRows: SiteRow[]) {
+  const since = new Date(Date.now() - 60 * 86400000).toISOString()
+  const siteIds = siteRows.map((s) => s.id)
+  const { data: recentEntries } = siteIds.length
+    ? await admin.from('timesheet_entries').select('site_id, clock_in_at').in('site_id', siteIds).gte('clock_in_at', since)
+    : { data: [] }
+  const today = nzDay(new Date().toISOString())
+  const lastClockIn = new Map<string, string>()
+  const todayCount = new Map<string, number>()
+  for (const e of recentEntries ?? []) {
+    const site = e.site_id as string
+    const at = e.clock_in_at as string
+    if ((lastClockIn.get(site) ?? '') < at) lastClockIn.set(site, at)
+    if (nzDay(at) === today) todayCount.set(site, (todayCount.get(site) ?? 0) + 1)
+  }
+  const activity = (s: SiteRow) => {
+    const started = jobOf(s.jobs)?.in_progress_at ?? ''
+    const last = lastClockIn.get(s.id) ?? ''
+    return started > last ? started : last
+  }
+  return [...siteRows].sort(
+    (a, b) =>
+      (todayCount.get(b.id) ?? 0) - (todayCount.get(a.id) ?? 0) ||
+      activity(b).localeCompare(activity(a)) ||
+      a.name.localeCompare(b.name)
+  )
 }
 
 type OpenEntrySite = {
@@ -67,7 +100,7 @@ export default async function ClockPage() {
       admin
         .from('sites')
         .select(
-          'id, name, extent_of_work_filename, safety_plan_filename, customers:clients(name), jobs!inner(status, work_order_url)'
+          'id, name, extent_of_work_filename, safety_plan_filename, customers:clients(name), jobs!inner(status, work_order_url, in_progress_at)'
         )
         .eq('is_active', true)
         .eq('jobs.status', 'in_progress')
@@ -101,7 +134,9 @@ export default async function ClockPage() {
 
   const workOrderBySite = new Map((siteRows ?? []).map((s) => [s.id, workOrderUrl(s.jobs)]))
 
-  const sites = (siteRows ?? []).map((s) => ({
+  const ordered = await clockInOrder(admin, siteRows ?? [])
+
+  const sites = ordered.map((s) => ({
     id: s.id,
     workOrderUrl: workOrderBySite.get(s.id) ?? null,
     // Just the site - painters don't need to see the customer.
