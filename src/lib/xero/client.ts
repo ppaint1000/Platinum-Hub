@@ -15,8 +15,30 @@ const PAYROLL_NZ = 'https://api.xero.com/payroll.xro/2.0'
 // accounting.invoices: customer invoices and supplier bills onto jobs (read),
 // and approved variations as draft invoices (write - drafts only).
 // accounting.contacts.read: find the customer for a variation invoice.
+// files: tidy suppliers' email logos out of the Documents inbox.
 export const XERO_SCOPES =
-  'openid profile email offline_access payroll.employees.read payroll.timesheets payroll.settings.read accounting.invoices accounting.contacts.read'
+  'openid profile email offline_access payroll.employees.read payroll.timesheets payroll.settings.read accounting.invoices accounting.contacts.read files'
+
+// The Files API (Xero's Documents / Files). Throws MISSING_FILES_PERMISSION
+// when the connection was made before 'files' was added - reconnect to fix.
+export async function filesApi<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  const { token, tenantId } = await accessToken()
+  const res = await fetch(`https://api.xero.com/files.xro/1.0${path}`, {
+    method: init.method ?? 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Xero-Tenant-Id': tenantId,
+      Accept: 'application/json',
+      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: init.body ? JSON.stringify(init.body) : undefined,
+    cache: 'no-store',
+  })
+  const json = await res.json().catch(() => null)
+  if (res.status === 401 || res.status === 403) throw new Error('MISSING_FILES_PERMISSION')
+  if (!res.ok) throw new Error(problemText(json, res.status))
+  return json as T
+}
 
 // Accounting API writes (variation draft invoices).
 export async function accountingPost<T>(path: string, body: unknown): Promise<T> {

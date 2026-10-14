@@ -6,6 +6,7 @@ import { emailMonthlyReport, shiftMonth } from '@/lib/reports/monthlyReport'
 import { nzTodayDateString } from '@/lib/timesheets/formatNZ'
 import { syncXeroInvoices } from '@/lib/xero/invoices'
 import { syncXeroBills } from '@/lib/xero/bills'
+import { tidyXeroDocuments } from '@/lib/xero/documents'
 import { autoSendTimesheets, weeklyBudgetTrend } from '@/lib/automation/weekly'
 import { fillMissingBudgets } from '@/lib/quotes/costingBudget'
 
@@ -44,6 +45,8 @@ export async function POST(request: NextRequest) {
   }
   await safely('xeroInvoices', syncXeroInvoices)
   await safely('xeroBills', syncXeroBills)
+  // Suppliers' email logos out of Xero's Documents inbox.
+  await safely('xeroDocuments', tidyXeroDocuments)
   // Won jobs priced in Costing with no budget yet get the costing's cost figures.
   await safely('budgetsFromCosting', () => fillMissingBudgets(db))
 
