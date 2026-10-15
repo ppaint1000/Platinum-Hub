@@ -73,6 +73,9 @@ export default async function FuelLogPage() {
     .select(
       "id, driver_id, vehicle_id, equipment, job_id, odometer_km, litres, cost_total, cost_per_litre, gps_lat, gps_lng, created_at, fuelled_on, receipt_photo_path, odometer_photo_path, vehicle:vehicles(plate, make, model), driver:profiles(full_name)"
     )
+    // Vehicle fill-ups only - waterblaster fuel has its own page
+    // (Fleet → Waterblaster Fuel).
+    .is("equipment", null)
     .order("fuelled_on", { ascending: false })
     .order("created_at", { ascending: false })
     .returns<FuelRow[]>();
@@ -110,7 +113,7 @@ export default async function FuelLogPage() {
         <div>
           <h1 className="text-xl font-semibold text-ink">Fuel Log</h1>
           <p className="mt-1 text-sm text-muted">
-            {rows.length} entr{rows.length === 1 ? "y" : "ies"} logged
+            {rows.length} vehicle fill-up{rows.length === 1 ? "" : "s"} logged · waterblaster fuel is under Waterblaster Fuel
           </p>
         </div>
         {isAdmin && (

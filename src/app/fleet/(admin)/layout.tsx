@@ -9,6 +9,7 @@ import {
   Users,
   BarChart3,
   Plus,
+  Droplets,
 } from "lucide-react";
 import { NavLink } from "@/components/fleet/NavLink";
 import { HubTopBar } from "@/components/dashboard/HubTopBar";
@@ -19,6 +20,7 @@ const NAV = [
   { href: "/fleet/vehicles", label: "Vehicles", icon: Truck },
   { href: "/fleet/fuel", label: "Fuel Log", icon: Fuel },
   { href: "/fleet/fuel-report", label: "Fuel Report", icon: BarChart3 },
+  { href: "/fleet/waterblaster", label: "Waterblaster Fuel", icon: Droplets },
   { href: "/fleet/servicing", label: "Servicing", icon: Wrench },
   { href: "/fleet/compliance", label: "WOF & Rego", icon: ShieldCheck },
   { href: "/fleet/drivers", label: "Drivers", icon: Users },

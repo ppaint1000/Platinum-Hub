@@ -56,8 +56,10 @@ type Lists = { drivers: Option[]; vehicles: Vehicle[]; jobs: Option[]; lastJobBy
 // Admin-only manual fill-up, e.g. a receipt handed in at the office. Unlike
 // the driver form (/fleet/log), the admin picks who it's for, and the
 // receipt photo is optional; no GPS since it's not logged at the pump.
-export function AddFuelEntryButton(lists: Lists) {
-  return <FuelEntryModalButton {...lists} />;
+// startWithWaterblaster: the Waterblaster Fuel page's Add button opens with
+// Waterblaster already picked.
+export function AddFuelEntryButton({ startWithWaterblaster, ...lists }: Lists & { startWithWaterblaster?: boolean }) {
+  return <FuelEntryModalButton {...lists} startWithWaterblaster={startWithWaterblaster} />;
 }
 
 export function EditFuelEntryButton({ entry, ...lists }: Lists & { entry: EditableFuelEntry }) {
@@ -82,7 +84,8 @@ function FuelEntryModalButton({
   jobs: allJobs,
   lastJobByDriver,
   entry,
-}: Lists & { entry?: EditableFuelEntry }) {
+  startWithWaterblaster,
+}: Lists & { entry?: EditableFuelEntry; startWithWaterblaster?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm());
@@ -107,7 +110,7 @@ function FuelEntryModalButton({
   const splitting = canSplit && splitWaterblaster;
 
   function emptyForm(): FormState {
-    return { driverId: "", vehicleId: "", jobId: "", fuelledOn: todayLocal(), odometer: "", litres: "", cost: "" };
+    return { driverId: "", vehicleId: startWithWaterblaster ? WATERBLASTER : "", jobId: "", fuelledOn: todayLocal(), odometer: "", litres: "", cost: "" };
   }
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
