@@ -3,7 +3,7 @@ import { BarChart3, Fuel, Wrench, Gauge, Truck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { daysUntil, fmtDate, fmtMoney } from "@/lib/fleet/format";
 import { missingFuelNumbers } from "@/lib/fleet/missingNumbers";
-import { SERVICE_INTERVAL_KM, nextServiceFor, type NextService } from "@/lib/fleet/nextService";
+import { SERVICE_INTERVAL_KM, SERVICE_SOON_KM, nextServiceFor, type NextService } from "@/lib/fleet/nextService";
 import { fleetUsage } from "@/lib/fleet/usage";
 import { UsageRings } from "@/components/fleet/UsageRings";
 
@@ -17,6 +17,8 @@ type Vehicle = {
   current_odometer_km: number | null;
   next_service_km: number | null;
   next_service_date: string | null;
+  fuel_type: string | null;
+  ruc_paid_to_km: number | null;
 };
 
 type FuelEntry = {
@@ -51,7 +53,7 @@ export default async function FleetDashboardPage() {
     await Promise.all([
       supabase
         .from("vehicles")
-        .select("id, plate, make, model, wof_expiry, rego_expiry, current_odometer_km, next_service_km, next_service_date")
+        .select("id, plate, make, model, wof_expiry, rego_expiry, current_odometer_km, next_service_km, next_service_date, fuel_type, ruc_paid_to_km")
         .returns<Vehicle[]>(),
       supabase
         .from("fuel_entries")
@@ -140,6 +142,21 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
       sub: (next.status === "overdue" ? `${km} km overdue` : `${km} km to go`) + ` · due at ${next.dueAtKm!.toLocaleString("en-NZ")} km`,
       // Sorts with the date alerts: overdue first, then the soonest.
       days: next.status === "overdue" ? -1 : 0,
+    });
+  }
+
+  // Diesels: Road User Charges (diesel tax) running out - within 1,000 km
+  // of the km they're paid to, or past it.
+  for (const { vehicle: v, next } of services) {
+    if (v.fuel_type !== "diesel" || v.ruc_paid_to_km == null || next.currentKm === null) continue;
+    const left = Number(v.ruc_paid_to_km) - next.currentKm;
+    if (left > SERVICE_SOON_KM) continue;
+    const km = Math.abs(left).toLocaleString("en-NZ");
+    alerts.push({
+      severity: left < 0 ? "critical" : "warn",
+      title: `${v.make} ${v.model} — ${v.plate} — Diesel tax (RUC) due`,
+      sub: (left < 0 ? `${km} km past` : `${km} km to go`) + ` · paid to ${Number(v.ruc_paid_to_km).toLocaleString("en-NZ")} km`,
+      days: left < 0 ? -1 : 0,
     });
   }
 
