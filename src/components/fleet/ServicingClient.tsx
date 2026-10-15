@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, Upload, Paperclip, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useUserRole } from "@/lib/supabase/useUserRole";
 import { Modal, Field, inputClass } from "@/components/fleet/Modal";
@@ -21,6 +21,10 @@ type ServiceRecord = {
   cost: number | null;
   next_due_date: string | null;
   next_due_odometer_km: number | null;
+  attachment_path: string | null;
+  attachment_name: string | null;
+  // Signed link to the attached file (1 hour), made by the page.
+  attachmentUrl: string | null;
   vehicle: { plate: string; make: string; model: string } | null;
 };
 
@@ -34,6 +38,10 @@ type FormState = {
   next_due_date: string;
   next_due_odometer_km: string;
 };
+
+// Invoices, job sheets and photos - stored in the fleet-photos bucket (see
+// fleet_service_attachments.sql).
+const ATTACHMENT_ACCEPT = "image/*,application/pdf";
 
 const TYPES = ["Service", "Repair", "WOF Check", "Tyres", "Other"];
 
@@ -53,9 +61,12 @@ function emptyForm(defaultVehicle: string): FormState {
 export function ServicingClient({
   initialRecords,
   vehicles,
+  attachmentsReady,
 }: {
   initialRecords: ServiceRecord[];
   vehicles: Vehicle[];
+  // False until fleet_service_attachments.sql has been run in Supabase.
+  attachmentsReady: boolean;
 }) {
   const router = useRouter();
   const role = useUserRole();
@@ -68,14 +79,26 @@ export function ServicingClient({
   const [form, setForm] = useState<FormState>(emptyForm(vehicles[0]?.id ?? ""));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A newly picked file, and whether the record's existing one is being removed.
+  const [file, setFile] = useState<File | null>(null);
+  const [removeFile, setRemoveFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function resetFile() {
+    setFile(null);
+    setRemoveFile(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   function openAdd() {
+    resetFile();
     setForm(emptyForm(vehicles[0]?.id ?? ""));
     setError(null);
     setAdding(true);
   }
 
   function openEdit(r: ServiceRecord) {
+    resetFile();
     setForm({
       vehicle_id: r.vehicle_id,
       date: r.date,
@@ -103,6 +126,31 @@ export function ServicingClient({
     setError(null);
     const supabase = createClient();
 
+    // Upload a newly picked file first, into the admin's own folder - the
+    // fleet-photos storage policy only allows uploads there.
+    let attachment: { attachment_path: string | null; attachment_name: string | null } | null = null;
+    if (file) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setSaving(false);
+        return setError("Your session expired — sign in again.");
+      }
+      const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "bin";
+      const path = `${user.id}/${Date.now()}-service.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("fleet-photos")
+        .upload(path, file, { contentType: file.type || undefined });
+      if (uploadError) {
+        setSaving(false);
+        return setError("Couldn't upload the file — " + uploadError.message);
+      }
+      attachment = { attachment_path: path, attachment_name: file.name };
+    } else if (removeFile) {
+      attachment = { attachment_path: null, attachment_name: null };
+    }
+
     const payload = {
       vehicle_id: form.vehicle_id,
       date: form.date,
@@ -112,6 +160,8 @@ export function ServicingClient({
       cost: form.cost ? Number(form.cost) : null,
       next_due_date: form.next_due_date || null,
       next_due_odometer_km: form.next_due_odometer_km ? Number(form.next_due_odometer_km) : null,
+      // Only sent when the file changes, so records save as before otherwise.
+      ...(attachment ?? {}),
     };
 
     const { error } = editing
@@ -120,6 +170,11 @@ export function ServicingClient({
 
     setSaving(false);
     if (error) return setError("Couldn't save — " + error.message);
+
+    // Replaced or removed file: tidy up the old one (best effort).
+    if (attachment && editing?.attachment_path) {
+      await supabase.storage.from("fleet-photos").remove([editing.attachment_path]);
+    }
 
     close();
     router.refresh();
@@ -130,6 +185,7 @@ export function ServicingClient({
     const supabase = createClient();
     const { error } = await supabase.from("service_records").delete().eq("id", r.id);
     if (error) return alert("Couldn't delete — " + error.message);
+    if (r.attachment_path) await supabase.storage.from("fleet-photos").remove([r.attachment_path]);
     router.refresh();
   }
 
@@ -171,6 +227,7 @@ export function ServicingClient({
                 <th className="px-5 py-3">Description</th>
                 <th className="px-5 py-3">Cost</th>
                 <th className="px-5 py-3">Next due</th>
+                <th className="px-5 py-3">File</th>
                 <th className="px-5 py-3" />
               </tr>
             </thead>
@@ -192,6 +249,22 @@ export function ServicingClient({
                     <td className="max-w-xs px-5 py-3">{r.description ?? "—"}</td>
                     <td className="whitespace-nowrap px-5 py-3">{r.cost ? fmtMoney(r.cost) : "—"}</td>
                     <td className="whitespace-nowrap px-5 py-3">{nextDue}</td>
+                    <td className="whitespace-nowrap px-5 py-3">
+                      {r.attachmentUrl ? (
+                        <a
+                          href={r.attachmentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={r.attachment_name ?? undefined}
+                          className="flex items-center gap-1 text-xs font-medium text-brand-red-dark underline underline-offset-2"
+                        >
+                          <Paperclip className="h-3.5 w-3.5" />
+                          View
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted">—</span>
+                      )}
+                    </td>
                     <td className="whitespace-nowrap px-5 py-3">
                       <div className="flex justify-end gap-1">
                         {canEdit && (
@@ -325,6 +398,56 @@ export function ServicingClient({
               />
             </Field>
           </div>
+          {attachmentsReady && (
+            <Field
+              label={
+                editing?.attachment_path && !removeFile
+                  ? "Replace file (optional — invoice, job sheet or photo)"
+                  : "File (optional — invoice, job sheet or photo)"
+              }
+            >
+              {editing?.attachment_path && !removeFile && !file && (
+                <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                  {editing.attachmentUrl ? (
+                    <a
+                      href={editing.attachmentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex min-w-0 items-center gap-1.5 text-ink underline underline-offset-2"
+                    >
+                      <Paperclip className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{editing.attachment_name ?? "Attached file"}</span>
+                    </a>
+                  ) : (
+                    <span className="truncate text-muted">{editing.attachment_name ?? "Attached file"}</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setRemoveFile(true)}
+                    aria-label="Remove file"
+                    className="rounded-md p-1 text-muted transition hover:text-brand-red"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background py-2.5 text-sm text-muted transition hover:border-brand-red/40 hover:text-ink"
+              >
+                <Upload className="h-4 w-4" />
+                <span className="truncate">{file ? file.name : "Upload file"}</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ATTACHMENT_ACCEPT}
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className="hidden"
+              />
+            </Field>
+          )}
           {error && <p className="text-sm text-brand-red">{error}</p>}
         </Modal>
       )}
