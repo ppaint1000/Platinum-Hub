@@ -16,11 +16,12 @@ export async function setWeeklyReportEnabled(formData: FormData) {
   revalidatePath('/timesheets/admin/reports')
 }
 
+// The button pressed says which week: this week (Mon-Sun so far) or last week.
 export async function sendWeeklyReportNow(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- required by useActionState's action signature
-  _prevState: SendWeeklyReportResult | undefined
+  _prevState: SendWeeklyReportResult | undefined,
+  formData: FormData
 ): Promise<SendWeeklyReportResult> {
   await requireAdmin()
 
-  return sendWeeklyReportEmail()
+  return sendWeeklyReportEmail({ week: formData.get('week') === 'this' ? 'this' : 'last' })
 }

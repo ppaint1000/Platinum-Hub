@@ -31,6 +31,18 @@ export function getPreviousWeekRange(now: Date = new Date()): { from: string; to
   return { from: toDateStr(lastMonday), to: toDateStr(lastSunday) }
 }
 
+// This week, Monday to Sunday, in NZ time (on a Sunday, the week ending today).
+export function getThisWeekRange(now: Date = new Date()): { from: string; to: string } {
+  const today = new Date(`${nzDateString(now)}T00:00:00Z`)
+  const sinceMonday = (today.getUTCDay() + 6) % 7
+  const monday = new Date(today)
+  monday.setUTCDate(today.getUTCDate() - sinceMonday)
+  const sunday = new Date(monday)
+  sunday.setUTCDate(monday.getUTCDate() + 6)
+  const toDateStr = (d: Date) => d.toISOString().slice(0, 10)
+  return { from: toDateStr(monday), to: toDateStr(sunday) }
+}
+
 export async function isWeeklyReportEnabled(): Promise<boolean> {
   const supabase = createAdminClient()
   const { data } = await supabase
@@ -44,8 +56,11 @@ export async function isWeeklyReportEnabled(): Promise<boolean> {
 
 export type SendWeeklyReportResult = { sent: true } | { sent: false; reason: string }
 
+// week: 'last' (the default - the last complete Mon-Sun week) or 'this'
+// (this Monday to Sunday, so far).
 export async function sendWeeklyReportEmail(options?: {
   force?: boolean
+  week?: 'this' | 'last'
 }): Promise<SendWeeklyReportResult> {
   const enabled = await isWeeklyReportEnabled()
   if (!enabled && !options?.force) {
@@ -53,7 +68,7 @@ export async function sendWeeklyReportEmail(options?: {
   }
 
   const supabase = createAdminClient()
-  const { from, to } = getPreviousWeekRange()
+  const { from, to } = options?.week === 'this' ? getThisWeekRange() : getPreviousWeekRange()
   const { staffGroups, flaggedDates } = await groupByStaffForPayroll({ from, to }, supabase)
 
   const logoBuffer = await readFile(path.join(process.cwd(), 'public', 'logo.png'))

@@ -5,6 +5,7 @@ import { groupByDayAndStaff, groupByDayAndSite } from '@/lib/timesheets/reportGr
 import { requireAdmin } from '@/lib/timesheets/authGuards'
 import { formatNZDateTime } from '@/lib/timesheets/formatNZ'
 import { WeeklyReportPanel } from './weekly-report-panel'
+import { getPreviousWeekRange, getThisWeekRange } from '@/lib/timesheets/email/weeklyReport'
 
 export default async function ReportsPage({
   searchParams,
@@ -76,7 +77,7 @@ export default async function ReportsPage({
         </div>
       </div>
 
-      <WeeklyReportPanel enabled={settings?.weekly_report_enabled ?? false} />
+      <WeeklyReportPanel enabled={settings?.weekly_report_enabled ?? false} thisWeek={getThisWeekRange()} lastWeek={getPreviousWeekRange()} />
 
       <form className="flex flex-wrap items-end gap-3 rounded-lg border border-black/10 p-4">
         <div className="space-y-1">
