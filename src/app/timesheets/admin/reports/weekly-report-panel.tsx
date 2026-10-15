@@ -7,13 +7,11 @@ type Range = { from: string; to: string }
 
 // "2026-10-12".."2026-10-18" -> "Mon 12 – Sun 18 Oct"
 function rangeLabel({ from, to }: Range) {
-  const day = (d: string, withMonth: boolean) =>
-    new Date(`${d}T00:00:00Z`).toLocaleDateString('en-NZ', {
-      weekday: 'short',
-      day: 'numeric',
-      ...(withMonth ? { month: 'short' } : {}),
-      timeZone: 'UTC',
-    })
+  const day = (d: string, withMonth: boolean) => {
+    const date = new Date(`${d}T00:00:00Z`)
+    const part = (o: Intl.DateTimeFormatOptions) => date.toLocaleDateString('en-NZ', { ...o, timeZone: 'UTC' })
+    return [part({ weekday: 'short' }), date.getUTCDate(), withMonth ? part({ month: 'short' }) : ''].join(' ').trim()
+  }
   const sameMonth = from.slice(0, 7) === to.slice(0, 7)
   return `${day(from, !sameMonth)} – ${day(to, true)}`
 }
