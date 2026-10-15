@@ -137,7 +137,7 @@ export default async function QuoteDetailPage({
       markupOtherPct={settings?.markup_other_pct ?? 0.2}
       negotiatingFactorPct={settings?.negotiating_factor_pct ?? -0.1}
       paintFlatAddition={settings?.paint_flat_addition ?? 1.6}
-      repaintCoats={settings?.repaint_coats ?? 2}
+      repaintCoats={settings?.repaint_coats || 2}
       spreadRateSqmPerLitre={settings?.spread_rate_sqm_per_litre ?? 12}
       generalPrepRateSqmPerHr={settings?.general_prep_rate_sqm_per_hr ?? 50}
       exteriorWashRate={settings?.exterior_wash_rate ?? 70}

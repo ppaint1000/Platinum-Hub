@@ -789,7 +789,7 @@ export function QuoteEditor({
   // Sundry lines are gone from the app (all were empty), so they aren't shown
   // and are cleared out of the database the next time this is saved.
   const [buildings, setBuildings] = useState<Building[]>(() =>
-    initialBuildings.map((b) => ({ ...b, lines: b.lines.filter((l) => l.line_type !== "sundry") }))
+    initialBuildings.map((b) => hourlyLast({ ...b, lines: b.lines.filter((l) => l.line_type !== "sundry") }))
   );
   const [lineItems, setLineItems] = useState<QuoteLineItem[]>(initialLineItems);
   const [removedBuildingIds, setRemovedBuildingIds] = useState<string[]>([]);
@@ -1013,8 +1013,16 @@ export function QuoteEditor({
     return { ...b, lines };
   }
 
+  // Hourly items always sit at the bottom of an area's surfaces (keeping
+  // their own order), whatever is added after them.
+  function hourlyLast(b: Building): Building {
+    if (!b.lines.some((l) => l.line_type === "hourly")) return b;
+    const lines = [...b.lines.filter((l) => l.line_type !== "hourly"), ...b.lines.filter((l) => l.line_type === "hourly")];
+    return lines.every((l, i) => l === b.lines[i]) ? b : { ...b, lines };
+  }
+
   function setBuildingsSynced(updater: (prev: Building[]) => Building[]) {
-    setBuildings((prev) => updater(prev).map(syncWash));
+    setBuildings((prev) => updater(prev).map(syncWash).map(hourlyLast));
   }
 
   function updateBuilding(id: string, patch: Partial<Building>) {
@@ -2483,7 +2491,13 @@ export function QuoteEditor({
                             <td className="px-2 py-1.5">
                               {line.line_type === "surface" ? (
                                 <SearchableSelect
-                                  className="w-32"
+                                  // Bright yellow when it's not the company's default paint.
+                                  className={
+                                    "w-32" +
+                                    (line.paint_product_id && line.paint_product_id !== defaultPaintProductId
+                                      ? " border-yellow-500! bg-yellow-300! font-semibold"
+                                      : "")
+                                  }
                                   placeholder="Company default"
                                   emptyLabel="Use default"
                                   value={line.paint_product_id}

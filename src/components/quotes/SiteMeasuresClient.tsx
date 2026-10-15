@@ -72,7 +72,8 @@ function today() {
 }
 
 function emptyLine(): MeasureLine {
-  return { m: "", q: null, unit: "m2", coats: "", loading: "", showComment: false, comment: "" };
+  // 2 coats unless changed.
+  return { m: "", q: null, unit: "m2", coats: "2", loading: "", showComment: false, comment: "" };
 }
 
 function emptyArea(): MeasureArea {
@@ -576,7 +577,8 @@ export function SiteMeasuresClient({
 
       for (const [li, { area, ln }] of lines.entries()) {
         const qty = ln.q ?? 0;
-        const coats = Number(ln.coats) || 0;
+        // A blank coats box means the standard 2, not 0 (which costs nothing).
+        const coats = Number(ln.coats) || settings?.repaint_coats || 2;
         const labourRate = Number(ln.loading) || 0;
         // A lineal-metre line's qty is its length; the number before the "/"
         // is its height (girth), so the costing works out the m² from both.
