@@ -24,7 +24,7 @@ const SMALL = 10 * 1024
 export const isEmailLogo = (f: Pick<XeroFile, 'Name' | 'MimeType' | 'Size'>) =>
   /^image\//i.test(f.MimeType) && (KNOWN_LOGOS.some((r) => r.test(f.Name)) || f.Size < SMALL)
 
-export type TidyResult = { moved: number; error?: string; needsReconnect?: boolean }
+export type TidyResult = { moved: number; left?: number; error?: string; needsReconnect?: boolean }
 
 export async function tidyXeroDocuments(): Promise<TidyResult> {
   try {
@@ -42,15 +42,24 @@ export async function tidyXeroDocuments(): Promise<TidyResult> {
     }
     const candidates = files.filter((f) => f.FolderId === inbox.Id && isEmailLogo(f))
 
+    // Xero allows about 60 requests a minute, and each file is two (check,
+    // move): pace them, and stop after ~25s - the rest go on the next run.
+    const started = Date.now()
     let moved = 0
+    let left = 0
     for (const f of candidates) {
+      if (Date.now() - started > 25_000) {
+        left++
+        continue
+      }
       // Attached to a bill (or anything else)? Leave it.
       const links = await filesApi<unknown[]>(`/Files/${f.Id}/Associations`).catch(() => [{}])
       if (Array.isArray(links) && links.length) continue
       await filesApi(`/Files/${f.Id}`, { method: 'PUT', body: { Name: f.Name, FolderId: target.Id } })
       moved++
+      await new Promise((r) => setTimeout(r, 1200))
     }
-    return { moved }
+    return { moved, left }
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'failed'
     if (msg === 'MISSING_FILES_PERMISSION') return { moved: 0, needsReconnect: true, error: 'Reconnect Xero to tidy the Documents inbox.' }

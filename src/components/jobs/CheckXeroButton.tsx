@@ -29,7 +29,7 @@ export function CheckXeroButton() {
         r.bills?.added && `${r.bills.added} bill${r.bills.added === 1 ? "" : "s"} added to job costs`,
         r.bills?.updated && `${r.bills.updated} bill${r.bills.updated === 1 ? "" : "s"} updated`,
         r.bills?.removed && `${r.bills.removed} bill${r.bills.removed === 1 ? "" : "s"} taken off`,
-        r.docs?.moved && `${r.docs.moved} email logo${r.docs.moved === 1 ? "" : "s"} tidied out of Documents`,
+        r.docs?.moved && `${r.docs.moved} email logo${r.docs.moved === 1 ? "" : "s"} tidied out of Documents${r.docs.left ? ` (${r.docs.left} more next time)` : ""}`,
       ].filter(Boolean);
       setMessage({
         text:

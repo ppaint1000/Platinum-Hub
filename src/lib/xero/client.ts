@@ -23,17 +23,25 @@ export const XERO_SCOPES =
 // when the connection was made before 'files' was added - reconnect to fix.
 export async function filesApi<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
   const { token, tenantId } = await accessToken()
-  const res = await fetch(`https://api.xero.com/files.xro/1.0${path}`, {
-    method: init.method ?? 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Xero-Tenant-Id': tenantId,
-      Accept: 'application/json',
-      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-    },
-    body: init.body ? JSON.stringify(init.body) : undefined,
-    cache: 'no-store',
-  })
+  const send = () =>
+    fetch(`https://api.xero.com/files.xro/1.0${path}`, {
+      method: init.method ?? 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Xero-Tenant-Id': tenantId,
+        Accept: 'application/json',
+        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: init.body ? JSON.stringify(init.body) : undefined,
+      cache: 'no-store',
+    })
+  let res = await send()
+  // Too many requests: wait as long as Xero asks (up to 20s) and try once more.
+  if (res.status === 429) {
+    const wait = Math.min(Number(res.headers.get('Retry-After') ?? 5) || 5, 20)
+    await new Promise((r) => setTimeout(r, wait * 1000))
+    res = await send()
+  }
   const json = await res.json().catch(() => null)
   if (res.status === 401 || res.status === 403) throw new Error('MISSING_FILES_PERMISSION')
   if (!res.ok) throw new Error(problemText(json, res.status))
