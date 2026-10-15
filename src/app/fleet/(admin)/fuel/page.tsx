@@ -4,6 +4,7 @@ import { fmtDate, fmtKm, fmtMoney } from "@/lib/fleet/format";
 import { AddFuelEntryButton, EditFuelEntryButton } from "@/components/fleet/AddFuelEntryButton";
 import { missingFuelNumbers } from "@/lib/fleet/missingNumbers";
 import { latestJobByUser } from "@/lib/jobs/recentClockIns";
+import { VehicleFilter } from "@/components/fleet/VehicleFilter";
 
 type FuelRow = {
   id: string;
@@ -28,7 +29,8 @@ type FuelRow = {
 type VehicleRow = { id: string; plate: string; make: string; model: string; assigned_driver_id: string | null };
 type JobRow = { id: string; job_number: string | null; name: string; client: { name: string } | null };
 
-export default async function FuelLogPage() {
+export default async function FuelLogPage({ searchParams }: { searchParams: Promise<{ vehicle?: string }> }) {
+  const { vehicle: vehicleFilter = "" } = await searchParams;
   const supabase = await createClient();
 
   const {
@@ -68,14 +70,23 @@ export default async function FuelLogPage() {
     : [{ data: [] }, { data: [] }, { data: [] }, new Map<string, string>()];
   const lastJobByDriver = Object.fromEntries(lastJobs);
 
-  const { data: entries } = await supabase
+  // For the "Vehicle" filter (everyone who can see this page).
+  const { data: filterVehicles } = await supabase
+    .from("vehicles")
+    .select("id, plate, make, model")
+    .order("plate")
+    .returns<{ id: string; plate: string; make: string; model: string }[]>();
+
+  let query = supabase
     .from("fuel_entries")
     .select(
       "id, driver_id, vehicle_id, equipment, job_id, odometer_km, litres, cost_total, cost_per_litre, gps_lat, gps_lng, created_at, fuelled_on, receipt_photo_path, odometer_photo_path, vehicle:vehicles(plate, make, model), driver:profiles(full_name)"
     )
     // Vehicle fill-ups only - waterblaster fuel has its own page
     // (Fleet → Waterblaster Fuel).
-    .is("equipment", null)
+    .is("equipment", null);
+  if (vehicleFilter) query = query.eq("vehicle_id", vehicleFilter);
+  const { data: entries } = await query
     .order("fuelled_on", { ascending: false })
     .order("created_at", { ascending: false })
     .returns<FuelRow[]>();
@@ -106,6 +117,9 @@ export default async function FuelLogPage() {
     label: [j.job_number, j.name, j.client?.name].filter(Boolean).join(" — "),
   }));
   const incompleteCount = rows.filter((r) => missingFuelNumbers(r).length > 0).length;
+  // Totals for what's shown (handy with one vehicle picked).
+  const totalLitres = rows.reduce((s, r) => s + Number(r.litres ?? 0), 0);
+  const totalCost = rows.reduce((s, r) => s + Number(r.cost_total ?? 0), 0);
 
   return (
     <div>
@@ -113,12 +127,18 @@ export default async function FuelLogPage() {
         <div>
           <h1 className="text-xl font-semibold text-ink">Fuel Log</h1>
           <p className="mt-1 text-sm text-muted">
-            {rows.length} vehicle fill-up{rows.length === 1 ? "" : "s"} logged · waterblaster fuel is under Waterblaster Fuel
+            {rows.length} vehicle fill-up{rows.length === 1 ? "" : "s"}
+            {rows.length > 0 && ` · ${totalLitres.toFixed(0)} L · ${fmtMoney(totalCost)}`} · waterblaster fuel is under
+            Waterblaster Fuel
           </p>
         </div>
         {isAdmin && (
           <AddFuelEntryButton drivers={driverOptions} vehicles={vehicles ?? []} jobs={jobOptions} lastJobByDriver={lastJobByDriver} />
         )}
+      </div>
+
+      <div className="mb-4">
+        <VehicleFilter vehicles={filterVehicles ?? []} value={vehicleFilter} />
       </div>
 
       {incompleteCount > 0 && (
@@ -133,7 +153,9 @@ export default async function FuelLogPage() {
       <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-sm">
         {withUrls.length === 0 ? (
           <p className="px-5 py-10 text-center text-sm text-muted">
-            No fuel entries yet — they&apos;ll show up here as soon as drivers log one.
+            {vehicleFilter
+              ? "No fill-ups logged for this vehicle yet."
+              : "No fuel entries yet — they'll show up here as soon as drivers log one."}
           </p>
         ) : (
           <table className="w-full text-sm">

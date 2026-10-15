@@ -1,8 +1,11 @@
 // A card per vehicle with two rings: km per month and fuel economy. Each
 // ring is a gauge against the fleet average - the tick at the top is the
-// average, a full ring is twice it - and turns red when the vehicle is more
-// than 10% either side of it. Dashboard colours (components/dashboard/parts).
+// average, a full ring is twice it. Km turns red when the vehicle is more
+// than 10% either side of it; fuel is green below average and red only when
+// more than 10% above. Dashboard colours (components/dashboard/parts).
 import { BLUE, RED } from "@/components/dashboard/parts";
+
+const GREEN = "#15803D";
 import { USAGE_TOLERANCE, isOutside, offAverage, type FleetUsage } from "@/lib/fleet/usage";
 
 type VehicleLike = { id: string; plate: string; make: string; model: string };
@@ -16,18 +19,22 @@ function Gauge({
   average,
   unit,
   digits,
+  lowIsGood = false,
 }: {
   label: string;
   value: number | null;
   average: number | null;
   unit: string;
   digits: number;
+  // Fuel economy: below average is good (green); only well above is red.
+  lowIsGood?: boolean;
 }) {
   const r = (SIZE - STROKE) / 2;
   const c = 2 * Math.PI * r;
   const off = offAverage(value, average);
-  const red = isOutside(off);
-  const colour = red ? RED : BLUE;
+  const red = lowIsGood ? off !== null && off > 0 && isOutside(off) : isOutside(off);
+  const green = lowIsGood && off !== null && off < 0;
+  const colour = red ? RED : green ? GREEN : BLUE;
   // Half the ring = the fleet average.
   const share = value === null || !average ? 0 : Math.max(0, Math.min(1, value / (average * 2)));
   const fmt = (n: number) => n.toLocaleString("en-NZ", { maximumFractionDigits: digits, minimumFractionDigits: digits });
@@ -76,7 +83,10 @@ function Gauge({
           <span className="mt-0.5 text-[11px] text-[#5B6472]">{unit}</span>
         </div>
       </div>
-      <span className={`text-xs ${red ? "font-semibold" : "text-[#5B6472]"}`} style={red ? { color: RED } : undefined}>
+      <span
+        className={`text-xs ${red || green ? "font-semibold" : "text-[#5B6472]"}`}
+        style={red ? { color: RED } : green ? { color: GREEN } : undefined}
+      >
         {offText}
       </span>
     </div>
@@ -102,7 +112,9 @@ export function UsageRings({ vehicles, usage }: { vehicles: VehicleLike[]; usage
         {sorted.map((v) => {
           const u = usage.vehicles.get(v.id);
           const kmRed = isOutside(offAverage(u?.kmPerMonth ?? null, usage.avgKmPerMonth));
-          const fuelRed = isOutside(offAverage(u?.lPer100km ?? null, usage.avgLPer100km));
+          // Only using more fuel than average is a concern.
+          const fuelOff = offAverage(u?.lPer100km ?? null, usage.avgLPer100km);
+          const fuelRed = fuelOff !== null && fuelOff > 0 && isOutside(fuelOff);
           return (
             <li key={v.id} className="bg-surface px-5 py-4">
               <p className="text-sm font-medium text-ink">
@@ -115,15 +127,16 @@ export function UsageRings({ vehicles, usage }: { vehicles: VehicleLike[]; usage
               </p>
               <div className="mt-3 flex justify-around gap-3">
                 <Gauge label="Km per month" value={u?.kmPerMonth ?? null} average={usage.avgKmPerMonth} unit="km/mo" digits={0} />
-                <Gauge label="Fuel economy" value={u?.lPer100km ?? null} average={usage.avgLPer100km} unit="L/100km" digits={1} />
+                <Gauge label="Fuel economy" value={u?.lPer100km ?? null} average={usage.avgLPer100km} unit="L/100km" digits={1} lowIsGood />
               </div>
             </li>
           );
         })}
       </ul>
       <p className="border-t border-border px-5 py-3 text-xs text-muted">
-        The tick at the top of each ring is the fleet average. Red means more than {Math.round(USAGE_TOLERANCE * 100)}%
-        above or below it. Worked out from fuel-log odometer readings.
+        The tick at the top of each ring is the fleet average. Km: red means more than {Math.round(USAGE_TOLERANCE * 100)}%
+        above or below it. Fuel: green means using less than average, red more than {Math.round(USAGE_TOLERANCE * 100)}%
+        above it. Worked out from fuel-log odometer readings.
       </p>
     </div>
   );
