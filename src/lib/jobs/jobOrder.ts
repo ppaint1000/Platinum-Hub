@@ -17,3 +17,10 @@ export function byRecentClockIn<T extends { id: string; status?: string | null }
     .sort((a, b) => a.r - b.r || (a.at === b.at ? a.i - b.i : a.at < b.at ? 1 : -1))
     .map((x) => x.j);
 }
+
+// Moves one job (e.g. the driver's latest clocked-in job) to the top,
+// leaving the rest in the order given. No-op if it isn't in the list.
+export function withJobFirst<T extends { id: string }>(jobs: T[], jobId: string | null | undefined): T[] {
+  const first = jobId ? jobs.find((j) => j.id === jobId) : undefined;
+  return first ? [first, ...jobs.filter((j) => j !== first)] : jobs;
+}

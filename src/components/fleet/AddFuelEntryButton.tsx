@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Pencil, Plus, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -9,6 +9,7 @@ import { readReceipt } from "@/lib/fleet/readReceipt";
 import { checkFuelEconomyAction } from "@/app/fleet/actions";
 import { splitWaterblasterFuel, waterblasterSplitError } from "@/lib/fleet/waterblasterSplit";
 import { WaterblasterSplitField } from "@/components/fleet/WaterblasterSplitField";
+import { withJobFirst } from "@/lib/jobs/jobOrder";
 
 type Vehicle = { id: string; plate: string; make: string; model: string; assigned_driver_id: string | null };
 type Option = { id: string; label: string };
@@ -48,7 +49,9 @@ export type EditableFuelEntry = {
   receipt_photo_path: string | null;
 };
 
-type Lists = { drivers: Option[]; vehicles: Vehicle[]; jobs: Option[] };
+// lastJobByDriver: driver id -> the job they last clocked into, shown at
+// the top of the job pickers once that driver is chosen.
+type Lists = { drivers: Option[]; vehicles: Vehicle[]; jobs: Option[]; lastJobByDriver: Record<string, string> };
 
 // Admin-only manual fill-up, e.g. a receipt handed in at the office. Unlike
 // the driver form (/fleet/log), the admin picks who it's for, and the
@@ -76,7 +79,8 @@ function formFromEntry(entry: EditableFuelEntry): FormState {
 function FuelEntryModalButton({
   drivers,
   vehicles,
-  jobs,
+  jobs: allJobs,
+  lastJobByDriver,
   entry,
 }: Lists & { entry?: EditableFuelEntry }) {
   const router = useRouter();
@@ -88,6 +92,11 @@ function FuelEntryModalButton({
   const [error, setError] = useState<string | null>(null);
   const receiptInputRef = useRef<HTMLInputElement>(null);
   const readIdRef = useRef(0);
+
+  const jobs = useMemo(
+    () => withJobFirst(allJobs, lastJobByDriver[form.driverId]),
+    [allJobs, lastJobByDriver, form.driverId]
+  );
 
   const isWaterblaster = form.vehicleId === WATERBLASTER;
   // New vehicle fill-ups only: some of the fuel went into the water blaster

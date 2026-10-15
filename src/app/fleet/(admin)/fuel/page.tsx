@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fmtDate, fmtKm, fmtMoney } from "@/lib/fleet/format";
 import { AddFuelEntryButton, EditFuelEntryButton } from "@/components/fleet/AddFuelEntryButton";
 import { missingFuelNumbers } from "@/lib/fleet/missingNumbers";
+import { latestJobByUser } from "@/lib/jobs/recentClockIns";
 
 type FuelRow = {
   id: string;
@@ -41,7 +42,9 @@ export default async function FuelLogPage() {
   const isAdmin = profile?.role === "admin";
 
   // Only needed for the admin "Add entry" form.
-  const [{ data: drivers }, { data: vehicles }, { data: jobs }] = isAdmin
+  // Jobs newest first; the form moves the chosen driver's latest
+  // clocked-in job to the top (lastJobByDriver).
+  const [{ data: drivers }, { data: vehicles }, { data: jobs }, lastJobs] = isAdmin
     ? await Promise.all([
         supabase
           .from("profiles")
@@ -58,10 +61,12 @@ export default async function FuelLogPage() {
           .from("jobs")
           .select("id, job_number, name, client:clients(name)")
           .in("status", ["won", "scheduled", "in_progress", "complete", "invoiced", "paid"])
-          .order("name")
+          .order("created_at", { ascending: false })
           .returns<JobRow[]>(),
+        latestJobByUser(),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, new Map<string, string>()];
+  const lastJobByDriver = Object.fromEntries(lastJobs);
 
   const { data: entries } = await supabase
     .from("fuel_entries")
@@ -109,7 +114,7 @@ export default async function FuelLogPage() {
           </p>
         </div>
         {isAdmin && (
-          <AddFuelEntryButton drivers={driverOptions} vehicles={vehicles ?? []} jobs={jobOptions} />
+          <AddFuelEntryButton drivers={driverOptions} vehicles={vehicles ?? []} jobs={jobOptions} lastJobByDriver={lastJobByDriver} />
         )}
       </div>
 
@@ -205,6 +210,7 @@ export default async function FuelLogPage() {
                           drivers={driverOptions}
                           vehicles={vehicles ?? []}
                           jobs={jobOptions}
+                          lastJobByDriver={lastJobByDriver}
                         />
                       </td>
                     )}

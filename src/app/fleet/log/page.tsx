@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { HubTopBar } from "@/components/dashboard/HubTopBar";
 import { FuelEntryForm } from "@/components/fleet/FuelEntryForm";
-import { byRecentClockIn, latestClockInByJob } from "@/lib/jobs/recentClockIns";
+import { latestJobByUser, withJobFirst } from "@/lib/jobs/recentClockIns";
 
 export default async function DriverFuelLogPage() {
   const supabase = await createClient();
@@ -38,20 +38,20 @@ export default async function DriverFuelLogPage() {
   // Jobs a waterblaster fill-up can be charged to. Read with the service
   // role because drivers have no RLS access to jobs - only the id/number/
   // name/client of live jobs is exposed, nothing financial.
-  // Finished jobs too (a fill-up can still be for one); clocked into today,
-  // then In progress, then the rest.
-  const [{ data: allJobs }, latest] = user
+  // Finished jobs too (a fill-up can still be for one); the driver's latest
+  // clocked-in job first, then newest jobs first.
+  const [{ data: allJobs }, latestJobs] = user
     ? await Promise.all([
         createAdminClient()
           .from("jobs")
           .select("id, job_number, name, status, client:clients(name)")
           .in("status", ["won", "scheduled", "in_progress", "complete", "invoiced", "paid"])
-          .order("name")
+          .order("created_at", { ascending: false })
           .returns<{ id: string; job_number: string | null; name: string; status: string; client: { name: string } | null }[]>(),
-        latestClockInByJob(),
+        latestJobByUser(),
       ])
     : [{ data: [] }, new Map<string, string>()];
-  const jobs = byRecentClockIn(allJobs ?? [], latest);
+  const jobs = withJobFirst(allJobs ?? [], user ? latestJobs.get(user.id) : null);
 
   // Default the picker to whichever vehicle is assigned to the signed-in
   // driver (Fleet -> Vehicles), falling back to the first one.
