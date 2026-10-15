@@ -2452,7 +2452,16 @@ export function QuoteEditor({
                               ) : null}
                             </td>
                             <td className="whitespace-nowrap px-2 py-1.5 text-muted">
-                              {line.line_type === "surface" ? fmtCurrency(line.material_rate) : null}
+                              {line.line_type === "surface" ? (
+                                // Bright yellow when the paint isn't the company's default.
+                                line.paint_product_id && line.paint_product_id !== defaultPaintProductId ? (
+                                  <span className="rounded-md border border-yellow-500 bg-yellow-300 px-2 py-1 font-semibold text-ink">
+                                    {fmtCurrency(line.material_rate)}
+                                  </span>
+                                ) : (
+                                  fmtCurrency(line.material_rate)
+                                )
+                              ) : null}
                             </td>
                             <td className="whitespace-nowrap px-2 py-1.5 text-muted">
                               {line.hours.toFixed(2)}
@@ -2491,13 +2500,7 @@ export function QuoteEditor({
                             <td className="px-2 py-1.5">
                               {line.line_type === "surface" ? (
                                 <SearchableSelect
-                                  // Bright yellow when it's not the company's default paint.
-                                  className={
-                                    "w-32" +
-                                    (line.paint_product_id && line.paint_product_id !== defaultPaintProductId
-                                      ? " border-yellow-500! bg-yellow-300! font-semibold"
-                                      : "")
-                                  }
+                                  className="w-32"
                                   placeholder="Company default"
                                   emptyLabel="Use default"
                                   value={line.paint_product_id}

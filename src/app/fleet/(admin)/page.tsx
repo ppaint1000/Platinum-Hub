@@ -230,9 +230,9 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
         />
       </div>
 
-      <NextServiceSection services={services} />
-
       <UsageRings vehicles={vList} usage={usage} />
+
+      <NextServiceSection services={services} />
 
       <div className="mt-6 rounded-xl border border-border bg-surface shadow-sm">
         <div className="border-b border-border px-5 py-3.5">

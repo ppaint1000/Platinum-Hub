@@ -8,6 +8,30 @@ import { useUserRole } from "@/lib/supabase/useUserRole";
 import { Modal, Field, inputClass } from "@/components/fleet/Modal";
 import { ExpiryChip } from "@/components/fleet/StatusChip";
 import { fmtKm } from "@/lib/fleet/format";
+import { SERVICE_SOON_KM, type NextService } from "@/lib/fleet/nextService";
+
+export type VehicleStatus = { next: NextService; odometer: number | null };
+
+// A km-based due point (service, RUC): red when past, amber within 1,000 km.
+function KmDueChip({ dueAtKm, kmLeft }: { dueAtKm: number | null; kmLeft: number | null }) {
+  if (dueAtKm === null) return <span className="text-muted">—</span>;
+  const tone =
+    kmLeft === null
+      ? "bg-background text-muted"
+      : kmLeft < 0
+        ? "bg-red-50 text-red-700"
+        : kmLeft <= SERVICE_SOON_KM
+          ? "bg-amber-50 text-amber-800"
+          : "bg-green-50 text-green-800";
+  const left =
+    kmLeft === null ? "" : kmLeft < 0 ? ` · ${fmtKm(-kmLeft)} over` : ` · ${fmtKm(kmLeft)} to go`;
+  return (
+    <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-medium ${tone}`}>
+      {fmtKm(dueAtKm)}
+      {left}
+    </span>
+  );
+}
 
 type Vehicle = {
   id: string;
@@ -22,6 +46,9 @@ type Vehicle = {
   next_service_km: number | null;
   next_service_date: string | null;
   notes: string | null;
+  fuel_type: "petrol" | "diesel" | string;
+  // Diesel only: the odometer km the Road User Charges licence runs out at.
+  ruc_paid_to_km: number | null;
 };
 
 type Driver = { id: string; full_name: string };
@@ -38,6 +65,8 @@ type FormState = {
   next_service_km: string;
   next_service_date: string;
   notes: string;
+  fuel_type: "petrol" | "diesel";
+  ruc_paid_to_km: string;
 };
 
 const EMPTY: FormState = {
@@ -52,14 +81,19 @@ const EMPTY: FormState = {
   next_service_km: "",
   next_service_date: "",
   notes: "",
+  fuel_type: "petrol",
+  ruc_paid_to_km: "",
 };
 
 export function VehiclesClient({
   initialVehicles,
   drivers,
+  status = {},
 }: {
   initialVehicles: Vehicle[];
   drivers: Driver[];
+  // Per vehicle id: its next service and current odometer.
+  status?: Record<string, VehicleStatus>;
 }) {
   const router = useRouter();
   const role = useUserRole();
@@ -94,6 +128,8 @@ export function VehiclesClient({
       next_service_km: v.next_service_km?.toString() ?? "",
       next_service_date: v.next_service_date ?? "",
       notes: v.notes ?? "",
+      fuel_type: v.fuel_type === "diesel" ? "diesel" : "petrol",
+      ruc_paid_to_km: v.ruc_paid_to_km?.toString() ?? "",
     });
     setError(null);
     setEditing(v);
@@ -125,6 +161,9 @@ export function VehiclesClient({
       next_service_km: form.next_service_km ? Number(form.next_service_km) : null,
       next_service_date: form.next_service_date || null,
       notes: form.notes.trim() || null,
+      fuel_type: form.fuel_type,
+      // Road User Charges only apply to diesels.
+      ruc_paid_to_km: form.fuel_type === "diesel" && form.ruc_paid_to_km ? Number(form.ruc_paid_to_km) : null,
     };
 
     const { error } = editing
@@ -179,8 +218,11 @@ export function VehiclesClient({
                 <th className="px-5 py-3">Plate</th>
                 <th className="px-5 py-3">Driver</th>
                 <th className="px-5 py-3">Odometer</th>
+                <th className="px-5 py-3">Fuel</th>
                 <th className="px-5 py-3">WOF</th>
                 <th className="px-5 py-3">Rego</th>
+                <th className="px-5 py-3">Next service</th>
+                <th className="px-5 py-3">Diesel tax (RUC)</th>
                 <th className="px-5 py-3" />
               </tr>
             </thead>
@@ -193,12 +235,35 @@ export function VehiclesClient({
                   </td>
                   <td className="whitespace-nowrap px-5 py-3 font-mono text-xs">{v.plate}</td>
                   <td className="whitespace-nowrap px-5 py-3">{driverName(v.assigned_driver_id)}</td>
-                  <td className="whitespace-nowrap px-5 py-3">{fmtKm(v.current_odometer_km)}</td>
+                  <td className="whitespace-nowrap px-5 py-3">{fmtKm(status[v.id]?.odometer ?? v.current_odometer_km)}</td>
+                  <td className="whitespace-nowrap px-5 py-3">{v.fuel_type === "diesel" ? "Diesel" : "Petrol"}</td>
                   <td className="whitespace-nowrap px-5 py-3">
                     <ExpiryChip date={v.wof_expiry} />
                   </td>
                   <td className="whitespace-nowrap px-5 py-3">
                     <ExpiryChip date={v.rego_expiry} />
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-3">
+                    <KmDueChip dueAtKm={status[v.id]?.next.dueAtKm ?? null} kmLeft={status[v.id]?.next.kmLeft ?? null} />
+                    {v.next_service_date && !status[v.id]?.next.lastServiceDate && (
+                      <div className="mt-1">
+                        <ExpiryChip date={v.next_service_date} />
+                      </div>
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-3">
+                    {v.fuel_type === "diesel" ? (
+                      <KmDueChip
+                        dueAtKm={v.ruc_paid_to_km}
+                        kmLeft={
+                          v.ruc_paid_to_km != null && status[v.id]?.odometer != null
+                            ? v.ruc_paid_to_km - (status[v.id]?.odometer as number)
+                            : null
+                        }
+                      />
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-5 py-3">
                     <div className="flex justify-end gap-1">
@@ -281,6 +346,34 @@ export function VehiclesClient({
               />
             </Field>
           </div>
+          <Field label="Fuel">
+            <div className="flex gap-5 py-1.5">
+              {(["petrol", "diesel"] as const).map((f) => (
+                <label key={f} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="fuel_type"
+                    checked={form.fuel_type === f}
+                    onChange={() => setForm({ ...form, fuel_type: f })}
+                    className="h-4 w-4"
+                  />
+                  {f === "petrol" ? "Petrol" : "Diesel"}
+                </label>
+              ))}
+            </div>
+          </Field>
+          {form.fuel_type === "diesel" && (
+            <Field label="Diesel tax (RUC) paid to (km)">
+              <input
+                type="number"
+                inputMode="numeric"
+                className={inputClass}
+                value={form.ruc_paid_to_km}
+                onChange={(e) => setForm({ ...form, ruc_paid_to_km: e.target.value })}
+                placeholder="The end km on the RUC licence"
+              />
+            </Field>
+          )}
           <Field label="Assigned driver">
             <select
               className={inputClass}
