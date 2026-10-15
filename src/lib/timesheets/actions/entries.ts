@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/timesheets/authGuards'
+import { nzLocalToIso } from '@/lib/timesheets/formatNZ'
 
 // Where to land after saving/deleting - the Reports edit link and the
 // Staff > Timesheet edit link both point here, and each wants to come back
@@ -29,9 +30,10 @@ export async function updateEntry(entryId: string, formData: FormData) {
   if (typeof siteId !== 'string' || !siteId) return
   if (typeof clockInLocal !== 'string' || !clockInLocal) return
 
-  const clockIn = new Date(clockInLocal)
+  // The form's times are NZ time (the server's own clock is UTC).
+  const clockIn = new Date(nzLocalToIso(clockInLocal))
   const clockOut =
-    typeof clockOutLocal === 'string' && clockOutLocal ? new Date(clockOutLocal) : null
+    typeof clockOutLocal === 'string' && clockOutLocal ? new Date(nzLocalToIso(clockOutLocal)) : null
   const breakMinutes =
     typeof breakMinutesRaw === 'string' ? Math.max(0, parseInt(breakMinutesRaw, 10) || 0) : 0
 

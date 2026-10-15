@@ -70,8 +70,9 @@ function formatDuration(ms: number) {
 function formatTimestamp(ms: number) {
   const d = new Date(ms)
   return {
-    time: d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
-    date: d.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' }),
+    // NZ time whatever the phone's own time zone is set to.
+    time: d.toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Auckland' }),
+    date: d.toLocaleDateString('en-NZ', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Pacific/Auckland' }),
   }
 }
 

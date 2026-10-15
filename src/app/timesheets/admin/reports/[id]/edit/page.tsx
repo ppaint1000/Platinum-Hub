@@ -3,15 +3,10 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { updateEntry, deleteEntry } from '@/lib/timesheets/actions/entries'
 import { requireAdmin } from '@/lib/timesheets/authGuards'
+import { nzLocalInputValue } from '@/lib/timesheets/formatNZ'
 
-function toLocalInputValue(iso: string | null): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours()
-  )}:${pad(d.getMinutes())}`
-}
+// NZ time - this page is built on the server, whose clock is UTC.
+const toLocalInputValue = nzLocalInputValue
 
 export default async function EditEntryPage({
   params,

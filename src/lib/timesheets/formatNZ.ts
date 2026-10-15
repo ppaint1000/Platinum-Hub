@@ -70,6 +70,33 @@ export function nzDayEndUtcIso(dateStr: string): string {
   return new Date(nextDayStartMs - 1).toISOString()
 }
 
+// "YYYY-MM-DDTHH:mm" in NZ time, for pre-filling <input type="datetime-local">
+// on the server (whose own clock is UTC).
+export function nzLocalInputValue(iso: string | null): string {
+  if (!iso) return ''
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(iso))
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '00'
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
+}
+
+// The reverse: a "YYYY-MM-DDTHH:mm" typed as NZ time -> the real UTC instant.
+export function nzLocalToIso(local: string): string {
+  const [date, time = '00:00'] = local.split('T')
+  const guessMs = Date.parse(`${date}T${time.slice(0, 5)}:00Z`)
+  // Offset at the guess, then again at the result (right across a daylight-saving change).
+  let ms = guessMs - nzOffsetMinutesAt(guessMs) * 60000
+  ms = guessMs - nzOffsetMinutesAt(ms) * 60000
+  return new Date(ms).toISOString()
+}
+
 // HH:mm (24h) in NZ time, for pre-filling <input type="time"> editors.
 export function nzTimeString(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-GB', {
