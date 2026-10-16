@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { landingPath } from "@/lib/auth/landing";
+import { recordSignIn, SESSION_COOKIE } from "@/lib/security/signInGate";
 
 type Profile = { role: string; is_active: boolean | null };
 type AppAccess = {
@@ -15,7 +16,7 @@ type AppAccess = {
   default_app: string;
 };
 
-export async function updateSession(request: NextRequest) {
+export async function updateSession(request: NextRequest, event?: NextFetchEvent) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -58,7 +59,9 @@ export async function updateSession(request: NextRequest) {
   // project — no Hub session cookie to check here). Auth is the shared
   // secret each route verifies itself, see src/lib/integrations/quotesWebhook.ts.
   // Scheduled jobs (Supabase's scheduler) - each route checks its own token.
-  const isIntegrationWebhook = path.startsWith("/api/integrations/") || path.startsWith("/api/cron/");
+  // The new-device email, posted by this gate itself (checks the same token).
+  const isIntegrationWebhook =
+    path.startsWith("/api/integrations/") || path.startsWith("/api/cron/") || path === "/api/security/new-device";
 
   // A customer's proposal link (/p/<token>) and the proposal page reporting
   // a view or acceptance: no sign-in - the link plus the proposal's 6-digit
@@ -127,12 +130,17 @@ export async function updateSession(request: NextRequest) {
   if (!verifiedUser && !isAuthRoute && !isAlwaysPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
+    // This browser was signed in and isn't now (signed in on another
+    // device, or the account was turned off): say so on the sign-in page.
+    const wasSignedIn = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
+    url.search = wasSignedIn ? "?ended=1" : "";
     // Carry over any Set-Cookie from the signOut() above (e.g. a broken
     // profile lookup) — a bare NextResponse.redirect() here would otherwise
     // drop those and leave the stale session cookie in place, so the next
     // request would just fail the same profile check all over again.
     const redirectResponse = NextResponse.redirect(url);
     response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+    if (wasSignedIn) redirectResponse.cookies.delete(SESSION_COOKIE);
     return redirectResponse;
   }
 
@@ -148,6 +156,13 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
+    // The sign-in log, one device at a time, the new-device email.
+    try {
+      await recordSignIn(supabase, request, response, event);
+    } catch (e) {
+      console.error("sign-in log:", e);
+    }
+
     // Sign-in sends everyone to "/", so "/" needs the same landing as
     // /sign-in. Painters are also kept off the Hub itself, and the
     // Dashboard is admin-only (the page checks this again server-side).
@@ -159,7 +174,9 @@ export async function updateSession(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = landingPath(profile.role, access);
       url.search = "";
-      return NextResponse.redirect(url);
+      const landing = NextResponse.redirect(url);
+      response.cookies.getAll().forEach((cookie) => landing.cookies.set(cookie));
+      return landing;
     }
   }
 

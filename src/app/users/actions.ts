@@ -156,6 +156,19 @@ export async function updateSalesAuthorityAction(userId: string, granted: boolea
   return {};
 }
 
+// One device at a time is the default; this lets someone stay signed in on
+// several (e.g. a phone and an office computer).
+export async function updateMultiDeviceAction(userId: string, allowed: boolean) {
+  const supabase = await requireAdmin();
+
+  const { error } = await supabase.from("profiles").update({ allow_multiple_devices: allowed }).eq("id", userId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/users");
+  return {};
+}
+
 export async function updateDefaultAppAction(userId: string, app: DefaultApp) {
   const supabase = await requireAdmin();
   const { flags, role } = await landingCheck(supabase, userId);

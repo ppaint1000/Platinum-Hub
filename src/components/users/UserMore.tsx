@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { updateUserDetailsAction } from "@/app/users/actions";
+import { updateMultiDeviceAction, updateUserDetailsAction } from "@/app/users/actions";
 import { resendInvite, sendPasswordReset } from "@/lib/timesheets/actions/staff";
 import { EmailActionButton } from "@/app/timesheets/admin/staff/email-action-button";
 import { SetPasswordForm } from "@/app/timesheets/admin/staff/set-password-form";
@@ -16,13 +16,23 @@ export function UserMore({
   user,
   staffTypes,
 }: {
-  user: { id: string; full_name: string; staff_type_id: string | null; pending: boolean; is_active: boolean };
+  user: {
+    id: string;
+    full_name: string;
+    staff_type_id: string | null;
+    pending: boolean;
+    is_active: boolean;
+    allow_multiple_devices: boolean;
+  };
   staffTypes: StaffType[];
 }) {
   const [name, setName] = useState(user.full_name);
   const [staffType, setStaffType] = useState(user.staff_type_id ?? "");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, startSaving] = useTransition();
+  const [multi, setMulti] = useState(user.allow_multiple_devices);
+  const [multiError, setMultiError] = useState<string | null>(null);
+  const [savingMulti, startSavingMulti] = useTransition();
   const changed = name.trim() !== user.full_name || (staffType || null) !== user.staff_type_id;
 
   function save() {
@@ -30,6 +40,18 @@ export function UserMore({
     startSaving(async () => {
       const result = await updateUserDetailsAction(user.id, { fullName: name, staffTypeId: staffType || null });
       setMessage(result?.error ? { ok: false, text: result.error } : { ok: true, text: "Saved." });
+    });
+  }
+
+  function toggleMulti(allowed: boolean) {
+    setMulti(allowed);
+    setMultiError(null);
+    startSavingMulti(async () => {
+      const result = await updateMultiDeviceAction(user.id, allowed);
+      if (result?.error) {
+        setMulti(!allowed);
+        setMultiError(result.error);
+      }
     });
   }
 
@@ -97,7 +119,27 @@ export function UserMore({
           <Link href={`/timesheets/admin/staff/${user.id}/timesheet`} className="text-sm underline">
             View their timesheet
           </Link>
+          <Link href={`/users/sign-ins?person=${user.id}`} className="text-sm underline">
+            Their sign-ins
+          </Link>
         </div>
+
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={multi}
+            disabled={savingMulti}
+            onChange={(e) => toggleMulti(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            Can stay signed in on more than one device
+            <span className="block text-xs text-ink-soft">
+              Off: signing in on a new phone or computer signs them out everywhere else.
+            </span>
+          </span>
+        </label>
+        {multiError && <p className="text-sm text-red-600">{multiError}</p>}
       </div>
 
       <SetPasswordForm staffId={user.id} />

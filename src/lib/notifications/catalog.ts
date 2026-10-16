@@ -214,6 +214,15 @@ export const EMAIL_NOTIFICATIONS: EmailNotification[] = [
     audiences: ["admin"],
     defaultOn: { admin: false },
   },
+  {
+    key: "security_new_device",
+    group: "Security",
+    label: "When someone signs in on a new device",
+    description:
+      "A phone or computer they haven't used for the Hub before - with the device, the rough place and the time. See Users → Sign-in log.",
+    audiences: ["admin"],
+    defaultOn: { admin: true },
+  },
 ];
 
 export const HUB_ALERTS: HubAlert[] = [

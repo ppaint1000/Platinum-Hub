@@ -54,6 +54,8 @@ export type UserRow = {
   staff_type_id: string | null;
   // Invited, hasn't signed in yet.
   pending: boolean;
+  // May stay signed in on several devices (else signing in elsewhere signs the old one out).
+  allow_multiple_devices: boolean;
 };
 
 // Every page someone can be given, grouped as on the side menu. Ticked =

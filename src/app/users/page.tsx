@@ -1,5 +1,6 @@
 // Users — add, deactivate, or delete staff, and set which apps (and which
 // one they land on after signing in) each person can reach. Admin-only.
+import Link from "next/link";
 import { DASHBOARD_THEME } from "@/components/dashboard/parts";
 import { ADMIN_NAV, TopBar } from "@/components/dashboard/TopBar";
 import { dashboardFontClass } from "@/components/dashboard/fonts";
@@ -28,7 +29,7 @@ export default async function UsersPage() {
     supabase
       .from("profiles")
       .select(
-        "id, full_name, email, role, is_active, staff_type_id, user_app_access(timesheets, fleet, orders, jobs, sales, sales_authority, default_app, measures, costing, production, schedule, safety, invoices, order_log)"
+        "id, full_name, email, role, is_active, staff_type_id, allow_multiple_devices, user_app_access(timesheets, fleet, orders, jobs, sales, sales_authority, default_app, measures, costing, production, schedule, safety, invoices, order_log)"
       )
       .is("deleted_at", null)
       .order("is_active", { ascending: false })
@@ -100,7 +101,12 @@ export default async function UsersPage() {
             {rows.length} {rows.length === 1 ? "person" : "people"}
           </p>
         </div>
-        <NewUserForm staffTypes={staffTypes ?? []} />
+        <div className="flex items-center gap-4">
+          <Link href="/users/sign-ins" className="text-sm font-semibold text-ink underline">
+            Sign-in log
+          </Link>
+          <NewUserForm staffTypes={staffTypes ?? []} />
+        </div>
       </div>
 
       {noRate.length > 0 && (
