@@ -59,7 +59,7 @@ export async function updateSession(request: NextRequest, event?: NextFetchEvent
   // project — no Hub session cookie to check here). Auth is the shared
   // secret each route verifies itself, see src/lib/integrations/quotesWebhook.ts.
   // Scheduled jobs (Supabase's scheduler) - each route checks its own token.
-  // The new-device email, posted by this gate itself (checks the same token).
+  // The new-device email, posted by this gate itself (the route checks the sign-in).
   const isIntegrationWebhook =
     path.startsWith("/api/integrations/") || path.startsWith("/api/cron/") || path === "/api/security/new-device";
 

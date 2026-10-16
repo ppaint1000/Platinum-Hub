@@ -1,19 +1,21 @@
 // Emails admins (Notifications → "When someone signs in on a new device")
 // when a person signs in from a phone or computer they haven't used for
 // the Hub before. Posted by the request gate (lib/security/signInGate.ts)
-// with the shared secret - never by a browser.
+// with that person's own sign-in cookies; only that sign-in can be
+// reported, and only once.
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email/mailer";
 import { notificationRecipients } from "@/lib/notifications/recipients";
 import { formatNZDateTime } from "@/lib/timesheets/formatNZ";
 import { describeDevice, describePlace } from "@/lib/security/describe";
 
 export async function POST(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get("x-cron-secret") !== secret) {
-    return NextResponse.json({ error: "Not authorized" }, { status: 401 });
-  }
+  const {
+    data: { user },
+  } = await (await createClient()).auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
   const { sessionId } = (await request.json().catch(() => ({}))) as { sessionId?: string };
   if (!sessionId) return NextResponse.json({ error: "No session" }, { status: 400 });
 
@@ -22,8 +24,15 @@ export async function POST(request: NextRequest) {
     .from("hub_sign_ins")
     .select("user_id, user_agent, ip, city, country, created_at, new_device, profiles(full_name, email, role)")
     .eq("session_id", sessionId)
+    .eq("user_id", user.id)
     .maybeSingle();
   if (!row?.new_device) return NextResponse.json({ sent: false, reason: "Not a new device" });
+
+  // Once per sign-in.
+  const key = `new_device:${sessionId}`;
+  const { data: done } = await db.from("hub_alert_log").select("key").eq("key", key).maybeSingle();
+  if (done) return NextResponse.json({ sent: false, reason: "Already emailed" });
+  await db.from("hub_alert_log").upsert({ key, detail: "New device sign-in" }, { onConflict: "key", ignoreDuplicates: true });
 
   const person = (Array.isArray(row.profiles) ? row.profiles[0] : row.profiles) as
     | { full_name: string; email: string; role: string }

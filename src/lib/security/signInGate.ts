@@ -79,12 +79,12 @@ export async function recordSignIn(
   }
 
   // Email admins about a new device - after the response, so the person
-  // signing in doesn't wait for it.
-  const secret = process.env.CRON_SECRET;
-  if (r.new_device && secret) {
+  // signing in doesn't wait for it. Sent with their own sign-in, which the
+  // route checks is the one being reported.
+  if (r.new_device) {
     const send = fetch(`${request.nextUrl.origin}/api/security/new-device`, {
       method: "POST",
-      headers: { "content-type": "application/json", "x-cron-secret": secret },
+      headers: { "content-type": "application/json", cookie: request.headers.get("cookie") ?? "" },
       body: JSON.stringify({ sessionId }),
     }).catch((e) => console.error("sign-in log: new-device email failed:", e));
     if (event) event.waitUntil(send);
