@@ -205,6 +205,15 @@ export const EMAIL_NOTIFICATIONS: EmailNotification[] = [
     audiences: ["admin"],
     defaultOn: { admin: true },
   },
+  {
+    key: "fleet_ruc_due",
+    group: "Fleet",
+    label: "When a diesel's road user charges (RUC) are about to run out",
+    description:
+      "About a week before, going by the km the vehicle usually does - and again if they run out. Always goes to shelley@platinumpainters.co.nz too.",
+    audiences: ["admin"],
+    defaultOn: { admin: false },
+  },
 ];
 
 export const HUB_ALERTS: HubAlert[] = [
