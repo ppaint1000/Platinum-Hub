@@ -7,7 +7,7 @@ import { timesheetRecipients } from '@/lib/notifications/recipients'
 const senderName = (userName: string, what: string) => `${userName.replace(/["<>,;]/g, '').trim()} ${what}`
 
 // The Hub's own URL, for the link in the email.
-const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? 'https://platinum-painters-hub.vercel.app'
+const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? 'https://hub.platinumpainters.co.nz'
 
 // Fires when a painter files a change request — a heads-up only, the
 // request itself is what admins act on from

@@ -56,8 +56,8 @@ export default async function XeroPayrollPage({
               Sign in at <span className="font-mono">developer.xero.com</span> with your Xero login → <b>My Apps</b> → <b>New app</b>.
             </li>
             <li>
-              Name <b>Platinum Hub</b>, type <b>Web app</b>, company URL <span className="font-mono">https://platinum-painters-hub.vercel.app</span>, redirect URI{' '}
-              <span className="font-mono">https://platinum-painters-hub.vercel.app/api/xero/callback</span>.
+              Name <b>Platinum Hub</b>, type <b>Web app</b>, company URL <span className="font-mono">https://hub.platinumpainters.co.nz</span>, redirect URI{' '}
+              <span className="font-mono">https://hub.platinumpainters.co.nz/api/xero/callback</span>.
             </li>
             <li>
               Copy the app&apos;s <b>Client id</b> and generate a <b>Client secret</b>. In Vercel → the Hub project → Settings → Environment Variables, add{' '}
