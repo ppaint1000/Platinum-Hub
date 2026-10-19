@@ -10,8 +10,18 @@ import { checkFuelEconomyAction } from "@/app/fleet/actions";
 import { splitWaterblasterFuel, waterblasterSplitError } from "@/lib/fleet/waterblasterSplit";
 import { WaterblasterSplitField } from "@/components/fleet/WaterblasterSplitField";
 import { withJobFirst } from "@/lib/jobs/jobOrder";
+import { expectedHubo, huboWarning, type HuboHint } from "@/lib/fleet/hubodometer";
 
-type Vehicle = { id: string; plate: string; make: string; model: string; assigned_driver_id: string | null };
+// usesHubo / huboHint: diesel tax goes by a hubodometer (lib/fleet/formVehicles.ts).
+type Vehicle = {
+  id: string;
+  plate: string;
+  make: string;
+  model: string;
+  assigned_driver_id: string | null;
+  usesHubo?: boolean;
+  huboHint?: HuboHint | null;
+};
 type Option = { id: string; label: string };
 
 // Same picker value the driver form uses for the waterblaster - no vehicle
@@ -30,6 +40,7 @@ type FormState = {
   jobId: string;
   fuelledOn: string;
   odometer: string;
+  hubo: string;
   litres: string;
   cost: string;
 };
@@ -44,6 +55,7 @@ export type EditableFuelEntry = {
   job_id: string | null;
   fuelled_on: string;
   odometer_km: number | null;
+  hubodometer_km?: number | null;
   litres: number | null;
   cost_total: number | null;
   receipt_photo_path: string | null;
@@ -73,6 +85,7 @@ function formFromEntry(entry: EditableFuelEntry): FormState {
     jobId: entry.job_id ?? "",
     fuelledOn: entry.fuelled_on,
     odometer: entry.odometer_km != null ? String(entry.odometer_km) : "",
+    hubo: entry.hubodometer_km != null ? String(entry.hubodometer_km) : "",
     litres: entry.litres != null ? String(entry.litres) : "",
     cost: entry.cost_total != null ? Number(entry.cost_total).toFixed(2) : "",
   };
@@ -107,10 +120,19 @@ function FuelEntryModalButton({
   const [splitWaterblaster, setSplitWaterblaster] = useState(false);
   const [waterblasterLitres, setWaterblasterLitres] = useState("");
   const canSplit = !entry && !isWaterblaster;
+  // Hubodometer vehicles (the Dynas) also need the hubo reading. Checked
+  // against the odometer for new entries only - an edited entry is already
+  // part of the readings the check is worked out from.
+  const vehicle = vehicles.find((v) => v.id === form.vehicleId);
+  const needsHubo = !isWaterblaster && !!vehicle?.usesHubo;
+  const odometerNum = form.odometer && Number(form.odometer) > 0 ? Number(form.odometer) : null;
+  const huboNum = form.hubo && Number(form.hubo) > 0 ? Number(form.hubo) : null;
+  const huboExpected = needsHubo && !entry ? expectedHubo(vehicle?.huboHint, odometerNum) : null;
+  const huboCheck = needsHubo && !entry ? huboWarning(vehicle?.huboHint, odometerNum, huboNum) : null;
   const splitting = canSplit && splitWaterblaster;
 
   function emptyForm(): FormState {
-    return { driverId: "", vehicleId: startWithWaterblaster ? WATERBLASTER : "", jobId: "", fuelledOn: todayLocal(), odometer: "", litres: "", cost: "" };
+    return { driverId: "", vehicleId: startWithWaterblaster ? WATERBLASTER : "", jobId: "", fuelledOn: todayLocal(), odometer: "", hubo: "", litres: "", cost: "" };
   }
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -171,12 +193,18 @@ function FuelEntryModalButton({
     if (form.fuelledOn > todayLocal()) return setError("The date can't be in the future.");
     if (!isWaterblaster && (!form.odometer || Number(form.odometer) <= 0))
       return setError("Enter the odometer reading.");
+    // Required on new entries; older ones from before the hubo was tracked
+    // can still be edited without one.
+    if (needsHubo && !entry && !form.hubo) return setError("Enter the hubodometer reading.");
+    if (needsHubo && form.hubo && Number(form.hubo) <= 0) return setError("Check the hubodometer reading.");
     if (!form.litres || Number(form.litres) <= 0) return setError("Enter the litres.");
     if (!form.cost || Number(form.cost) <= 0) return setError("Enter the total cost.");
     if (splitting) {
       const splitError = waterblasterSplitError(form.litres, waterblasterLitres, form.jobId);
       if (splitError) return setError(splitError);
     }
+
+    if (huboCheck && !confirm(`${huboCheck}\n\nSave anyway?`)) return;
 
     setSaving(true);
     const supabase = createClient();
@@ -207,6 +235,7 @@ function FuelEntryModalButton({
       job_id: isWaterblaster ? form.jobId : null,
       fuelled_on: form.fuelledOn,
       odometer_km: isWaterblaster ? null : Number(form.odometer),
+      hubodometer_km: needsHubo && form.hubo ? Number(form.hubo) : null,
       litres: Number(form.litres),
       cost_total: Number(form.cost),
       // Editing without a new photo keeps the one already on the entry.
@@ -235,6 +264,7 @@ function FuelEntryModalButton({
           equipment: WATERBLASTER,
           job_id: form.jobId,
           odometer_km: null,
+          hubodometer_km: null,
           litres: split.waterblasterLitres,
           cost_total: split.waterblasterCost ?? 0,
         });
@@ -373,6 +403,22 @@ function FuelEntryModalButton({
               </Field>
             )}
           </div>
+
+          {needsHubo && (
+            <Field label="Hubodometer (km)" required={!entry}>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={form.hubo}
+                onChange={(e) => set("hubo", e.target.value)}
+                placeholder={huboExpected !== null ? `about ${huboExpected}` : "Reading on the wheel hub"}
+                className={`${inputClass} min-w-0`}
+              />
+              {huboCheck && (
+                <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">{huboCheck}</p>
+              )}
+            </Field>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Litres" required>

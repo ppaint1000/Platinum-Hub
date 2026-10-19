@@ -9,8 +9,10 @@ import { Modal, Field, inputClass } from "@/components/fleet/Modal";
 import { ExpiryChip } from "@/components/fleet/StatusChip";
 import { fmtKm } from "@/lib/fleet/format";
 import { SERVICE_SOON_KM, type NextService } from "@/lib/fleet/nextService";
+import type { HuboNow } from "@/lib/fleet/hubodometer";
 
-export type VehicleStatus = { next: NextService; odometer: number | null };
+// hubo: only for vehicles whose RUC goes by a hubodometer.
+export type VehicleStatus = { next: NextService; odometer: number | null; hubo?: HuboNow | null };
 
 // A km-based due point (service, RUC): red when past, amber within 1,000 km.
 function KmDueChip({ dueAtKm, kmLeft }: { dueAtKm: number | null; kmLeft: number | null }) {
@@ -47,8 +49,11 @@ type Vehicle = {
   next_service_date: string | null;
   notes: string | null;
   fuel_type: "petrol" | "diesel" | string;
-  // Diesel only: the odometer km the Road User Charges licence runs out at.
+  // Diesel only: the km the Road User Charges licence runs out at - on the
+  // odometer, or on the hubodometer when ruc_meter is "hubodometer".
   ruc_paid_to_km: number | null;
+  ruc_meter: "odometer" | "hubodometer" | string;
+  current_hubodometer_km: number | null;
 };
 
 type Driver = { id: string; full_name: string };
@@ -67,6 +72,8 @@ type FormState = {
   notes: string;
   fuel_type: "petrol" | "diesel";
   ruc_paid_to_km: string;
+  ruc_meter: "odometer" | "hubodometer";
+  current_hubodometer_km: string;
 };
 
 const EMPTY: FormState = {
@@ -83,6 +90,8 @@ const EMPTY: FormState = {
   notes: "",
   fuel_type: "petrol",
   ruc_paid_to_km: "",
+  ruc_meter: "odometer",
+  current_hubodometer_km: "",
 };
 
 export function VehiclesClient({
@@ -130,6 +139,8 @@ export function VehiclesClient({
       notes: v.notes ?? "",
       fuel_type: v.fuel_type === "diesel" ? "diesel" : "petrol",
       ruc_paid_to_km: v.ruc_paid_to_km?.toString() ?? "",
+      ruc_meter: v.ruc_meter === "hubodometer" ? "hubodometer" : "odometer",
+      current_hubodometer_km: v.current_hubodometer_km?.toString() ?? "",
     });
     setError(null);
     setEditing(v);
@@ -144,6 +155,9 @@ export function VehiclesClient({
     if (!form.plate.trim()) return setError("Plate is required.");
     if (!form.make.trim()) return setError("Make is required.");
     if (!form.model.trim()) return setError("Model is required.");
+    const hubo = form.fuel_type === "diesel" && form.ruc_meter === "hubodometer";
+    if (hubo && form.current_hubodometer_km && Number(form.current_hubodometer_km) <= 0)
+      return setError("Check the hubodometer reading.");
 
     setSaving(true);
     setError(null);
@@ -164,6 +178,9 @@ export function VehiclesClient({
       fuel_type: form.fuel_type,
       // Road User Charges only apply to diesels.
       ruc_paid_to_km: form.fuel_type === "diesel" && form.ruc_paid_to_km ? Number(form.ruc_paid_to_km) : null,
+      // Only diesels can be on a hubodometer.
+      ruc_meter: hubo ? "hubodometer" : "odometer",
+      current_hubodometer_km: hubo && form.current_hubodometer_km ? Number(form.current_hubodometer_km) : null,
     };
 
     const { error } = editing
@@ -253,14 +270,26 @@ export function VehiclesClient({
                   </td>
                   <td className="whitespace-nowrap px-5 py-3">
                     {v.fuel_type === "diesel" ? (
-                      <KmDueChip
-                        dueAtKm={v.ruc_paid_to_km}
-                        kmLeft={
-                          v.ruc_paid_to_km != null && status[v.id]?.odometer != null
-                            ? v.ruc_paid_to_km - (status[v.id]?.odometer as number)
-                            : null
-                        }
-                      />
+                      <>
+                        <KmDueChip
+                          dueAtKm={v.ruc_paid_to_km}
+                          kmLeft={(() => {
+                            // Hubo vehicles: paid-to is a hubo number.
+                            const now =
+                              v.ruc_meter === "hubodometer"
+                                ? (status[v.id]?.hubo?.km ?? null)
+                                : (status[v.id]?.odometer ?? null);
+                            return v.ruc_paid_to_km != null && now != null ? Math.round(v.ruc_paid_to_km - now) : null;
+                          })()}
+                        />
+                        {v.ruc_meter === "hubodometer" && (
+                          <div className="mt-1 text-xs text-muted">
+                            {status[v.id]?.hubo
+                              ? `Hubo ${status[v.id]?.hubo?.estimated ? "≈ " : ""}${fmtKm(Math.round(status[v.id]!.hubo!.km))}`
+                              : "Hubo — no reading yet"}
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <span className="text-muted">—</span>
                     )}
@@ -363,7 +392,41 @@ export function VehiclesClient({
             </div>
           </Field>
           {form.fuel_type === "diesel" && (
-            <Field label="Diesel tax (RUC) paid to (km)">
+            <Field label="RUC measured by">
+              <div className="flex gap-5 py-1.5">
+                {(["odometer", "hubodometer"] as const).map((m) => (
+                  <label key={m} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="ruc_meter"
+                      checked={form.ruc_meter === m}
+                      onChange={() => setForm({ ...form, ruc_meter: m })}
+                      className="h-4 w-4"
+                    />
+                    {m === "odometer" ? "Odometer" : "Hubodometer"}
+                  </label>
+                ))}
+              </div>
+            </Field>
+          )}
+          {form.fuel_type === "diesel" && form.ruc_meter === "hubodometer" && (
+            <Field label="Hubodometer now (km)">
+              <input
+                type="number"
+                inputMode="numeric"
+                className={inputClass}
+                value={form.current_hubodometer_km}
+                onChange={(e) => setForm({ ...form, current_hubodometer_km: e.target.value })}
+                placeholder="Reading on the hub - a starting point"
+              />
+              <p className="mt-1 text-xs text-muted">
+                Drivers enter both the odometer and the hubo at each fill-up. Fill-ups keep the hubo up to date from
+                then on.
+              </p>
+            </Field>
+          )}
+          {form.fuel_type === "diesel" && (
+            <Field label={form.ruc_meter === "hubodometer" ? "Diesel tax (RUC) paid to (hubo km)" : "Diesel tax (RUC) paid to (km)"}>
               <input
                 type="number"
                 inputMode="numeric"

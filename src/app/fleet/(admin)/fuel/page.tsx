@@ -5,6 +5,7 @@ import { AddFuelEntryButton, EditFuelEntryButton } from "@/components/fleet/AddF
 import { missingFuelNumbers } from "@/lib/fleet/missingNumbers";
 import { latestJobByUser } from "@/lib/jobs/recentClockIns";
 import { VehicleFilter } from "@/components/fleet/VehicleFilter";
+import { fuelFormVehicles, type FormVehicle } from "@/lib/fleet/formVehicles";
 
 type FuelRow = {
   id: string;
@@ -13,6 +14,7 @@ type FuelRow = {
   equipment: string | null;
   job_id: string | null;
   odometer_km: number | null;
+  hubodometer_km: number | null;
   litres: number | null;
   cost_total: number | null;
   cost_per_litre: number | null;
@@ -22,11 +24,9 @@ type FuelRow = {
   fuelled_on: string;
   receipt_photo_path: string | null;
   odometer_photo_path: string | null;
-  vehicle: { plate: string; make: string; model: string } | null;
+  vehicle: { plate: string; make: string; model: string; ruc_meter: string | null } | null;
   driver: { full_name: string } | null;
 };
-
-type VehicleRow = { id: string; plate: string; make: string; model: string; assigned_driver_id: string | null };
 type JobRow = { id: string; job_number: string | null; name: string; client: { name: string } | null };
 
 export default async function FuelLogPage({ searchParams }: { searchParams: Promise<{ vehicle?: string }> }) {
@@ -46,7 +46,7 @@ export default async function FuelLogPage({ searchParams }: { searchParams: Prom
   // Only needed for the admin "Add entry" form.
   // Jobs newest first; the form moves the chosen driver's latest
   // clocked-in job to the top (lastJobByDriver).
-  const [{ data: drivers }, { data: vehicles }, { data: jobs }, lastJobs] = isAdmin
+  const [{ data: drivers }, vehicles, { data: jobs }, lastJobs] = isAdmin
     ? await Promise.all([
         supabase
           .from("profiles")
@@ -54,11 +54,7 @@ export default async function FuelLogPage({ searchParams }: { searchParams: Prom
           .eq("is_active", true)
           .order("full_name")
           .returns<{ id: string; full_name: string }[]>(),
-        supabase
-          .from("vehicles")
-          .select("id, plate, make, model, assigned_driver_id")
-          .order("plate")
-          .returns<VehicleRow[]>(),
+        fuelFormVehicles(),
         supabase
           .from("jobs")
           .select("id, job_number, name, client:clients(name)")
@@ -67,7 +63,7 @@ export default async function FuelLogPage({ searchParams }: { searchParams: Prom
           .returns<JobRow[]>(),
         latestJobByUser(),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }, new Map<string, string>()];
+    : [{ data: [] }, [] as FormVehicle[], { data: [] }, new Map<string, string>()];
   const lastJobByDriver = Object.fromEntries(lastJobs);
 
   // For the "Vehicle" filter (everyone who can see this page).
@@ -80,7 +76,7 @@ export default async function FuelLogPage({ searchParams }: { searchParams: Prom
   let query = supabase
     .from("fuel_entries")
     .select(
-      "id, driver_id, vehicle_id, equipment, job_id, odometer_km, litres, cost_total, cost_per_litre, gps_lat, gps_lng, created_at, fuelled_on, receipt_photo_path, odometer_photo_path, vehicle:vehicles(plate, make, model), driver:profiles(full_name)"
+      "id, driver_id, vehicle_id, equipment, job_id, odometer_km, hubodometer_km, litres, cost_total, cost_per_litre, gps_lat, gps_lng, created_at, fuelled_on, receipt_photo_path, odometer_photo_path, vehicle:vehicles(plate, make, model, ruc_meter), driver:profiles(full_name)"
     )
     // Vehicle fill-ups only - waterblaster fuel has its own page
     // (Fleet → Waterblaster Fuel).
@@ -133,7 +129,7 @@ export default async function FuelLogPage({ searchParams }: { searchParams: Prom
           </p>
         </div>
         {isAdmin && (
-          <AddFuelEntryButton drivers={driverOptions} vehicles={vehicles ?? []} jobs={jobOptions} lastJobByDriver={lastJobByDriver} />
+          <AddFuelEntryButton drivers={driverOptions} vehicles={vehicles} jobs={jobOptions} lastJobByDriver={lastJobByDriver} />
         )}
       </div>
 
@@ -197,7 +193,12 @@ export default async function FuelLogPage({ searchParams }: { searchParams: Prom
                       {v ? `${v.make} ${v.model} — ${v.plate}` : "Waterblaster"}
                     </td>
                     <td className="whitespace-nowrap px-5 py-3">{r.driver?.full_name ?? "—"}</td>
-                    <td className="whitespace-nowrap px-5 py-3">{fmtKm(r.odometer_km)}</td>
+                    <td className="whitespace-nowrap px-5 py-3">
+                      {fmtKm(r.odometer_km)}
+                      {r.vehicle?.ruc_meter === "hubodometer" && (
+                        <div className="text-xs text-muted">Hubo {fmtKm(r.hubodometer_km)}</div>
+                      )}
+                    </td>
                     <td className="whitespace-nowrap px-5 py-3">
                       {r.litres != null ? `${Number(r.litres).toFixed(2)} L` : "—"}
                     </td>
@@ -233,7 +234,7 @@ export default async function FuelLogPage({ searchParams }: { searchParams: Prom
                         <EditFuelEntryButton
                           entry={r}
                           drivers={driverOptions}
-                          vehicles={vehicles ?? []}
+                          vehicles={vehicles}
                           jobs={jobOptions}
                           lastJobByDriver={lastJobByDriver}
                         />

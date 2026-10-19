@@ -5,6 +5,7 @@ import { daysUntil, fmtDate, fmtMoney } from "@/lib/fleet/format";
 import { missingFuelNumbers } from "@/lib/fleet/missingNumbers";
 import { SERVICE_INTERVAL_KM, SERVICE_SOON_KM, nextServiceFor, type NextService } from "@/lib/fleet/nextService";
 import { fleetUsage } from "@/lib/fleet/usage";
+import { currentHubo, usesHubo } from "@/lib/fleet/hubodometer";
 import { UsageRings } from "@/components/fleet/UsageRings";
 
 type Vehicle = {
@@ -19,6 +20,8 @@ type Vehicle = {
   next_service_date: string | null;
   fuel_type: string | null;
   ruc_paid_to_km: number | null;
+  ruc_meter: string | null;
+  current_hubodometer_km: number | null;
 };
 
 type FuelEntry = {
@@ -28,9 +31,10 @@ type FuelEntry = {
   litres: number | null;
   cost_total: number | null;
   odometer_km: number | null;
+  hubodometer_km: number | null;
   created_at: string;
   fuelled_on: string;
-  vehicle: { plate: string; make: string; model: string } | null;
+  vehicle: { plate: string; make: string; model: string; ruc_meter: string | null } | null;
 };
 
 type ServiceRecord = {
@@ -53,12 +57,12 @@ export default async function FleetDashboardPage() {
     await Promise.all([
       supabase
         .from("vehicles")
-        .select("id, plate, make, model, wof_expiry, rego_expiry, current_odometer_km, next_service_km, next_service_date, fuel_type, ruc_paid_to_km")
+        .select("id, plate, make, model, wof_expiry, rego_expiry, current_odometer_km, next_service_km, next_service_date, fuel_type, ruc_paid_to_km, ruc_meter, current_hubodometer_km")
         .returns<Vehicle[]>(),
       supabase
         .from("fuel_entries")
         .select(
-          "id, vehicle_id, equipment, litres, cost_total, odometer_km, created_at, fuelled_on, vehicle:vehicles(plate, make, model)"
+          "id, vehicle_id, equipment, litres, cost_total, odometer_km, hubodometer_km, created_at, fuelled_on, vehicle:vehicles(plate, make, model, ruc_meter)"
         )
         .order("created_at", { ascending: false })
         .returns<FuelEntry[]>(),
@@ -148,14 +152,20 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
   // Diesels: Road User Charges (diesel tax) running out - within 1,000 km
   // of the km they're paid to, or past it.
   for (const { vehicle: v, next } of services) {
-    if (v.fuel_type !== "diesel" || v.ruc_paid_to_km == null || next.currentKm === null) continue;
-    const left = Number(v.ruc_paid_to_km) - next.currentKm;
+    // Hubo vehicles (the Dynas) go by their hubodometer, not the odometer.
+    const hubo = usesHubo(v) ? currentHubo(v, fList, next.currentKm) : null;
+    const rucKm = usesHubo(v) ? (hubo?.km ?? null) : next.currentKm;
+    if (v.fuel_type !== "diesel" || v.ruc_paid_to_km == null || rucKm === null) continue;
+    const left = Number(v.ruc_paid_to_km) - rucKm;
     if (left > SERVICE_SOON_KM) continue;
-    const km = Math.abs(left).toLocaleString("en-NZ");
+    const km = Math.abs(Math.round(left)).toLocaleString("en-NZ");
     alerts.push({
       severity: left < 0 ? "critical" : "warn",
       title: `${v.make} ${v.model} — ${v.plate} — Diesel tax (RUC) due`,
-      sub: (left < 0 ? `${km} km past` : `${km} km to go`) + ` · paid to ${Number(v.ruc_paid_to_km).toLocaleString("en-NZ")} km`,
+      sub:
+        (left < 0 ? `${km} km past` : `${km} km to go`) +
+        ` · paid to ${Number(v.ruc_paid_to_km).toLocaleString("en-NZ")} km` +
+        (hubo ? ` on the hubo${hubo.estimated ? " (estimated)" : ""}` : ""),
       days: left < 0 ? -1 : 0,
     });
   }

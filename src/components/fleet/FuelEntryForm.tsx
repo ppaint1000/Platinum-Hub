@@ -8,8 +8,12 @@ import { readReceipt } from "@/lib/fleet/readReceipt";
 import { alertIncompleteFuelEntryAction, checkFuelEconomyAction } from "@/app/fleet/actions";
 import { splitWaterblasterFuel, waterblasterSplitError } from "@/lib/fleet/waterblasterSplit";
 import { WaterblasterSplitField } from "@/components/fleet/WaterblasterSplitField";
+import { expectedHubo, huboWarning, type HuboHint } from "@/lib/fleet/hubodometer";
 
-type Vehicle = { id: string; plate: string; make: string; model: string };
+// usesHubo: diesel tax (RUC) goes by a hubodometer (the Dynas), so the
+// form also asks for that reading. huboHint: its last readings, to check
+// the new one against (lib/fleet/hubodometer.ts).
+type Vehicle = { id: string; plate: string; make: string; model: string; usesHubo?: boolean; huboHint?: HuboHint | null };
 type JobOption = { id: string; label: string };
 
 type GpsState =
@@ -54,6 +58,7 @@ export function FuelEntryForm({
   // leaves it alone, same as it does for boxes they've typed into.
   const dateTouchedRef = useRef(false);
   const [odometer, setOdometer] = useState("");
+  const [hubo, setHubo] = useState("");
   const [litres, setLitres] = useState("");
   const [cost, setCost] = useState("");
   const [receiptPhoto, setReceiptPhoto] = useState<File | null>(null);
@@ -88,6 +93,13 @@ return;
       { enableHighAccuracy: true, timeout: 15000 }
     );
   }, []);
+
+  const vehicle = vehicles.find((v) => v.id === vehicleId);
+  const needsHubo = !isWaterblaster && !!vehicle?.usesHubo;
+  const odometerNum = odometer && Number(odometer) > 0 ? Number(odometer) : null;
+  const huboNum = hubo && Number(hubo) > 0 ? Number(hubo) : null;
+  const huboExpected = needsHubo ? expectedHubo(vehicle?.huboHint, odometerNum) : null;
+  const huboCheck = needsHubo ? huboWarning(vehicle?.huboHint, odometerNum, huboNum) : null;
 
   const costPerLitre =
     litres && cost && Number(litres) > 0
@@ -137,6 +149,7 @@ return;
     // The numbers are optional (an unreadable receipt shouldn't block the
     // driver) - but anything entered has to be a real value.
     if (!isWaterblaster && odometer && Number(odometer) <= 0) return setError("Check the odometer reading.");
+    if (needsHubo && hubo && Number(hubo) <= 0) return setError("Check the hubodometer reading.");
     if (litres && Number(litres) <= 0) return setError("Check the litres.");
     if (cost && Number(cost) <= 0) return setError("Check the total cost.");
     if (splitting) {
@@ -146,6 +159,7 @@ return;
 
     const missing = [
       ...(!isWaterblaster && !odometer ? ["mileage"] : []),
+      ...(needsHubo && !hubo ? ["hubodometer"] : []),
       ...(!litres ? ["litres"] : []),
       ...(!cost ? ["cost"] : []),
     ];
@@ -154,6 +168,7 @@ return;
       !confirm(`The ${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} empty. Save anyway? The office will be asked to fill ${missing.length === 1 ? "it" : "them"} in from your receipt photo.`)
     )
       return;
+    if (huboCheck && !confirm(`${huboCheck}\n\nSave anyway?`)) return;
 
     setSubmitting(true);
     const supabase = createClient();
@@ -193,6 +208,7 @@ return;
       job_id: isWaterblaster ? jobId : null,
       fuelled_on: fuelledOn,
       odometer_km: isWaterblaster || !odometer ? null : Number(odometer),
+      hubodometer_km: needsHubo && hubo ? Number(hubo) : null,
       litres: litres ? Number(litres) : null,
       cost_total: cost ? Number(cost) : null,
       receipt_photo_path: receiptPath,
@@ -215,6 +231,7 @@ return;
         equipment: WATERBLASTER,
         job_id: jobId,
         odometer_km: null,
+        hubodometer_km: null,
         odometer_photo_path: null,
         litres: split.waterblasterLitres,
         cost_total: split.waterblasterCost,
@@ -258,6 +275,7 @@ return;
     setFuelledOn(todayLocal());
     dateTouchedRef.current = false;
     setOdometer("");
+    setHubo("");
     setLitres("");
     setCost("");
     setReceiptPhoto(null);
@@ -414,6 +432,25 @@ return;
           </div>
         )}
       </div>
+
+      {needsHubo && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-foreground">Hubodometer reading (km)</label>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={hubo}
+            onChange={(e) => setHubo(e.target.value)}
+            placeholder={huboExpected !== null ? `about ${huboExpected}` : "The meter on the wheel hub"}
+            className="min-w-0 rounded-lg border border-border bg-surface px-3 py-2.5 text-sm outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
+          />
+          {huboCheck ? (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">{huboCheck}</p>
+          ) : (
+            <p className="text-xs text-muted">This vehicle&apos;s diesel tax goes by the hubo — read it off the wheel hub.</p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
