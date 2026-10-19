@@ -24,7 +24,7 @@ export async function alertIncompleteFuelEntryAction(entryId: string) {
   const { data: entry } = await admin
     .from("fuel_entries")
     .select(
-      "id, driver_id, equipment, odometer_km, litres, cost_total, fuelled_on, vehicle:vehicles(plate, make, model), driver:profiles(full_name)"
+      "id, driver_id, equipment, odometer_km, hubodometer_km, litres, cost_total, fuelled_on, vehicle:vehicles(plate, make, model, ruc_meter), driver:profiles(full_name)"
     )
     .eq("id", entryId)
     .single<{
@@ -32,10 +32,11 @@ export async function alertIncompleteFuelEntryAction(entryId: string) {
       driver_id: string;
       equipment: string | null;
       odometer_km: number | null;
+      hubodometer_km: number | null;
       litres: number | null;
       cost_total: number | null;
       fuelled_on: string;
-      vehicle: { plate: string; make: string; model: string } | null;
+      vehicle: { plate: string; make: string; model: string; ruc_meter: string | null } | null;
       driver: { full_name: string } | null;
     }>();
 

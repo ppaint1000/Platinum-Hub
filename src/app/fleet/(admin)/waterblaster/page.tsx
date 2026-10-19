@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { WaterblasterFuelClient, type WaterblasterRow } from "@/components/fleet/WaterblasterFuelClient";
 import { AddFuelEntryButton } from "@/components/fleet/AddFuelEntryButton";
+import { fuelFormVehicles, type FormVehicle } from "@/lib/fleet/formVehicles";
 import { latestJobByUser } from "@/lib/jobs/recentClockIns";
 
 type FuelRow = {
@@ -45,7 +46,7 @@ export default async function WaterblasterFuelPage() {
 
   // Job names via the service role - supervisors can't read jobs directly.
   // Newest first, for the admin Add / Edit forms' job pickers too.
-  const [{ data: jobs }, { data: drivers }, { data: vehicles }, lastJobs] = await Promise.all([
+  const [{ data: jobs }, { data: drivers }, vehicles, lastJobs] = await Promise.all([
     createAdminClient()
       .from("jobs")
       .select("id, job_number, name, client:clients(name)")
@@ -54,13 +55,7 @@ export default async function WaterblasterFuelPage() {
     isAdmin
       ? supabase.from("profiles").select("id, full_name").eq("is_active", true).order("full_name").returns<{ id: string; full_name: string }[]>()
       : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
-    isAdmin
-      ? supabase
-          .from("vehicles")
-          .select("id, plate, make, model, assigned_driver_id")
-          .order("plate")
-          .returns<{ id: string; plate: string; make: string; model: string; assigned_driver_id: string | null }[]>()
-      : Promise.resolve({ data: [] }),
+    isAdmin ? fuelFormVehicles() : Promise.resolve([] as FormVehicle[]),
     isAdmin ? latestJobByUser() : Promise.resolve(new Map<string, string>()),
   ]);
 
@@ -95,7 +90,7 @@ export default async function WaterblasterFuelPage() {
 
   const lists = {
     drivers: (drivers ?? []).map((d) => ({ id: d.id, label: d.full_name })),
-    vehicles: vehicles ?? [],
+    vehicles,
     jobs: liveJobs,
     lastJobByDriver: Object.fromEntries(lastJobs),
   };

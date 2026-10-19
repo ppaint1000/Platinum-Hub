@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { HubTopBar } from "@/components/dashboard/HubTopBar";
 import { FuelEntryForm } from "@/components/fleet/FuelEntryForm";
 import { latestJobByUser, withJobFirst } from "@/lib/jobs/recentClockIns";
+import { huboHint } from "@/lib/fleet/hubodometer";
 
 export default async function DriverFuelLogPage() {
   const supabase = await createClient();
@@ -30,10 +31,31 @@ export default async function DriverFuelLogPage() {
     ? { href: "/timesheets/clock", label: "Back to clock in" }
     : null;
 
-  const { data: vehicles } = await supabase
+  const { data: vehicleRows } = await supabase
     .from("vehicles")
-    .select("id, plate, make, model, assigned_driver_id")
+    .select("id, plate, make, model, assigned_driver_id, ruc_meter, current_odometer_km, current_hubodometer_km")
     .order("plate");
+
+  // Hubodometer vehicles (the Dynas): their last readings, so the form can
+  // suggest the hubo and flag one that doesn't match the odometer. Read with
+  // the service role - drivers can't see other people's fill-ups - and only
+  // the readings leave the server.
+  const huboIds = (vehicleRows ?? []).filter((v) => v.ruc_meter === "hubodometer").map((v) => v.id);
+  const { data: huboFuel } = huboIds.length
+    ? await createAdminClient()
+        .from("fuel_entries")
+        .select("vehicle_id, odometer_km, hubodometer_km, fuelled_on")
+        .in("vehicle_id", huboIds)
+    : { data: [] };
+  const vehicles = (vehicleRows ?? []).map((v) => ({
+    id: v.id,
+    plate: v.plate,
+    make: v.make,
+    model: v.model,
+    assigned_driver_id: v.assigned_driver_id,
+    usesHubo: v.ruc_meter === "hubodometer",
+    huboHint: v.ruc_meter === "hubodometer" ? huboHint(v, huboFuel ?? []) : null,
+  }));
 
   // Jobs a waterblaster fill-up can be charged to. Read with the service
   // role because drivers have no RLS access to jobs - only the id/number/
