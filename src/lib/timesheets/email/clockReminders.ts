@@ -131,13 +131,13 @@ export async function sendClockReminders(kind: ReminderKind, origin: string, opt
       kind === "on"
         ? await sendEmail({
             to: p.email!,
-            fromName: "Platinum Painters Hub",
+            fromName: "The Hub",
             subject: "Reminder: clock on for today",
             ...clockOnEmail(first, link, replies),
           })
         : await sendEmail({
             to: p.email!,
-            fromName: "Platinum Painters Hub",
+            fromName: "The Hub",
             subject: "Reminder: clock off when you finish",
             text:
               `Hi ${first},\n\nYou're still clocked on${shift?.site ? ` at ${shift.site}` : ""}` +
@@ -170,7 +170,7 @@ export async function sendClockOutNoteAlert(entryId: string, origin: string): Pr
 
     await sendEmail({
       to,
-      fromName: "Platinum Painters Hub",
+      fromName: "The Hub",
       subject: `Clock-out note from ${name}`,
       text:
         `${name} left a note when clocking out of ${site}` +

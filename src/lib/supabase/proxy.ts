@@ -72,7 +72,9 @@ export async function updateSession(request: NextRequest, event?: NextFetchEvent
     /^\/api\/proposals\/[^/]+\/(viewed|accepted|declined)$/.test(path) ||
     path.startsWith("/u/") ||
     // Replies from the 8am clock-on reminder (signed per person and day).
-    path.startsWith("/r/");
+    path.startsWith("/r/") ||
+    // "I've read this" on a Hub WARNING email (secret token in the link).
+    path.startsWith("/security/ack/");
 
   if (isPublicAsset || isIntegrationWebhook || isTokenLink) return response;
 

@@ -66,7 +66,7 @@ export async function autoSendTimesheets(origin: string): Promise<string> {
   if (to) {
     await sendEmail({
       to,
-      fromName: 'Platinum Painters Hub',
+      fromName: 'The Hub',
       subject: "Last week's timesheets are in Xero as drafts",
       text:
         `Last week's hours have gone to Xero Payroll as draft timesheets, and onto their jobs:\n\n${lines.join('\n')}\n\n` +
@@ -124,7 +124,7 @@ export async function weeklyBudgetTrend(origin: string): Promise<string> {
   if (to) {
     await sendEmail({
       to,
-      fromName: 'Platinum Painters Hub',
+      fromName: 'The Hub',
       subject: `Budget check: ${flagged.length} job${flagged.length === 1 ? '' : 's'} to watch`,
       text:
         `Live jobs at 80% or more of their budget, or that used 15% or more of it this week:\n\n${flagged.join('\n\n')}\n\n` +

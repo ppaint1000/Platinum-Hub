@@ -127,7 +127,7 @@ ${jobLink}
       })
     ).join(", ");
     if (to) {
-      const result = await sendEmail({ to, fromName: "Platinum Painters Hub", ...email });
+      const result = await sendEmail({ to, fromName: "The Hub", ...email });
       emailed = result.sent;
     }
   }

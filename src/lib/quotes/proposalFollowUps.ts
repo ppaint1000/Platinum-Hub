@@ -110,7 +110,7 @@ async function remind(p: Row, kind: "unopened" | "followup") {
             `but hasn't accepted it.\n\nA good time to follow up.${resend}\n\nIn the Hub: ${hubLink}\n`,
         };
 
-  await sendEmail({ to, fromName: "Platinum Painters Hub", ...email });
+  await sendEmail({ to, fromName: "The Hub", ...email });
 }
 
 // The customer's reminder: once, N days after sending (0 = off).

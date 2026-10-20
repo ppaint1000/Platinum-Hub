@@ -178,7 +178,7 @@ export async function emailMonthlyReport(month: string, origin: string): Promise
     `<p style="font-size:14px"><b>Won by lead source:</b> ${sources}<br><b>Absences:</b> ${absences}</p>` +
     `<p style="font-size:14px"><b>Right now:</b> ${r.live.jobs} live jobs worth ${money(r.live.contract)}, ${money(r.live.claimed)} claimed so far.</p>` +
     `<p><a href="${origin}/reports/monthly?month=${month}" style="color:#1F4E8C;font-weight:bold">Open the full report in the Hub →</a></p></div>`;
-  const result = await sendEmail({ to, fromName: "Platinum Painters Hub", subject: `Monthly report: ${r.label}`, text, html });
+  const result = await sendEmail({ to, fromName: "The Hub", subject: `Monthly report: ${r.label}`, text, html });
   if (!result.sent) console.error("[monthly report] email failed", result.reason);
   return result.sent;
 }

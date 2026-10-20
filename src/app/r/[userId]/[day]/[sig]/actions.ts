@@ -49,7 +49,7 @@ export async function recordReplyAction(formData: FormData) {
     if (to.length) {
       await sendEmail({
         to: to.join(', '),
-        fromName: 'Platinum Painters Hub',
+        fromName: 'The Hub',
         subject: `${person?.full_name ?? 'Someone'}: ${REPLIES[reply].label}`,
         text:
           `${person?.full_name ?? 'Someone'} replied to the clock-on reminder: "${REPLIES[reply].label}" (${day}).\n\n` +

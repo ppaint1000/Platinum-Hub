@@ -57,7 +57,7 @@ export async function alertIncompleteFuelEntryAction(entryId: string) {
 
   const result = await sendEmail({
     to,
-    fromName: "Platinum Painters Fleet",
+    fromName: "The Hub",
     subject: `Fuel entry missing ${missingText} — ${driverName}`,
     text:
       `${driverName} logged a fuel entry for ${vehicleName} on ${entry.fuelled_on} ` +
@@ -151,7 +151,7 @@ export async function checkFuelEconomyAction(entryId: string) {
 
   const result = await sendEmail({
     to,
-    fromName: "Platinum Painters Fleet",
+    fromName: "The Hub",
     subject: `Fuel cost per km ${pct}% ${direction} than usual — ${vehicleName}`,
     text:
       `${vehicleName}'s fill-up on ${fill.fuelledOn} (logged by ${entry.driver?.full_name ?? "a driver"}) ` +

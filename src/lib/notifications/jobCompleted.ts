@@ -24,7 +24,7 @@ export async function sendJobCompletedEmail(jobId: string): Promise<void> {
     const label = job.job_number ? `${job.job_number} ${job.name}` : job.name;
     await sendEmail({
       to,
-      fromName: "Platinum Painters Hub",
+      fromName: "The Hub",
       subject: `Job completed - ready to invoice: ${label}`,
       text:
         `${label}${job.client?.name ? ` (${job.client.name})` : ""} has been marked Job completed.\n\n` +

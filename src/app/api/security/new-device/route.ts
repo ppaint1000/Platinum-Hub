@@ -10,6 +10,7 @@ import { sendEmail } from "@/lib/email/mailer";
 import { notificationRecipients } from "@/lib/notifications/recipients";
 import { formatNZDateTime } from "@/lib/timesheets/formatNZ";
 import { describeDevice, describePlace } from "@/lib/security/describe";
+import { isWindows, startWindowsWarning } from "@/lib/security/windowsWarning";
 
 export async function POST(request: NextRequest) {
   const {
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
   const db = createAdminClient();
   const { data: row } = await db
     .from("hub_sign_ins")
-    .select("user_id, user_agent, ip, city, country, created_at, new_device, profiles(full_name, email, role)")
+    .select("session_id, user_id, user_agent, ip, city, country, created_at, new_device, profiles(full_name, email, role)")
     .eq("session_id", sessionId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -33,6 +34,25 @@ export async function POST(request: NextRequest) {
   const { data: done } = await db.from("hub_alert_log").select("key").eq("key", key).maybeSingle();
   if (done) return NextResponse.json({ sent: false, reason: "Already emailed" });
   await db.from("hub_alert_log").upsert({ key, detail: "New device sign-in" }, { onConflict: "key", ignoreDuplicates: true });
+
+  // A new Windows computer: "Hub WARNING" to every admin, repeated every
+  // 15 minutes until one confirms (lib/security/windowsWarning.ts).
+  if (isWindows(row.user_agent as string | null)) {
+    const sent = await startWindowsWarning(
+      {
+        session_id: sessionId,
+        user_id: row.user_id as string,
+        user_agent: row.user_agent as string | null,
+        ip: row.ip as string | null,
+        city: row.city as string | null,
+        country: row.country as string | null,
+        created_at: row.created_at as string,
+      },
+      request.nextUrl.origin
+    );
+    if (sent) return NextResponse.json({ sent, warning: true });
+    // Couldn't start the warning (e.g. its table isn't set up yet) - fall back to the normal email.
+  }
 
   const person = (Array.isArray(row.profiles) ? row.profiles[0] : row.profiles) as
     | { full_name: string; email: string; role: string }
@@ -60,6 +80,6 @@ export async function POST(request: NextRequest) {
 <p>When: ${when}<br>Device: ${device}<br>Where: ${place}</p>
 <p style="color:#5B6472">If this wasn't them, turn their account off or reset their password in <a href="${origin}/users">Users</a>. See the <a href="${origin}/users/sign-ins">sign-in log</a>.</p>`;
 
-  const r = await sendEmail({ to: to.join(", "), subject, text, html, fromName: "Platinum Hub - Security" });
+  const r = await sendEmail({ to: to.join(", "), subject, text, html, fromName: "The Hub" });
   return NextResponse.json(r);
 }

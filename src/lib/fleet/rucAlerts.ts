@@ -122,7 +122,7 @@ export async function sendRucAlerts(origin: string): Promise<{ sent: string[] }>
       // Still goes to the fixed address.
     }
     const to = [...new Map([RUC_ALERT_EMAIL, ...extra].map((e) => [e.toLowerCase(), e])).values()].join(", ");
-    const r = await sendEmail({ to, subject, text, html, fromName: "Platinum Hub - Fleet" });
+    const r = await sendEmail({ to, subject, text, html, fromName: "The Hub" });
     if (r.sent) {
       await db.from("hub_alert_log").upsert({ key, detail: subject }, { onConflict: "key", ignoreDuplicates: true });
       sent.push(v.plate);

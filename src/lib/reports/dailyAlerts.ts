@@ -139,7 +139,7 @@ export async function sendDailyAlerts(origin: string): Promise<{ sent: number }>
 
   const result = await sendEmail({
     to,
-    fromName: "Platinum Painters Hub",
+    fromName: "The Hub",
     subject: fresh.length === 1 ? `Hub alert: ${fresh[0].title}` : `Hub alerts: ${fresh.length} things to look at`,
     text:
       fresh.map((a) => `• ${a.title}\n  ${a.detail}\n  ${a.link}`).join("\n\n") +

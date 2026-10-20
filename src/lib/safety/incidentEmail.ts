@@ -29,7 +29,7 @@ export async function sendIncidentEmail(reportId: string): Promise<void> {
     const where = [r.site?.name, r.location].filter(Boolean).join(" - ") || "not given";
     await sendEmail({
       to,
-      fromName: "Platinum Painters Hub",
+      fromName: "The Hub",
       subject: `Incident reported: ${s("incident_type") || "Incident"} at ${where}`,
       text:
         `${r.author?.full_name ?? "Someone"} reported an incident.\n\n` +

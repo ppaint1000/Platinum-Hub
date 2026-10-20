@@ -118,7 +118,7 @@ export async function runClientReminders(): Promise<void> {
       if (office) {
         await sendEmail({
           to: office,
-          fromName: "Platinum Painters Hub",
+          fromName: "The Hub",
           subject: `${KIND_LABEL[r.kind]} reminder: ${r.client.name}`,
           text:
             `A ${KIND_LABEL[r.kind].toLowerCase()} reminder for ${r.client.name} is due` +

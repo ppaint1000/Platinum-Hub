@@ -219,7 +219,7 @@ export const EMAIL_NOTIFICATIONS: EmailNotification[] = [
     group: "Security",
     label: "When someone signs in on a new device",
     description:
-      "A phone or computer they haven't used for the Hub before - with the device, the rough place and the time. See Users → Sign-in log.",
+      "A phone or computer they haven't used for the Hub before - with the device, the rough place and the time. See Users → Sign-in log. A new Windows computer always sends every admin a \"Hub WARNING\" email instead, every 15 minutes until one of you confirms you've read it.",
     audiences: ["admin"],
     defaultOn: { admin: true },
   },
