@@ -9,7 +9,8 @@ import { createClient } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email/mailer";
 import { notificationRecipients } from "@/lib/notifications/recipients";
 import { formatNZDateTime } from "@/lib/timesheets/formatNZ";
-import { describeDevice, describePlace } from "@/lib/security/describe";
+import { deviceLabel, describePlace } from "@/lib/security/describe";
+import { deviceNames } from "@/lib/security/deviceNames";
 import { isWindows, startWindowsWarning } from "@/lib/security/windowsWarning";
 
 export async function POST(request: NextRequest) {
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
   const db = createAdminClient();
   const { data: row } = await db
     .from("hub_sign_ins")
-    .select("session_id, user_id, user_agent, ip, city, country, created_at, new_device, profiles(full_name, email, role)")
+    .select("session_id, user_id, device_id, user_agent, ip, city, country, created_at, new_device, profiles(full_name, email, role)")
     .eq("session_id", sessionId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -62,7 +63,8 @@ export async function POST(request: NextRequest) {
   if (!to.length) return NextResponse.json({ sent: false, reason: "Nobody has it turned on" });
 
   const origin = request.nextUrl.origin;
-  const device = describeDevice(row.user_agent as string | null);
+  const deviceId = row.device_id as string | null;
+  const device = deviceLabel(row.user_agent as string | null, deviceId, (await deviceNames([deviceId])).get(deviceId ?? ""));
   const place = describePlace(row.city as string | null, row.country as string | null, row.ip as string | null);
   const when = formatNZDateTime(row.created_at as string);
   const subject = `New device sign-in: ${name}`;

@@ -9,11 +9,14 @@ import { Panel } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatNZDateTime } from "@/lib/timesheets/formatNZ";
-import { describeDevice, describePlace, mapsLink } from "@/lib/security/describe";
+import { describeDevice, describePlace, mapsLink, shortDeviceId } from "@/lib/security/describe";
+import { deviceNames } from "@/lib/security/deviceNames";
+import { nameDeviceAction } from "./actions";
 
 type Row = {
   session_id: string;
   user_id: string;
+  device_id: string | null;
   user_agent: string | null;
   ip: string | null;
   city: string | null;
@@ -28,15 +31,16 @@ type Row = {
 
 const ROLE: Record<string, string> = { admin: "Admin", sales: "Sales", supervisor: "Supervisor", painter: "Painter" };
 
-export default async function SignInLogPage({ searchParams }: { searchParams: Promise<{ person?: string }> }) {
+export default async function SignInLogPage({ searchParams }: { searchParams: Promise<{ person?: string; err?: string }> }) {
   await requireAdmin();
-  const { person } = await searchParams;
+  const { person, err } = await searchParams;
+  const back = person ? `/users/sign-ins?person=${person}` : "/users/sign-ins";
   const db = createAdminClient();
 
   let q = db
     .from("hub_sign_ins")
     .select(
-      "session_id, user_id, user_agent, ip, city, country, new_device, latitude, longitude, accuracy_m, location_status, created_at"
+      "session_id, user_id, device_id, user_agent, ip, city, country, new_device, latitude, longitude, accuracy_m, location_status, created_at"
     )
     .order("created_at", { ascending: false })
     .limit(300);
@@ -47,6 +51,7 @@ export default async function SignInLogPage({ searchParams }: { searchParams: Pr
     db.from("profiles").select("id, full_name, role").is("deleted_at", null).order("full_name"),
   ]);
   const byId = new Map((people ?? []).map((p) => [p.id as string, p as { id: string; full_name: string; role: string }]));
+  const names = await deviceNames((rows ?? []).map((r) => r.device_id));
 
   return (
     <div
@@ -79,6 +84,7 @@ export default async function SignInLogPage({ searchParams }: { searchParams: Pr
           </form>
         </div>
 
+        {err && <p className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{err}</p>}
         <Panel className="overflow-x-auto p-4">
           {!rows?.length ? (
             <p className="text-sm text-ink-soft">No sign-ins recorded yet.</p>
@@ -104,11 +110,31 @@ export default async function SignInLogPage({ searchParams }: { searchParams: Pr
                         {p?.role && <span className="ml-1 text-ink-soft">· {ROLE[p.role] ?? p.role}</span>}
                       </td>
                       <td className="py-2 pr-3">
-                        {describeDevice(r.user_agent)}
+                        {r.device_id && names.get(r.device_id) && (
+                          <span className="block font-semibold">{names.get(r.device_id)}</span>
+                        )}
+                        <span className={r.device_id && names.get(r.device_id) ? "text-ink-soft" : ""}>{describeDevice(r.user_agent)}</span>
+                        {r.device_id && <span className="ml-1 font-mono text-xs text-ink-soft">{shortDeviceId(r.device_id)}</span>}
                         {r.new_device && (
                           <span className="ml-2 rounded-full bg-[#FFF8E1] px-2 py-0.5 text-xs font-semibold text-[#8A6100]">
                             New device
                           </span>
+                        )}
+                        {r.device_id && (
+                          <details className="mt-1 text-xs">
+                            <summary className="cursor-pointer text-ink-soft underline">{names.get(r.device_id) ? "Rename" : "Name this device"}</summary>
+                            <form action={nameDeviceAction} className="mt-1 flex gap-1">
+                              <input type="hidden" name="deviceId" value={r.device_id} />
+                              <input type="hidden" name="back" value={back} />
+                              <input
+                                name="name"
+                                defaultValue={names.get(r.device_id) ?? ""}
+                                placeholder="e.g. Saimone's work phone"
+                                className="w-48 rounded border border-line bg-paper-raised px-2 py-1"
+                              />
+                              <button className="rounded bg-accent px-2 py-1 font-semibold text-white">Save</button>
+                            </form>
+                          </details>
                         )}
                       </td>
                       <td className="py-2 pr-3">{describePlace(r.city, r.country, r.ip)}</td>

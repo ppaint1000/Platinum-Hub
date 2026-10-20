@@ -35,6 +35,17 @@ function decode(v: string | null): string | null {
   }
 }
 
+// Chrome on Android hides the phone model in its user agent ("Android 10; K")
+// but sends it in the Sec-CH-UA-Model hint (asked for in next.config.ts).
+// Kept on the end of the stored user agent as HubModel/"..." - read by
+// describeDevice.
+function userAgentWithModel(request: NextRequest): string | null {
+  const ua = request.headers.get("user-agent");
+  const model = request.headers.get("sec-ch-ua-model")?.replace(/"/g, "").trim().slice(0, 40);
+  if (!ua) return null;
+  return model ? `${ua.slice(0, 340)} HubModel/"${model}"` : ua.slice(0, 400);
+}
+
 export async function recordSignIn(
   supabase: SupabaseClient,
   request: NextRequest,
@@ -56,7 +67,7 @@ export async function recordSignIn(
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip");
   const { data, error } = await supabase.rpc("hub_record_sign_in", {
     p_device: device,
-    p_user_agent: request.headers.get("user-agent")?.slice(0, 400) ?? null,
+    p_user_agent: userAgentWithModel(request),
     p_ip: ip,
     p_city: decode(request.headers.get("x-vercel-ip-city")),
     p_country: request.headers.get("x-vercel-ip-country"),

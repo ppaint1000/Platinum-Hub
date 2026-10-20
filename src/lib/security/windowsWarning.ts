@@ -6,7 +6,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/mailer";
 import { formatNZDateTime } from "@/lib/timesheets/formatNZ";
-import { describeDevice, describePlace } from "./describe";
+import { deviceLabel, describePlace } from "./describe";
+import { deviceNames } from "./deviceNames";
 
 export const WARNING_SUBJECT = "Hub WARNING";
 const RESEND_MINUTES = 15;
@@ -15,6 +16,7 @@ export const isWindows = (ua: string | null | undefined) => !!ua && /Windows/.te
 
 type Warning = {
   id: string;
+  session_id: string | null;
   user_id: string | null;
   user_agent: string | null;
   ip: string | null;
@@ -47,7 +49,11 @@ async function sendWarning(w: Warning, origin: string): Promise<boolean> {
     : { data: null };
   const name = (person?.full_name as string | undefined) ?? "Someone";
   const role = person?.role as string | undefined;
-  const device = describeDevice(w.user_agent);
+  const { data: signIn } = w.session_id
+    ? await db.from("hub_sign_ins").select("device_id").eq("session_id", w.session_id).maybeSingle()
+    : { data: null };
+  const deviceId = (signIn?.device_id as string | null) ?? null;
+  const device = deviceLabel(w.user_agent, deviceId, (await deviceNames([deviceId])).get(deviceId ?? ""));
   const place = describePlace(w.city, w.country, w.ip);
   const when = formatNZDateTime(w.signed_in_at);
   const ack = `${origin}/security/ack/${w.ack_token}`;
@@ -104,7 +110,7 @@ export async function startWindowsWarning(
       },
       { onConflict: "session_id", ignoreDuplicates: true }
     )
-    .select("id, user_id, user_agent, ip, city, country, signed_in_at, ack_token, send_count")
+    .select("id, session_id, user_id, user_agent, ip, city, country, signed_in_at, ack_token, send_count")
     .maybeSingle<Warning>();
   if (error || !data) return false;
   return sendWarning(data, origin);
@@ -117,7 +123,7 @@ export async function resendOpenWarnings(origin: string): Promise<{ sent: number
   const cutoff = new Date(Date.now() - (RESEND_MINUTES - 1) * 60 * 1000).toISOString();
   const { data } = await db
     .from("hub_security_warnings")
-    .select("id, user_id, user_agent, ip, city, country, signed_in_at, ack_token, send_count, last_sent_at")
+    .select("id, session_id, user_id, user_agent, ip, city, country, signed_in_at, ack_token, send_count, last_sent_at")
     .is("acknowledged_at", null)
     .or(`last_sent_at.is.null,last_sent_at.lte.${cutoff}`)
     .returns<Warning[]>();

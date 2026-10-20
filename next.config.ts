@@ -25,6 +25,8 @@ const nextConfig: NextConfig = {
         headers: [
           { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive, nosnippet, noimageindex, noai, noimageai" },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          // Ask Android Chrome for the phone's model, for the sign-in log (lib/security/signInGate.ts).
+          { key: "Accept-CH", value: "Sec-CH-UA-Model" },
         ],
       },
     ];
