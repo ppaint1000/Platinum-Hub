@@ -28,7 +28,7 @@ const isWeekday = (dateKey: string) => {
   return dow !== 0 && dow !== 6;
 };
 
-async function flagMissingClockIns() {
+export async function flagMissingClockIns() {
   const admin = createAdminClient();
   const today = nzTodayDateString();
 

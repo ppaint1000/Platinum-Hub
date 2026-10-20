@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendClockReminders, type ReminderKind } from '@/lib/timesheets/email/clockReminders'
+import { isReminderTime, isWorkingDay, sendClockReminders, type ReminderKind } from '@/lib/timesheets/email/clockReminders'
+import { sendAbsenceReasonReminder } from '@/lib/absences/reminder'
+import { nzTodayDateString } from '@/lib/timesheets/formatNZ'
 
 // Called by Supabase's scheduler (supabase/clock_reminders.sql) at 8am and
 // 4:30pm NZ time. Not a logged-in browser, so it's protected by a token the
@@ -15,6 +17,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
   }
 
-  const result = await sendClockReminders(kind, request.nextUrl.origin)
+  const result: Record<string, unknown> = { ...(await sendClockReminders(kind, request.nextUrl.origin)) }
+
+  // 8am on working days: absences still waiting on a reason, to Dion.
+  if (kind === 'on' && isReminderTime('on') && (await isWorkingDay(nzTodayDateString()))) {
+    try {
+      result.absenceReasons = await sendAbsenceReasonReminder(request.nextUrl.origin)
+    } catch (e) {
+      result.absenceReasons = { error: e instanceof Error ? e.message : 'failed' }
+    }
+  }
   return NextResponse.json(result)
 }

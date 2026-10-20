@@ -149,6 +149,14 @@ export const EMAIL_NOTIFICATIONS: EmailNotification[] = [
     defaultOn: { admin: true, supervisor: true },
   },
   {
+    key: "absence_reasons",
+    group: "Timesheets",
+    label: "Absences that need a reason",
+    description: "8am on working days, when anyone has an absence with no reason recorded - who and which days, with a link to Absences. Always goes to dion@platinumpainters.co.nz too.",
+    audiences: ["admin", "supervisor"],
+    defaultOn: { admin: false, supervisor: false },
+  },
+  {
     key: "weekly_timesheet_report",
     group: "Timesheets",
     label: "Weekly timesheet report",
