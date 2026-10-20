@@ -57,6 +57,28 @@ export default async function ReportsPage({
   }
   const totalRoundedHours = payRounding.dayTotals.reduce((sum, d) => sum + d.hours, 0)
 
+  // Table order: newest day first, then by person, then their shifts in
+  // order - so a person's shifts for a day sit together. A day with more
+  // than one shift gets a heavy line above and below it.
+  const rowDayKey = (e: (typeof entries)[number]) => dayKey(e.user_name, nzDateKey(e.clock_in_at))
+  const tableEntries = [...entries].sort((a, b) => {
+    const da = nzDateKey(a.clock_in_at)
+    const db = nzDateKey(b.clock_in_at)
+    if (da !== db) return db.localeCompare(da)
+    if (a.user_name !== b.user_name) return a.user_name.localeCompare(b.user_name)
+    return a.clock_in_at.localeCompare(b.clock_in_at)
+  })
+  const shiftsPerDay = new Map<string, number>()
+  for (const e of tableEntries) shiftsPerDay.set(rowDayKey(e), (shiftsPerDay.get(rowDayKey(e)) ?? 0) + 1)
+  const DAY_LINE = '2px solid #16202E'
+  const groupStyle = (i: number) => {
+    const key = rowDayKey(tableEntries[i])
+    if ((shiftsPerDay.get(key) ?? 0) < 2) return undefined
+    const first = i === 0 || rowDayKey(tableEntries[i - 1]) !== key
+    const last = i === tableEntries.length - 1 || rowDayKey(tableEntries[i + 1]) !== key
+    return { ...(first ? { borderTop: DAY_LINE } : {}), ...(last ? { borderBottom: DAY_LINE } : {}) }
+  }
+
   const exportParams = new URLSearchParams()
   if (from) exportParams.set('from', from)
   if (to) exportParams.set('to', to)
@@ -256,8 +278,8 @@ export default async function ReportsPage({
             </tr>
           </thead>
           <tbody className="divide-y divide-black/10">
-            {entries.map((e) => (
-              <tr key={e.id}>
+            {tableEntries.map((e, i) => (
+              <tr key={e.id} style={groupStyle(i)}>
                 <td className="p-3">{e.user_name}</td>
                 <td className="p-3">{e.site_name}</td>
                 <td className="p-3">
