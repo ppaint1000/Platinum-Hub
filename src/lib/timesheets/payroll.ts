@@ -9,6 +9,9 @@ import type { ReportEntry } from '@/lib/timesheets/reports'
 const HALF_HOUR_MS = 30 * 60 * 1000
 
 const MINUTE_MS = 60 * 1000
+// A gap this short between two shifts on the same day (signing off one site
+// and on at the next) is paid as if they never clocked off.
+export const PAID_GAP_MS = 30 * MINUTE_MS
 
 // Seconds are ignored first, so a 7:30 clock-in (shown as 7:30 even if it was
 // 7:30:20) pays from 7:30 rather than jumping to 8:00.
@@ -46,6 +49,7 @@ export type PayRoundingResult = {
   dayTotals: PayDayTotal[]
 }
 
+// Gaps of 30 minutes or less between shifts are paid (PAID_GAP_MS).
 // Rounding only applies to the outer edges of a staff member's working day -
 // the first clock-in and the last clock-out. Someone who clocks out of one
 // site and into another partway through the day keeps their actual punch
@@ -74,6 +78,8 @@ export function applyPayRounding(entries: ReportEntry[]): PayRoundingResult {
     const sorted = [...dayEntries].sort((a, b) => a.clock_in_at.localeCompare(b.clock_in_at))
     let daySum = 0
     let hasCompletedShift = false
+    // The previous finished shift's clock-out, for the short-gap rule.
+    let prevOutMs: number | null = null
 
     sorted.forEach((entry, i) => {
       if (!entry.clock_out_at) {
@@ -81,11 +87,14 @@ export function applyPayRounding(entries: ReportEntry[]): PayRoundingResult {
         return
       }
       hasCompletedShift = true
-      const clockInMs = i === 0 ? roundClockInForPay(entry.clock_in_at) : new Date(entry.clock_in_at).getTime()
+      let clockInMs = i === 0 ? roundClockInForPay(entry.clock_in_at) : new Date(entry.clock_in_at).getTime()
+      // Back on within 30 minutes of signing off: the gap is paid, added to this shift.
+      if (i > 0 && prevOutMs !== null && clockInMs > prevOutMs && clockInMs - prevOutMs <= PAID_GAP_MS) clockInMs = prevOutMs
       const clockOutMs =
         i === sorted.length - 1
           ? roundClockOutForPay(entry.clock_out_at)
           : new Date(entry.clock_out_at).getTime()
+      prevOutMs = new Date(entry.clock_out_at).getTime()
       const hours = Math.max(0, round2((clockOutMs - clockInMs) / 3600000 - entry.break_minutes / 60))
       daySum += hours
 
