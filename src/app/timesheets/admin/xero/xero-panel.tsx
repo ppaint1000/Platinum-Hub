@@ -159,103 +159,12 @@ export function XeroPayrollPanel(p: Props) {
       </section>
 
       <section className={box}>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="font-semibold">Who&apos;s who in Xero</h2>
-            <p className="text-sm text-black/60">
-              Match each person with Timesheets ticked to their Xero employee. Names that match exactly are filled in for you
-              {unlinked.length ? ` - ${unlinked.length} not saved yet` : ''}.
-            </p>
-          </div>
-          {(dirty || renames.length > 0) && (
-            <div className="flex flex-col items-end gap-1">
-              <button
-                disabled={pending}
-                onClick={() =>
-                  run(
-                    () =>
-                      saveEmployeeLinksAction(
-                        p.staff.map((s) => ({
-                          userId: s.id,
-                          xeroEmployeeId: links[s.id] || null,
-                          xeroName: xeroNameOf(s.id),
-                          rateId: personRates[s.id] || null,
-                          rateName: personRates[s.id] ? rateName(personRates[s.id]) : null,
-                        })),
-                        renameToXero
-                      ),
-                    renameToXero && renames.length ? `Saved - ${renames.length} name${renames.length === 1 ? '' : 's'} changed to match Xero.` : 'Saved.'
-                  )
-                }
-                className="rounded-md bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                Save matches
-              </button>
-              {renames.length > 0 && (
-                <label className="flex items-center gap-2 text-xs text-black/70">
-                  <input type="checkbox" checked={renameToXero} onChange={(e) => setRenameToXero(e.target.checked)} />
-                  Change {renames.length} Hub name{renames.length === 1 ? '' : 's'} to match Xero
-                </label>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="grid gap-x-6 gap-y-3 lg:grid-cols-2">
-          {p.staff.map((s) => (
-            <div key={s.id} className="flex flex-col gap-1">
-            <label className="flex items-center gap-3 text-sm">
-              <span className="w-40 shrink-0 font-medium">
-                {s.name}
-                {unsure.has(s.id) && links[s.id] === suggested[s.id] && (
-                  <span className="block text-xs font-normal text-amber-700">Close match - check</span>
-                )}
-                {renameToXero && xeroNameOf(s.id) && xeroNameOf(s.id) !== s.name && (
-                  <span className="block text-xs font-normal text-black/50">→ becomes {xeroNameOf(s.id)}</span>
-                )}
-              </span>
-              <select
-                value={links[s.id] ?? ''}
-                onChange={(e) => setLinks({ ...links, [s.id]: e.target.value })}
-                className={`${select} ${!links[s.id] ? 'border-amber-400 bg-amber-50' : ''}`}
-              >
-                <option value="">Not in Xero payroll</option>
-                {p.employees.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {links[s.id] && (
-              <label className="flex items-center gap-3 text-xs text-black/60">
-                <span className="w-40 shrink-0 text-right">Pay item</span>
-                <select
-                  value={personRates[s.id] ?? ''}
-                  onChange={(e) => setPersonRates({ ...personRates, [s.id]: e.target.value })}
-                  className={`${select} py-1 text-xs ${personRates[s.id] ? 'border-[#13B5EA] bg-sky-50' : ''}`}
-                  aria-label={`Pay item for ${s.name}`}
-                >
-                  <option value="">Usual{(s.defaultRateId ?? rate) ? ` (${rateName(s.defaultRateId ?? rate)})` : ''}</option>
-                  {p.rates.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className={box}>
         <h2 className="mb-1 font-semibold">Hours for this pay period</h2>
         <p className="mb-3 text-sm text-black/60">
           Payable hours per day, rounded the same as the Timesheet Report with lunch breaks taken off. Unfinished shifts aren&apos;t counted.
         </p>
         {p.preview.length === 0 ? (
-          <p className="text-sm text-black/60">Nobody matched to an employee on this pay calendar yet - save the matches above.</p>
+          <p className="text-sm text-black/60">Nobody matched to an employee on this pay calendar yet - save the matches below.</p>
         ) : (
           <>
             <div className="overflow-x-auto">
@@ -363,6 +272,97 @@ export function XeroPayrollPanel(p: Props) {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className={box}>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-semibold">Who&apos;s who in Xero</h2>
+            <p className="text-sm text-black/60">
+              Match each person with Timesheets ticked to their Xero employee. Names that match exactly are filled in for you
+              {unlinked.length ? ` - ${unlinked.length} not saved yet` : ''}.
+            </p>
+          </div>
+          {(dirty || renames.length > 0) && (
+            <div className="flex flex-col items-end gap-1">
+              <button
+                disabled={pending}
+                onClick={() =>
+                  run(
+                    () =>
+                      saveEmployeeLinksAction(
+                        p.staff.map((s) => ({
+                          userId: s.id,
+                          xeroEmployeeId: links[s.id] || null,
+                          xeroName: xeroNameOf(s.id),
+                          rateId: personRates[s.id] || null,
+                          rateName: personRates[s.id] ? rateName(personRates[s.id]) : null,
+                        })),
+                        renameToXero
+                      ),
+                    renameToXero && renames.length ? `Saved - ${renames.length} name${renames.length === 1 ? '' : 's'} changed to match Xero.` : 'Saved.'
+                  )
+                }
+                className="rounded-md bg-black px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                Save matches
+              </button>
+              {renames.length > 0 && (
+                <label className="flex items-center gap-2 text-xs text-black/70">
+                  <input type="checkbox" checked={renameToXero} onChange={(e) => setRenameToXero(e.target.checked)} />
+                  Change {renames.length} Hub name{renames.length === 1 ? '' : 's'} to match Xero
+                </label>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="grid gap-x-6 gap-y-3 lg:grid-cols-2">
+          {p.staff.map((s) => (
+            <div key={s.id} className="flex flex-col gap-1">
+            <label className="flex items-center gap-3 text-sm">
+              <span className="w-40 shrink-0 font-medium">
+                {s.name}
+                {unsure.has(s.id) && links[s.id] === suggested[s.id] && (
+                  <span className="block text-xs font-normal text-amber-700">Close match - check</span>
+                )}
+                {renameToXero && xeroNameOf(s.id) && xeroNameOf(s.id) !== s.name && (
+                  <span className="block text-xs font-normal text-black/50">→ becomes {xeroNameOf(s.id)}</span>
+                )}
+              </span>
+              <select
+                value={links[s.id] ?? ''}
+                onChange={(e) => setLinks({ ...links, [s.id]: e.target.value })}
+                className={`${select} ${!links[s.id] ? 'border-amber-400 bg-amber-50' : ''}`}
+              >
+                <option value="">Not in Xero payroll</option>
+                {p.employees.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {links[s.id] && (
+              <label className="flex items-center gap-3 text-xs text-black/60">
+                <span className="w-40 shrink-0 text-right">Pay item</span>
+                <select
+                  value={personRates[s.id] ?? ''}
+                  onChange={(e) => setPersonRates({ ...personRates, [s.id]: e.target.value })}
+                  className={`${select} py-1 text-xs ${personRates[s.id] ? 'border-[#13B5EA] bg-sky-50' : ''}`}
+                  aria-label={`Pay item for ${s.name}`}
+                >
+                  <option value="">Usual{(s.defaultRateId ?? rate) ? ` (${rateName(s.defaultRateId ?? rate)})` : ''}</option>
+                  {p.rates.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            </div>
+          ))}
+        </div>
       </section>
     </div>
   )
