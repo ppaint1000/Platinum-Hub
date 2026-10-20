@@ -8,8 +8,13 @@ import type { ReportEntry } from '@/lib/timesheets/reports'
 // hours for pay.
 const HALF_HOUR_MS = 30 * 60 * 1000
 
+const MINUTE_MS = 60 * 1000
+
+// Seconds are ignored first, so a 7:30 clock-in (shown as 7:30 even if it was
+// 7:30:20) pays from 7:30 rather than jumping to 8:00.
 export function roundClockInForPay(iso: string): number {
-  return Math.ceil(new Date(iso).getTime() / HALF_HOUR_MS) * HALF_HOUR_MS
+  const toMinute = Math.floor(new Date(iso).getTime() / MINUTE_MS) * MINUTE_MS
+  return Math.ceil(toMinute / HALF_HOUR_MS) * HALF_HOUR_MS
 }
 
 export function roundClockOutForPay(iso: string): number {
