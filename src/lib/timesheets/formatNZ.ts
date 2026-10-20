@@ -149,3 +149,11 @@ export function toNZExcelDate(iso: string): Date {
     Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'))
   )
 }
+
+// 1.25 -> "1:15", 7.5 -> "7:30" - decimal hours shown like a clock (h:mm).
+export function formatHoursClock(hours: number): string {
+  const totalMinutes = Math.round(hours * 60)
+  const sign = totalMinutes < 0 ? '-' : ''
+  const m = Math.abs(totalMinutes)
+  return `${sign}${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`
+}

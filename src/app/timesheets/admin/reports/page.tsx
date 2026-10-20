@@ -4,7 +4,7 @@ import { getReportEntries } from '@/lib/timesheets/reports'
 import { groupByDayAndStaff, groupByDayAndSite } from '@/lib/timesheets/reportGroups'
 import { applyPayRounding } from '@/lib/timesheets/payroll'
 import { requireAdmin } from '@/lib/timesheets/authGuards'
-import { formatNZDateTime } from '@/lib/timesheets/formatNZ'
+import { formatHoursClock, formatNZDateTime, nzDateKey } from '@/lib/timesheets/formatNZ'
 import { WeeklyReportPanel } from './weekly-report-panel'
 import { getPreviousWeekRange, getThisWeekRange } from '@/lib/timesheets/email/weeklyReport'
 
@@ -39,10 +39,22 @@ export default async function ReportsPage({
 
   // Payroll rounding (half-hour blocks, business's favour) - same rules as
   // the PDF / weekly report, shown alongside the raw hours.
+  // Shifts on the same day are rounded together; the day's rounded total is
+  // shown only on that day's last finished shift.
   const payRounding = applyPayRounding(entries)
-  const roundedHoursById = new Map(
-    payRounding.entries.map((e) => [e.id, e.clock_out_at ? e.hours : null]),
-  )
+  const dayKey = (userName: string, date: string) => `${userName}__${date}`
+  const lastShiftOfDay = new Map<string, { id: string; clockIn: string }>()
+  for (const e of entries) {
+    if (!e.clock_out_at) continue
+    const key = dayKey(e.user_name, nzDateKey(e.clock_in_at))
+    const current = lastShiftOfDay.get(key)
+    if (!current || e.clock_in_at > current.clockIn) lastShiftOfDay.set(key, { id: e.id, clockIn: e.clock_in_at })
+  }
+  const roundedHoursById = new Map<string, number>()
+  for (const d of payRounding.dayTotals) {
+    const last = lastShiftOfDay.get(dayKey(d.userName, d.date))
+    if (last) roundedHoursById.set(last.id, d.hours)
+  }
   const totalRoundedHours = payRounding.dayTotals.reduce((sum, d) => sum + d.hours, 0)
 
   const exportParams = new URLSearchParams()
@@ -61,7 +73,7 @@ export default async function ReportsPage({
         <div>
           <h1 className="text-2xl font-semibold">Reports</h1>
           <p className="text-sm text-black/60">
-            {entries.length} entries · {totalHours.toFixed(2)} total hours · {totalRoundedHours.toFixed(2)} rounded
+            {entries.length} entries · {formatHoursClock(totalHours)} total hours · {formatHoursClock(totalRoundedHours)} rounded
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -176,7 +188,7 @@ export default async function ReportsPage({
                   <tr key={`${row.date}__${row.userName}`}>
                     <td className="p-3">{row.date}</td>
                     <td className="p-3">{row.userName}</td>
-                    <td className="p-3">{row.hours}</td>
+                    <td className="p-3">{formatHoursClock(row.hours)}</td>
                   </tr>
                 ))}
                 {dailySiteTotals.length === 0 && (
@@ -211,7 +223,7 @@ export default async function ReportsPage({
                   <tr key={`${row.date}__${row.siteName}`}>
                     <td className="p-3">{row.date}</td>
                     <td className="p-3">{row.siteName}</td>
-                    <td className="p-3">{row.hours}</td>
+                    <td className="p-3">{formatHoursClock(row.hours)}</td>
                   </tr>
                 ))}
                 {dailyStaffTotals.length === 0 && (
@@ -271,8 +283,10 @@ export default async function ReportsPage({
                   )}
                 </td>
                 <td className="p-3">{e.break_minutes > 0 ? `${e.break_minutes}m` : '—'}</td>
-                <td className="p-3">{e.hours ?? '—'}</td>
-                <td className="p-3">{roundedHoursById.get(e.id) ?? '—'}</td>
+                <td className="p-3">{e.hours != null ? formatHoursClock(e.hours) : '—'}</td>
+                <td className="p-3">
+                  {roundedHoursById.has(e.id) ? formatHoursClock(roundedHoursById.get(e.id)!) : ''}
+                </td>
                 <td className={`p-3 text-xs ${e.device_shared ? 'font-medium text-red-600' : 'text-black/60'}`}>
                   In: {e.clock_in_device_label ?? '—'}
                   {e.clock_out_device_label && e.clock_out_device_label !== e.clock_in_device_label && (
