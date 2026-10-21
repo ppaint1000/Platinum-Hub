@@ -10,6 +10,7 @@ import { tidyXeroDocuments } from '@/lib/xero/documents'
 import { sendRucAlerts } from '@/lib/fleet/rucAlerts'
 import { autoSendTimesheets, weeklyBudgetTrend } from '@/lib/automation/weekly'
 import { fillMissingBudgets } from '@/lib/quotes/costingBudget'
+import { sendTrainingExpiryAlerts } from '@/lib/safety/training'
 
 // Called by Supabase's scheduler (supabase/marketing_and_alerts.sql) at 7am
 // NZ time: the daily alerts on working days, and on the 1st last month's
@@ -50,6 +51,8 @@ export async function POST(request: NextRequest) {
   await safely('xeroDocuments', tidyXeroDocuments)
   // Diesels whose road user charges run out within a week (every day).
   await safely('rucAlerts', () => sendRucAlerts(origin))
+  // Training (Health & safety) due within 30 days, or expired.
+  await safely('trainingExpiry', () => sendTrainingExpiryAlerts(origin))
   // Won jobs priced in Costing with no budget yet get the costing's cost figures.
   await safely('budgetsFromCosting', () => fillMissingBudgets(db))
 

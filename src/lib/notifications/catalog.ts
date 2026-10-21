@@ -115,6 +115,15 @@ export const EMAIL_NOTIFICATIONS: EmailNotification[] = [
     defaultOn: { admin: true, supervisor: true },
   },
   {
+    key: "training_expiry",
+    group: "Jobs & production",
+    label: "When someone's training is about to expire",
+    description:
+      "30 days before a training record (e.g. Ladders, Mobile scaffold) runs out, and again once it has - see Health & safety → Training.",
+    audiences: ["admin", "supervisor"],
+    defaultOn: { admin: true, supervisor: false },
+  },
+  {
     key: "timesheet_change_request",
     group: "Timesheets",
     label: "When someone asks to change a timesheet",
