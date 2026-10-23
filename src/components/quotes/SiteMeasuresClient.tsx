@@ -627,6 +627,11 @@ export function SiteMeasuresClient({
       router.push(`/costing/${sentCostingId}`);
       return;
     }
+    // A costing has to belong to a client (quotes.customer_id is required).
+    if (!form.customer_id) {
+      setCreateCostingError("Pick the client at the top first - a costing needs one. Then save and try again.");
+      return;
+    }
 
     setCreatingCosting(true);
     setCreateCostingError(null);
@@ -647,6 +652,12 @@ export function SiteMeasuresClient({
   // open for editing (status already "Sent to costing") so the "Create
   // costing" panel below can retry without re-entering anything.
   async function saveAndSendToCosting() {
+    // Check before saving, so a measure isn't left marked "Sent to costing"
+    // with no costing behind it.
+    if (!form.customer_id && !sentCostingId) {
+      setError("Pick the client at the top first - a costing needs one.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setCreateCostingError(null);
