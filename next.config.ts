@@ -25,6 +25,15 @@ const nextConfig: NextConfig = {
         headers: [
           { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive, nosnippet, noimageindex, noai, noimageai" },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          // Browsers must use HTTPS for the Hub for the next 2 years.
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+          // Don't let a browser guess a file's type (stops an upload being run as a script).
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Clicking a link out of the Hub only tells the other site "platinum-painters-hub",
+          // never the full address - so proposal / work order links (/p/<token>) can't leak.
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // Only location is used (clock-on, sign-in, fuel entries); everything else is off.
+          { key: "Permissions-Policy", value: "geolocation=(self), camera=(), microphone=(), payment=(), usb=(), interest-cohort=(), browsing-topics=()" },
           // Ask Android Chrome for the phone's model, for the sign-in log (lib/security/signInGate.ts).
           { key: "Accept-CH", value: "Sec-CH-UA-Model" },
         ],

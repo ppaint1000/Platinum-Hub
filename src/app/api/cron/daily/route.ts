@@ -11,6 +11,7 @@ import { sendRucAlerts } from '@/lib/fleet/rucAlerts'
 import { autoSendTimesheets, weeklyBudgetTrend } from '@/lib/automation/weekly'
 import { fillMissingBudgets } from '@/lib/quotes/costingBudget'
 import { sendTrainingExpiryAlerts } from '@/lib/safety/training'
+import { safeEqual } from '@/lib/security/safeEqual'
 
 // Called by Supabase's scheduler (supabase/marketing_and_alerts.sql) at 7am
 // NZ time: the daily alerts on working days, and on the 1st last month's
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
   const db = createAdminClient()
   const provided = request.headers.get('x-cron-token')
   const { data } = await db.from('app_cron_tokens').select('token').eq('name', 'hub_cron').maybeSingle()
-  if (!data?.token || !provided || provided !== data.token) {
+  if (!safeEqual(provided, data?.token)) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
   }
 

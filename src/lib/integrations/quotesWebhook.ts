@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { safeEqual } from "@/lib/security/safeEqual"
 
 /** Shared auth check for the Measures → Hub webhook routes. */
 export function verifyQuotesWebhook(request: NextRequest): NextResponse | null {
   const expected = process.env.QUOTES_WEBHOOK_SECRET;
   const provided = request.headers.get("x-webhook-secret");
 
-  if (!expected || provided !== expected) {
+  if (!safeEqual(provided, expected)) {
     return NextResponse.json({ error: "Not authorized." }, { status: 401 });
   }
   return null;
