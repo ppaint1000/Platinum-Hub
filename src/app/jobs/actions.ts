@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { deleteSite } from "@/lib/timesheets/actions/sites";
 
 // Lets someone add a job straight into the pipeline without it coming
 // through a Measures quote — e.g. a job assessed on-site and priced by
@@ -167,16 +168,17 @@ export async function renameJobCategoryAction(jobId: string, categoryId: string,
   return {};
 }
 
-// Removes a job entered by mistake, at any status. Its budget and cost
-// lines go with it (cascade), and orders / client contacts just lose their
-// link. Supplier invoices and timesheet sites are different: an invoice
-// assigned to the job has no cascade, and a linked site is where the
-// job's labour hours come from, so either one blocks the delete with a
-// pointer to unlink it first rather than silently dropping that history.
+// Removes a job entered by mistake (e.g. a double-up), at any status. Its
+// budget and cost lines go with it (cascade), and orders / client contacts
+// just lose their link. Its timesheet sites go too, as long as nobody has
+// clocked into them - the site made automatically when the job was won is
+// usually still empty. Supplier invoices, and a site with clock-ins, block
+// the delete with a pointer to sort them out first rather than silently
+// dropping that history.
 export async function deleteJobAction(jobId: string) {
   const supabase = await requireAdmin();
 
-  const [{ data: invoices, error: invoiceError }, { data: splitLines, error: splitError }, { count: siteCount, error: siteError }] =
+  const [{ data: invoices, error: invoiceError }, { data: splitLines, error: splitError }, { data: jobSites, error: siteError }] =
     await Promise.all([
       supabase
         .from("supplier_invoices")
@@ -191,7 +193,7 @@ export async function deleteJobAction(jobId: string) {
         .select("invoice:supplier_invoices(invoice_number)")
         .eq("job_id", jobId)
         .returns<{ invoice: { invoice_number: string | null } | null }[]>(),
-      supabase.from("sites").select("id", { count: "exact", head: true }).eq("job_id", jobId),
+      supabase.from("sites").select("id, name").eq("job_id", jobId).returns<{ id: string; name: string }[]>(),
     ]);
   if (invoiceError) return { error: invoiceError.message };
   if (splitError) return { error: splitError.message };
@@ -207,10 +209,25 @@ export async function deleteJobAction(jobId: string) {
       error: `${invoiceCount} supplier invoice${invoiceCount === 1 ? " is" : "s are"} assigned to this job (${[...numbers].join(", ")}) — move, unlink or re-split ${invoiceCount === 1 ? "it" : "them"} on the Supplier invoices page first.`,
     };
   }
-  if ((siteCount ?? 0) > 0) {
-    return {
-      error: `${siteCount} timesheet site${siteCount === 1 ? " is" : "s are"} linked to this job — unlink ${siteCount === 1 ? "it" : "them"} on the site page first.`,
-    };
+  const siteIds = (jobSites ?? []).map((site) => site.id);
+  if (siteIds.length > 0) {
+    const { data: entries, error: entryError } = await supabase
+      .from("timesheet_entries")
+      .select("site_id")
+      .in("site_id", siteIds)
+      .returns<{ site_id: string }[]>();
+    if (entryError) return { error: entryError.message };
+    const usedIds = new Set((entries ?? []).map((e) => e.site_id));
+    if (usedIds.size > 0) {
+      const usedNames = (jobSites ?? []).filter((site) => usedIds.has(site.id)).map((site) => site.name);
+      return {
+        error: `Painters have clocked hours against this job's timesheet site (${usedNames.join(", ")}) — move those hours to the right job, or unlink the site on its page, first.`,
+      };
+    }
+    for (const siteId of siteIds) {
+      const result = await deleteSite(siteId);
+      if (result.error) return { error: `Couldn't remove this job's timesheet site: ${result.error}` };
+    }
   }
 
   // .select() so a delete that matched nothing (e.g. blocked by RLS) is

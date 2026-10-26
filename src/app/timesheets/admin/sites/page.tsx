@@ -18,6 +18,10 @@ type SiteRow = {
   extraDocuments: { id: string; name: string }[]
 }
 
+function daysAgoIso(days: number) {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+}
+
 export default async function SitesPage() {
   const profile = await getCurrentProfile()
   const canEdit = profile.role === 'admin'
@@ -59,7 +63,7 @@ export default async function SitesPage() {
   })) as SiteRow[]
   // Active sites: those clocked into in the last 30 days come first, most
   // recent clock-in at the top; the rest follow, newest added first.
-  const recentSince = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const recentSince = daysAgoIso(30)
   const recentClockIn = (id: string) => {
     const last = lastClockIn.get(id)
     return last && last >= recentSince ? last : null

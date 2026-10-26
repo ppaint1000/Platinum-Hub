@@ -45,7 +45,7 @@ export function DeleteJobButton({
           title="Delete this job?"
           message={`“${jobName}” will be permanently deleted, along with its budget${
             costLineCount > 0 ? ` and its ${costLineCount} recorded cost line${costLineCount === 1 ? "" : "s"}` : ""
-          }. It will also drop out of the Sales page totals. This can’t be undone.`}
+          }. Its timesheet site is removed too, if nobody has clocked into it. It will also drop out of the Sales page totals. This can’t be undone.`}
           confirmLabel="Delete job"
           confirmingLabel="Deleting…"
           confirming={deleting}
