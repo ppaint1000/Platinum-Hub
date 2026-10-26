@@ -10,6 +10,7 @@ type SiteRow = {
   name: string
   address: string | null
   is_active: boolean
+  created_at: string
   extent_of_work_filename: string | null
   safety_plan_filename: string | null
   customers: { name: string } | { name: string }[] | null
@@ -27,18 +28,21 @@ export default async function SitesPage() {
       supabase
         .from('sites')
         .select(
-          'id, name, address, is_active, extent_of_work_filename, safety_plan_filename, customers:clients(name)'
+          'id, name, address, is_active, created_at, extent_of_work_filename, safety_plan_filename, customers:clients(name)'
         )
         .order('is_active', { ascending: false })
         .order('name', { ascending: true }),
       supabase.from('clients').select('id, name').order('name'),
-      supabase.from('timesheet_entries').select('site_id'),
+      supabase.from('timesheet_entries').select('site_id, clock_in_at'),
       supabase.from('site_documents').select('id, site_id, name').order('created_at'),
     ])
 
   const entryCounts = new Map<string, number>()
+  const lastClockIn = new Map<string, string>()
   for (const row of entryRows ?? []) {
     entryCounts.set(row.site_id, (entryCounts.get(row.site_id) ?? 0) + 1)
+    const prev = lastClockIn.get(row.site_id)
+    if (row.clock_in_at && (!prev || row.clock_in_at > prev)) lastClockIn.set(row.site_id, row.clock_in_at)
   }
 
   const extraDocsBySite = new Map<string, { id: string; name: string }[]>()
@@ -53,7 +57,23 @@ export default async function SitesPage() {
     entryCount: entryCounts.get(s.id) ?? 0,
     extraDocuments: extraDocsBySite.get(s.id) ?? [],
   })) as SiteRow[]
-  const active = siteList.filter((s) => s.is_active)
+  // Active sites: those clocked into in the last 30 days come first, most
+  // recent clock-in at the top; the rest follow, newest added first.
+  const recentSince = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const recentClockIn = (id: string) => {
+    const last = lastClockIn.get(id)
+    return last && last >= recentSince ? last : null
+  }
+  const active = siteList
+    .filter((s) => s.is_active)
+    .sort((a, b) => {
+      const ra = recentClockIn(a.id)
+      const rb = recentClockIn(b.id)
+      if (ra && rb) return rb.localeCompare(ra)
+      if (ra) return -1
+      if (rb) return 1
+      return (b.created_at ?? '').localeCompare(a.created_at ?? '')
+    })
   const archived = siteList.filter((s) => !s.is_active)
 
   return (
