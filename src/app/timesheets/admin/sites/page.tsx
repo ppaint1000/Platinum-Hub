@@ -1,9 +1,8 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { createSite, setSiteActive } from '@/lib/timesheets/actions/sites'
+import { setSiteActive } from '@/lib/timesheets/actions/sites'
 import { getCurrentProfile } from '@/lib/supabase/profile'
 import { DeleteSiteButton } from './DeleteSiteButton'
-import { AddSiteSubmitButton } from './AddSiteSubmitButton'
 import { ensureClockSitesForInProgressJobs } from '@/lib/timesheets/ensureClockSites'
 
 type SiteRow = {
@@ -31,7 +30,7 @@ export default async function SitesPage() {
   await ensureClockSitesForInProgressJobs()
 
   const supabase = await createClient()
-  const [{ data: sites }, { data: customers }, { data: entryRows }, { data: extraDocRows }] =
+  const [{ data: sites }, { data: entryRows }, { data: extraDocRows }] =
     await Promise.all([
       supabase
         .from('sites')
@@ -40,7 +39,6 @@ export default async function SitesPage() {
         )
         .order('is_active', { ascending: false })
         .order('name', { ascending: true }),
-      supabase.from('clients').select('id, name').order('name'),
       supabase.from('timesheet_entries').select('site_id, clock_in_at'),
       supabase.from('site_documents').select('id, site_id, name').order('created_at'),
     ])
@@ -89,102 +87,18 @@ export default async function SitesPage() {
       <div>
         <h1 className="text-2xl font-semibold">Sites</h1>
         <p className="text-sm text-black/60">
-          Each site belongs to a client (Clients). Painters can only clock in against active sites.
+          Each site is the clock-in site for a job, under the same client as the job. Painters can only clock in against active sites.
         </p>
       </div>
 
-      <form action={createSite} className="space-y-3 rounded-lg border border-black/10 p-4">
-        <h2 className="font-medium">Add a site</h2>
-        {(customers ?? []).length === 0 ? (
-          <p className="text-sm text-black/60">
-            Add the client on the Clients page first, then add the site.
-          </p>
-        ) : (
-          <>
-            <div className="space-y-1">
-              <label htmlFor="client_id" className="text-sm font-medium">
-                Client
-              </label>
-              <select
-                id="client_id"
-                name="client_id"
-                required
-                defaultValue=""
-                className="w-full rounded-md border border-black/20 px-3 py-2"
-              >
-                <option value="" disabled>
-                  Select a client…
-                </option>
-                {(customers ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <label htmlFor="name" className="text-sm font-medium">
-                  Site name
-                </label>
-                <input
-                  id="name"
-                  name="name"
-                  required
-                  className="w-full rounded-md border border-black/20 px-3 py-2"
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="address" className="text-sm font-medium">
-                  Address (optional)
-                </label>
-                <input
-                  id="address"
-                  name="address"
-                  className="w-full rounded-md border border-black/20 px-3 py-2"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label htmlFor="contact_person" className="text-sm font-medium">
-                Contact person (optional)
-              </label>
-              <input
-                id="contact_person"
-                name="contact_person"
-                className="w-full rounded-md border border-black/20 px-3 py-2"
-              />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <label htmlFor="extent_of_work" className="text-sm font-medium">
-                  Extent of Work (PDF, optional)
-                </label>
-                <input
-                  id="extent_of_work"
-                  name="extent_of_work"
-                  type="file"
-                  accept="application/pdf"
-                  className="w-full rounded-md border border-black/20 px-3 py-2 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="safety_plan" className="text-sm font-medium">
-                  Site Safety Plan (PDF, optional)
-                </label>
-                <input
-                  id="safety_plan"
-                  name="safety_plan"
-                  type="file"
-                  accept="application/pdf"
-                  className="w-full rounded-md border border-black/20 px-3 py-2 text-sm"
-                />
-              </div>
-            </div>
-            <AddSiteSubmitButton />
-          </>
-        )}
-      </form>
+      <div className="rounded-lg border border-black/10 p-4 text-sm text-black/70">
+        Sites are created with their job - add a new job in{' '}
+        <Link href="/jobs" className="font-medium underline">
+          Jobs
+        </Link>{' '}
+        and its site appears here, ready for clock-in once the job is In progress. Open a site below to add
+        its address, contact and documents.
+      </div>
 
       <SiteList title="Active sites" sites={active} emptyText="No active sites yet." canEdit={canEdit} />
       {archived.length > 0 && (
