@@ -1,21 +1,22 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 
-// A job and its clock-in site are meant to be the same thing: every job that
-// is In progress must have an active site so painters can clock in to it.
-// The jobs_site_on_win trigger only creates a site on some status changes
-// (e.g. not for a job already Won/Scheduled before the trigger existed), and
-// a site can be archived while its job is still running. This closes both
-// gaps: any In progress job with no site gets one named after the job, and
-// any In progress job whose sites are all archived has its newest one
-// restored. Safe to call on every load - it does nothing when all is well.
+// A job and its clock-in site are the same thing, but only once the job is
+// real work: quotes don't get a site. From Won onwards (Won, Scheduled,
+// In progress) every job with a client has a site named after it, and an
+// In progress job's site is always active so painters can clock in to it.
+// Covers jobs from any source (Costing, Add job, the old Quotes app) and
+// sites archived while their job is still running. Safe to call on every
+// load - it does nothing when all is well.
+const SITE_STATUSES = ['won', 'scheduled', 'in_progress']
+
 export async function ensureClockSitesForInProgressJobs() {
   const admin = createAdminClient()
 
   const { data: jobs } = await admin
     .from('jobs')
-    .select('id, name, client_id')
-    .eq('status', 'in_progress')
-    .returns<{ id: string; name: string; client_id: string | null }[]>()
+    .select('id, name, client_id, status')
+    .in('status', SITE_STATUSES)
+    .returns<{ id: string; name: string; client_id: string | null; status: string }[]>()
   if (!jobs?.length) return
 
   const { data: sites } = await admin
@@ -35,7 +36,7 @@ export async function ensureClockSitesForInProgressJobs() {
     sitesByJob.set(s.job_id, list)
   }
 
-  const toCreate: { name: string; client_id: string | null; job_id: string; is_active: boolean }[] = []
+  const toCreate: { name: string; client_id: string; job_id: string; is_active: boolean }[] = []
   const toRestore: string[] = []
   for (const job of jobs) {
     const jobSites = sitesByJob.get(job.id) ?? []
@@ -44,7 +45,7 @@ export async function ensureClockSitesForInProgressJobs() {
       // once a client is set on it.
       if (!job.client_id) continue
       toCreate.push({ name: job.name, client_id: job.client_id, job_id: job.id, is_active: true })
-    } else if (!jobSites.some((s) => s.is_active)) {
+    } else if (job.status === 'in_progress' && !jobSites.some((s) => s.is_active)) {
       // Newest first (ordered above), so this restores the latest site.
       toRestore.push(jobSites[0].id)
     }

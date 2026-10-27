@@ -52,16 +52,7 @@ export async function createJobAction(input: {
 
   if (error) return { error: error.message };
 
-  // A job and its clock-in site are the same thing, so every new job gets
-  // its site straight away, under the same client. It stays archived while
-  // the job is only a quote and is restored once the job is In progress
-  // (see ensureClockSitesForInProgressJobs).
-  await createAdminClient()
-    .from("sites")
-    .insert({ name: input.name.trim(), client_id: input.clientId, job_id: data.id, is_active: false });
-
   revalidatePath("/jobs");
-  revalidatePath("/timesheets/admin/sites");
   return { jobId: data.id as string };
 }
 

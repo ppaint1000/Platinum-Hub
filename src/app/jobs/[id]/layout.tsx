@@ -10,6 +10,7 @@ import { MarkAsWonButton } from "@/components/jobs/MarkAsWonButton";
 import { MarkAsLostButton } from "@/components/jobs/MarkAsLostButton";
 import { MarkAsInProgressButton } from "@/components/jobs/MarkAsInProgressButton";
 import { MarkAsCompleteButton } from "@/components/jobs/MarkAsCompleteButton";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { JobStatusControl } from "@/components/jobs/JobStatusControl";
 import { DeleteJobButton } from "@/components/jobs/DeleteJobButton";
 import { EditJobDetailsButton } from "@/components/jobs/EditJobDetailsButton";
@@ -33,6 +34,8 @@ type JobRow = {
   lost_at: string | null;
   lost_to: string | null;
   completed_at: string | null;
+  source_quote_id: string | null;
+  work_order_url: string | null;
   client: { name: string } | null;
 };
 
@@ -49,12 +52,19 @@ export default async function JobLayout({
   const { data: job } = await supabase
     .from("jobs")
     .select(
-      "id, job_number, name, description, status, quoted_sell_total, quoted_hours, lead_by, lead_by_user_id, lead_source, client_id, lost_at, lost_to, completed_at, client:clients(name)"
+      "id, job_number, name, description, status, quoted_sell_total, quoted_hours, lead_by, lead_by_user_id, lead_source, client_id, lost_at, lost_to, completed_at, source_quote_id, work_order_url, client:clients(name)"
     )
     .eq("id", id)
     .single<JobRow>();
 
   if (!job) notFound();
+
+  // Older jobs came from the separate Quotes app, so only link to a costing
+  // that actually exists in the Hub.
+  const { data: costing } = job.source_quote_id
+    ? await createAdminClient().from("quotes").select("id").eq("id", job.source_quote_id).maybeSingle<{ id: string }>()
+    : { data: null };
+  const costingId = costing?.id ?? null;
 
   const [{ data: clients }, { data: leadUsers }, { data: lostToRows }, salesTeam, { count: costLineCount }, { count: pendingVariations }] =
     await Promise.all([
@@ -96,6 +106,25 @@ export default async function JobLayout({
             {job.client?.name ?? "No client set"}
             {job.lead_source && <span className="text-ink-faint"> · Lead source: {job.lead_source}</span>}
           </p>
+          {(costingId || job.work_order_url) && (
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm font-medium">
+              {costingId && (
+                <>
+                  <Link href={`/costing/${costingId}`} className="text-accent hover:text-accent-hover">
+                    Costing →
+                  </Link>
+                  <Link href={`/costing/${costingId}/proposal`} className="text-accent hover:text-accent-hover">
+                    Quote proposal →
+                  </Link>
+                </>
+              )}
+              {job.work_order_url && (
+                <a href={job.work_order_url} className="text-accent hover:text-accent-hover">
+                  Work order →
+                </a>
+              )}
+            </div>
+          )}
           {job.status === "lost" && (
             <p className="mt-1 text-sm text-ink-soft">
               Lost to {job.lost_to ?? "unknown"}

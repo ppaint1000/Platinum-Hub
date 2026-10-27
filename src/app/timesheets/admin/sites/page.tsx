@@ -4,6 +4,7 @@ import { setSiteActive } from '@/lib/timesheets/actions/sites'
 import { getCurrentProfile } from '@/lib/supabase/profile'
 import { DeleteSiteButton } from './DeleteSiteButton'
 import { ensureClockSitesForInProgressJobs } from '@/lib/timesheets/ensureClockSites'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 type SiteRow = {
   id: string
@@ -30,18 +31,27 @@ export default async function SitesPage() {
   await ensureClockSitesForInProgressJobs()
 
   const supabase = await createClient()
-  const [{ data: sites }, { data: entryRows }, { data: extraDocRows }] =
+  const [{ data: sites }, { data: entryRows }, { data: extraDocRows }, { data: quoteJobs }] =
     await Promise.all([
       supabase
         .from('sites')
         .select(
-          'id, name, address, is_active, created_at, extent_of_work_filename, safety_plan_filename, customers:clients(name)'
+          'id, name, address, is_active, created_at, job_id, extent_of_work_filename, safety_plan_filename, customers:clients(name)'
         )
         .order('is_active', { ascending: false })
         .order('name', { ascending: true }),
       supabase.from('timesheet_entries').select('site_id, clock_in_at'),
       supabase.from('site_documents').select('id, site_id, name').order('created_at'),
+      // Jobs RLS is admin-only, so read just which jobs are still quotes.
+      createAdminClient()
+        .from('jobs')
+        .select('id')
+        .in('status', ['draft', 'quoted', 'lost'])
+        .returns<{ id: string }[]>(),
     ])
+
+  // Only won-onwards work has a site here - hide any left on quotes.
+  const quoteJobIds = new Set((quoteJobs ?? []).map((j) => j.id))
 
   const entryCounts = new Map<string, number>()
   const lastClockIn = new Map<string, string>()
@@ -58,7 +68,9 @@ export default async function SitesPage() {
     extraDocsBySite.set(doc.site_id, list)
   }
 
-  const siteList = (sites ?? []).map((s) => ({
+  const siteList = (sites ?? [])
+    .filter((s) => !s.job_id || !quoteJobIds.has(s.job_id))
+    .map((s) => ({
     ...s,
     entryCount: entryCounts.get(s.id) ?? 0,
     extraDocuments: extraDocsBySite.get(s.id) ?? [],
