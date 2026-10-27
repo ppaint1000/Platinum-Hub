@@ -4,6 +4,7 @@ import { createSite, setSiteActive } from '@/lib/timesheets/actions/sites'
 import { getCurrentProfile } from '@/lib/supabase/profile'
 import { DeleteSiteButton } from './DeleteSiteButton'
 import { AddSiteSubmitButton } from './AddSiteSubmitButton'
+import { ensureClockSitesForInProgressJobs } from '@/lib/timesheets/ensureClockSites'
 
 type SiteRow = {
   id: string
@@ -25,6 +26,9 @@ function daysAgoIso(days: number) {
 export default async function SitesPage() {
   const profile = await getCurrentProfile()
   const canEdit = profile.role === 'admin'
+
+  // In progress jobs always have an active site - add/restore any missing.
+  await ensureClockSitesForInProgressJobs()
 
   const supabase = await createClient()
   const [{ data: sites }, { data: customers }, { data: entryRows }, { data: extraDocRows }] =

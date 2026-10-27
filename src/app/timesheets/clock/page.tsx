@@ -6,6 +6,7 @@ import { HubTopBar } from '@/components/dashboard/HubTopBar'
 import { Watermark } from '@/components/timesheets/Watermark'
 import { MyJobs } from '@/components/schedule/MyJobs'
 import { ClockWidget } from './clock-widget'
+import { ensureClockSitesForInProgressJobs } from '@/lib/timesheets/ensureClockSites'
 
 type CustomerRelation = { name: string } | { name: string }[] | null
 
@@ -94,6 +95,9 @@ export default async function ClockPage() {
     .eq('user_id', profile.id)
     .maybeSingle<{ fleet: boolean }>()
   const canLogFuel = profile.role === 'admin' || !!appAccess?.fleet
+
+  // Every In progress job must be clockable - give it an active site first.
+  await ensureClockSitesForInProgressJobs()
 
   const [{ data: siteRows }, { data: openEntryRow }, { data: acknowledgements }, { data: extraDocRows }] =
     await Promise.all([
