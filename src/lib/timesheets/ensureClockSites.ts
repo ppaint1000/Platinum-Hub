@@ -40,6 +40,9 @@ export async function ensureClockSitesForInProgressJobs() {
   for (const job of jobs) {
     const jobSites = sitesByJob.get(job.id) ?? []
     if (jobSites.length === 0) {
+      // Sites must belong to a client - a job with no client gets its site
+      // once a client is set on it.
+      if (!job.client_id) continue
       toCreate.push({ name: job.name, client_id: job.client_id, job_id: job.id, is_active: true })
     } else if (!jobSites.some((s) => s.is_active)) {
       // Newest first (ordered above), so this restores the latest site.

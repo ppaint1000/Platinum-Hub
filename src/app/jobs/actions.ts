@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { deleteSite } from "@/lib/timesheets/actions/sites";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // Lets someone add a job straight into the pipeline without it coming
 // through a Measures quote — e.g. a job assessed on-site and priced by
@@ -51,7 +52,16 @@ export async function createJobAction(input: {
 
   if (error) return { error: error.message };
 
+  // A job and its clock-in site are the same thing, so every new job gets
+  // its site straight away, under the same client. It stays archived while
+  // the job is only a quote and is restored once the job is In progress
+  // (see ensureClockSitesForInProgressJobs).
+  await createAdminClient()
+    .from("sites")
+    .insert({ name: input.name.trim(), client_id: input.clientId, job_id: data.id, is_active: false });
+
   revalidatePath("/jobs");
+  revalidatePath("/timesheets/admin/sites");
   return { jobId: data.id as string };
 }
 
@@ -86,8 +96,15 @@ export async function updateJobCoreDetailsAction(
 
   if (error) return { error: error.message };
 
+  // Keep the job's clock-in site in step with the job's name and client.
+  await createAdminClient()
+    .from("sites")
+    .update({ name: input.name.trim(), ...(input.clientId ? { client_id: input.clientId } : {}) })
+    .eq("job_id", jobId);
+
   revalidatePath(`/jobs/${jobId}`, "layout");
   revalidatePath("/jobs");
+  revalidatePath("/timesheets/admin/sites");
   return {};
 }
 
