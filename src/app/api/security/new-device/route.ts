@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email/mailer";
 import { notificationRecipients } from "@/lib/notifications/recipients";
 import { formatNZDateTime } from "@/lib/timesheets/formatNZ";
-import { deviceLabel, describePlace } from "@/lib/security/describe";
+import { deviceLabel, describePlace, describeDevice } from "@/lib/security/describe";
 import { deviceNames } from "@/lib/security/deviceNames";
 import { isWindows, startWindowsWarning } from "@/lib/security/windowsWarning";
 
@@ -35,6 +35,15 @@ export async function POST(request: NextRequest) {
   const { data: done } = await db.from("hub_alert_log").select("key").eq("key", key).maybeSingle();
   if (done) return NextResponse.json({ sent: false, reason: "Already emailed" });
   await db.from("hub_alert_log").upsert({ key, detail: "New device sign-in" }, { onConflict: "key", ignoreDuplicates: true });
+
+  // Same person, same kind of phone/browser, same internet connection as a
+  // sign-in in the last 30 days: almost certainly the same device whose
+  // hub_device cookie got wiped (Safari Private Browsing, a Home Screen icon
+  // vs Safari, cleared cookies). Still shows as new in the sign-in log, but
+  // no email. New Windows computers still go through the warning below.
+  if (!isWindows(row.user_agent as string | null) && (await looksLikeKnownDevice(db, row, sessionId))) {
+    return NextResponse.json({ sent: false, reason: "Same device type and connection as a recent sign-in" });
+  }
 
   // A new Windows computer: "Hub WARNING" to every admin, repeated every
   // 15 minutes until one confirms (lib/security/windowsWarning.ts).
@@ -84,4 +93,29 @@ export async function POST(request: NextRequest) {
 
   const r = await sendEmail({ to: to.join(", "), subject, text, html, fromName: "The Hub" });
   return NextResponse.json(r);
+}
+
+const RECENT_DAYS = 30;
+
+async function looksLikeKnownDevice(
+  db: ReturnType<typeof createAdminClient>,
+  row: { user_id: unknown; ip: unknown; user_agent: unknown },
+  sessionId: string
+): Promise<boolean> {
+  const ip = row.ip as string | null;
+  const ua = row.user_agent as string | null;
+  if (!ip || !ua) return false;
+  const since = new Date(Date.now() - RECENT_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await db
+    .from("hub_sign_ins")
+    .select("user_agent")
+    .eq("user_id", row.user_id as string)
+    .eq("ip", ip)
+    .neq("session_id", sessionId)
+    .not("device_id", "is", null)
+    .gte("created_at", since)
+    .limit(50);
+  if (error || !data) return false;
+  const kind = describeDevice(ua);
+  return data.some((r) => describeDevice(r.user_agent as string | null) === kind);
 }
