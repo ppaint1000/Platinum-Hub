@@ -99,6 +99,12 @@ export default async function ReportsPage({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/timesheets/admin/reports/new?returnTo=${encodeURIComponent(returnTo)}`}
+            className="rounded-md bg-black px-4 py-2 text-sm text-white"
+          >
+            + Add shift
+          </Link>
           <a
             href={`/api/timesheets/reports/export?${exportParams.toString()}`}
             className="rounded-md bg-black px-4 py-2 text-sm text-white"

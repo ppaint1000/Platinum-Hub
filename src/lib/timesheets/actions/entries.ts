@@ -63,3 +63,62 @@ export async function deleteEntry(entryId: string, formData: FormData) {
   revalidatePath(returnTo)
   redirect(returnTo)
 }
+
+// Admin adds a whole shift after the fact (someone forgot to clock in, or
+// the phone was flat). Date + start/finish are NZ time. Returns an error
+// message for the form to show, or redirects back on success.
+export async function addEntry(_prev: { error?: string } | undefined, formData: FormData): Promise<{ error?: string } | undefined> {
+  await requireAdmin()
+
+  const userId = formData.get('user_id')
+  const siteId = formData.get('site_id')
+  const date = formData.get('date')
+  const start = formData.get('start')
+  const finish = formData.get('finish')
+  const breakMinutesRaw = formData.get('break_minutes')
+  const notes = formData.get('notes')
+  const returnTo = resolveReturnTo(formData)
+
+  if (typeof userId !== 'string' || !userId) return { error: 'Choose who the shift is for.' }
+  if (typeof siteId !== 'string' || !siteId) return { error: 'Choose the site/job.' }
+  if (typeof date !== 'string' || !date) return { error: 'Choose the date.' }
+  if (typeof start !== 'string' || !start || typeof finish !== 'string' || !finish) {
+    return { error: 'Enter the start and finish times.' }
+  }
+
+  const clockIn = nzLocalToIso(`${date}T${start}`)
+  const clockOut = nzLocalToIso(`${date}T${finish}`)
+  if (clockOut <= clockIn) return { error: 'Finish time must be after the start time.' }
+  if (new Date(clockIn).getTime() > Date.now()) return { error: "That shift hasn't started yet." }
+
+  const breakMinutes =
+    typeof breakMinutesRaw === 'string' ? Math.max(0, parseInt(breakMinutesRaw, 10) || 0) : 0
+
+  const supabase = await createClient()
+
+  // Don't double up: refuse if it overlaps one of their existing shifts.
+  const { data: overlapping } = await supabase
+    .from('timesheet_entries')
+    .select('id')
+    .eq('user_id', userId)
+    .lt('clock_in_at', clockOut)
+    .or(`clock_out_at.is.null,clock_out_at.gt.${clockIn}`)
+    .limit(1)
+  if (overlapping?.length) {
+    return { error: 'This overlaps a shift they already have that day - edit that one instead.' }
+  }
+
+  const { error } = await supabase.from('timesheet_entries').insert({
+    user_id: userId,
+    site_id: siteId,
+    clock_in_at: clockIn,
+    clock_out_at: clockOut,
+    break_minutes: breakMinutes,
+    notes: typeof notes === 'string' && notes.trim() ? notes.trim() : null,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/timesheets/admin/reports')
+  revalidatePath(returnTo)
+  redirect(returnTo)
+}
