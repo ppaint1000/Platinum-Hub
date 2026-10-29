@@ -1,6 +1,7 @@
 import { Document, Page, View, Text, Image, Link, StyleSheet } from '@react-pdf/renderer'
 import type { StaffGroup } from '@/lib/timesheets/reportGroups'
-import { formatNZDateTimeLong } from '@/lib/timesheets/formatNZ'
+import { formatNZDateTimeLong, nzDateKey } from '@/lib/timesheets/formatNZ'
+import { applyPayRounding } from '@/lib/timesheets/payroll'
 
 const styles = StyleSheet.create({
   page: { padding: 24, fontSize: 9, fontFamily: 'Helvetica' },
@@ -47,15 +48,38 @@ const styles = StyleSheet.create({
 })
 
 const COLS = {
-  start: '15%',
-  end: '15%',
-  site: '17%',
-  notes: '14%',
-  startGeo: '8%',
-  endGeo: '8%',
-  gross: '8%',
+  start: '14%',
+  end: '14%',
+  site: '15%',
+  notes: '13%',
+  startGeo: '7%',
+  endGeo: '7%',
+  gross: '7%',
   breaks: '7%',
-  net: '8%',
+  net: '7%',
+  rounded: '9%',
+}
+
+// Payroll rounding for one person's shifts (lib/payroll.ts): each day's
+// payable total, shown on that day's last finished shift - so a day with
+// more than one shift shows its whole rounded total in one box.
+function roundedForGroup(group: StaffGroup): { byEntry: Map<string, number>; total: number } {
+  const { dayTotals } = applyPayRounding(group.entries)
+  const lastOfDay = new Map<string, { id: string; clockIn: string }>()
+  for (const e of group.entries) {
+    if (!e.clock_out_at) continue
+    const day = nzDateKey(e.clock_in_at)
+    const current = lastOfDay.get(day)
+    if (!current || e.clock_in_at > current.clockIn) lastOfDay.set(day, { id: e.id, clockIn: e.clock_in_at })
+  }
+  const byEntry = new Map<string, number>()
+  let total = 0
+  for (const d of dayTotals) {
+    total += d.hours
+    const last = lastOfDay.get(d.date)
+    if (last) byEntry.set(last.id, d.hours)
+  }
+  return { byEntry, total: Math.round(total * 100) / 100 }
 }
 
 const BASIC_COLS = {
@@ -77,7 +101,7 @@ export function TimesheetReportPdf({
   basic = false,
   flaggedDates = [],
 }: {
-  staffGroups: (StaffGroup & { rawNetHours?: number })[]
+  staffGroups: StaffGroup[]
   dateRangeLabel: string
   logoSrc: { data: Buffer; format: 'png' }
   basic?: boolean
@@ -86,11 +110,11 @@ export function TimesheetReportPdf({
   // stay payable, so it's worth a human double-checking that day.
   flaggedDates?: string[]
 }) {
-  // Only the weekly report passes rawNetHours (the payroll-rounding rules
-  // don't apply to a single person's own confirmation email) - shown as a
-  // quick raw-vs-rounded summary before the per-staff detail below, which
-  // itself already reflects the rounded figures.
-  const showRawComparison = staffGroups.some((g) => g.rawNetHours !== undefined)
+  // Times and hours shown are always the real punches. The full report
+  // (not a painter's own basic confirmation) adds a Rounded column with the
+  // payable hours, plus a raw-vs-rounded summary up front.
+  const showRounded = !basic
+  const rounding = new Map(staffGroups.map((g) => [g.userName, roundedForGroup(g)]))
   const cols = basic ? BASIC_COLS : COLS
   return (
     <Document>
@@ -114,19 +138,19 @@ export function TimesheetReportPdf({
           </View>
         )}
 
-        {showRawComparison && staffGroups.length > 0 && (
+        {showRounded && staffGroups.length > 0 && (
           <View wrap={false}>
-            <Text style={styles.summaryTitle}>Raw vs rounded (payroll rounding applied below)</Text>
+            <Text style={styles.summaryTitle}>Actual vs rounded (payroll rounding)</Text>
             <View style={styles.summaryHeaderRow}>
               <Text style={[styles.headerCell, { width: '50%' }]}>Staff</Text>
-              <Text style={[styles.headerCell, { width: '25%' }]}>Raw net</Text>
+              <Text style={[styles.headerCell, { width: '25%' }]}>Actual net</Text>
               <Text style={[styles.headerCell, { width: '25%' }]}>Rounded net</Text>
             </View>
             {staffGroups.map((group) => (
               <View key={group.userName} style={styles.summaryRow}>
                 <Text style={[styles.cell, { width: '50%' }]}>{group.userName}</Text>
-                <Text style={[styles.cell, { width: '25%' }]}>{(group.rawNetHours ?? group.netHours).toFixed(2)}h</Text>
                 <Text style={[styles.cell, { width: '25%' }]}>{group.netHours.toFixed(2)}h</Text>
+                <Text style={[styles.cell, { width: '25%' }]}>{(rounding.get(group.userName)?.total ?? 0).toFixed(2)}h</Text>
               </View>
             ))}
           </View>
@@ -139,9 +163,8 @@ export function TimesheetReportPdf({
             <View style={styles.groupHeader}>
               <Text style={styles.groupName}>{group.userName}</Text>
               <Text style={styles.groupTotals}>
-                Gross {group.grossHours.toFixed(2)}h · Break {group.breakMinutes}m · Net
-                {showRawComparison ? ' (rounded) ' : ' '}
-                {group.netHours.toFixed(2)}h
+                Gross {group.grossHours.toFixed(2)}h · Break {group.breakMinutes}m · Net {group.netHours.toFixed(2)}h
+                {showRounded ? ` · Rounded ${(rounding.get(group.userName)?.total ?? 0).toFixed(2)}h` : ''}
               </Text>
             </View>
 
@@ -159,6 +182,7 @@ export function TimesheetReportPdf({
               <Text style={[styles.headerCell, { width: cols.gross }]}>Gross</Text>
               <Text style={[styles.headerCell, { width: cols.breaks }]}>Break</Text>
               <Text style={[styles.headerCell, { width: cols.net }]}>Net</Text>
+              {showRounded && <Text style={[styles.headerCell, { width: COLS.rounded }]}>Rounded</Text>}
             </View>
 
             {group.entries.map((entry) => {
@@ -196,6 +220,13 @@ export function TimesheetReportPdf({
                   <Text style={[styles.cell, { width: cols.net }]}>
                     {entry.hours !== null ? entry.hours.toFixed(2) : '-'}
                   </Text>
+                  {showRounded && (
+                    <Text style={[styles.cell, { width: COLS.rounded, fontWeight: 'bold' }]}>
+                      {rounding.get(group.userName)?.byEntry.has(entry.id)
+                        ? rounding.get(group.userName)!.byEntry.get(entry.id)!.toFixed(2)
+                        : ''}
+                    </Text>
+                  )}
                 </View>
               )
             })}

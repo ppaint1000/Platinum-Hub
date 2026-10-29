@@ -62,53 +62,31 @@ export async function groupByStaff(
   return groupStaffEntries(entries)
 }
 
-export type PayrollStaffGroup = StaffGroup & {
-  // The unrounded total (what groupByStaff would have shown), kept
-  // alongside the rounded netHours so the report can show both.
-  rawNetHours: number
-}
-
 export type PayrollStaffReport = {
-  staffGroups: PayrollStaffGroup[]
+  // Actual punches and actual hours - the PDF works out the rounded
+  // (payable) hours itself and shows them in their own column.
+  staffGroups: StaffGroup[]
   // "UserName (DD Mon)" for each day rounding changed because of a
   // multi-site hand-off - see applyPayRounding's needsCheck.
   flaggedDates: string[]
 }
 
-// Same grouping as groupByStaff, but with the business's payroll rounding
-// rules applied first (lib/payroll.ts): each day's first clock-in/last
-// clock-out rounds to the nearest half hour in the business's favour, and a
-// staff member's Net total for a day is that rounded day total rather than
-// the sum of raw punch gaps. Used for the weekly report so it reflects
-// payable hours for every staff member, not just raw punches.
+// The weekly report: every staff member's real clock in/out times and
+// hours, plus the days to double-check. Payroll rounding (lib/payroll.ts)
+// is shown alongside in the PDF's Rounded column, never in place of the
+// real times.
 export async function groupByStaffForPayroll(
   filters: ReportFilters,
   client?: SupabaseClientLike
 ): Promise<PayrollStaffReport> {
   const entries = await getReportEntries(filters, client)
-  const { entries: rounded, dayTotals } = applyPayRounding(entries)
-
-  const netHoursByUser = new Map<string, number>()
-  for (const d of dayTotals) {
-    netHoursByUser.set(d.userName, round2((netHoursByUser.get(d.userName) ?? 0) + d.hours))
-  }
-  const rawNetByUser = new Map(groupStaffEntries(entries).map((g) => [g.userName, g.netHours]))
-
-  const staffGroups = groupStaffEntries(rounded).map((group) => {
-    const netHours = netHoursByUser.get(group.userName) ?? group.netHours
-    return {
-      ...group,
-      netHours,
-      grossHours: round2(netHours + group.breakMinutes / 60),
-      rawNetHours: rawNetByUser.get(group.userName) ?? group.netHours,
-    }
-  })
+  const { dayTotals } = applyPayRounding(entries)
 
   const flaggedDates = dayTotals
     .filter((d) => d.needsCheck)
     .map((d) => `${d.userName} (${formatDateKeyShort(d.date)})`)
 
-  return { staffGroups, flaggedDates }
+  return { staffGroups: groupStaffEntries(entries), flaggedDates }
 }
 
 export type DayStaffTotal = {
