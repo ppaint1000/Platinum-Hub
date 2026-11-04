@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getReportEntries, type ReportEntry, type ReportFilters } from '@/lib/timesheets/reports'
 import { applyPayRounding } from '@/lib/timesheets/payroll'
-import { formatDateKeyShort } from '@/lib/timesheets/formatNZ'
+import { formatDateKeyShort, nzDateKey } from '@/lib/timesheets/formatNZ'
 
 type SupabaseClientLike = Awaited<ReturnType<typeof createClient>>
 
@@ -101,12 +101,6 @@ export type DaySiteTotal = {
   hours: number
 }
 
-function dateKey(iso: string): string {
-  const d = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
-
 function groupByDay<T extends { date: string; hours: number }>(
   entries: ReportEntry[],
   labelOf: (e: ReportEntry) => string,
@@ -116,7 +110,7 @@ function groupByDay<T extends { date: string; hours: number }>(
   const byKey = new Map<string, T>()
   for (const entry of entries) {
     if (entry.hours === null) continue
-    const date = dateKey(entry.clock_in_at)
+    const date = nzDateKey(entry.clock_in_at)
     const label = labelOf(entry)
     const key = `${date}__${label}`
     const existing = byKey.get(key)
