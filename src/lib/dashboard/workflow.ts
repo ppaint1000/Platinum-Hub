@@ -2,6 +2,7 @@
 // proposals → jobs, each with what needs doing; plus the jobs on the go and
 // money invoiced but not yet paid.
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { nzDayOf } from "@/lib/timesheets/formatNZ";
 
 export type WorkflowData = {
   requests: { new: number; contacted: number };
@@ -64,7 +65,7 @@ export async function loadWorkflow(supabase: SupabaseClient, monthKey: string): 
     proposals: {
       notOpened: count(proposals, (p) => !!p.sent_at && !p.accepted_at && !p.declined_at && p.view_count === 0),
       opened: count(proposals, (p) => !p.accepted_at && !p.declined_at && p.view_count > 0),
-      acceptedThisMonth: count(proposals, (p) => !!p.accepted_at && p.accepted_at.slice(0, 7) === monthKey),
+      acceptedThisMonth: count(proposals, (p) => !!p.accepted_at && nzDayOf(p.accepted_at).slice(0, 7) === monthKey),
     },
     jobs: {
       toSchedule: count(jobs, (j) => j.status === "won"),

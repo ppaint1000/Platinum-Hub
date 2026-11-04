@@ -1,6 +1,6 @@
 // Health & safety → Training: the parts both the server and the Training
 // screen use - types, expiry colours and each person's current record.
-import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
+import { nzTodayDateString, formatNZDay, nzDayOf } from "@/lib/timesheets/formatNZ";
 
 export const TRAINING_WARN_DAYS = 30;
 
@@ -54,7 +54,7 @@ export function expiryFor(completedOn: string, validMonths: number | null): stri
 
 // Each person's current record per course: the latest approved one (by
 // the date it was done, else when it was added).
-const recency = (r: TrainingRecord) => `${r.completed_on ?? r.created_at.slice(0, 10)}|${r.created_at}`;
+const recency = (r: TrainingRecord) => `${r.completed_on ?? nzDayOf(r.created_at)}|${r.created_at}`;
 export function currentRecords(records: TrainingRecord[]): Map<string, TrainingRecord> {
   const best = new Map<string, TrainingRecord>();
   for (const r of records) {
@@ -68,4 +68,4 @@ export function currentRecords(records: TrainingRecord[]): Map<string, TrainingR
 
 // "12 Mar 2027".
 export const fmtDay = (day: string) =>
-  new Date(`${day.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  formatNZDay(day, { day: "numeric", month: "short", year: "numeric" });

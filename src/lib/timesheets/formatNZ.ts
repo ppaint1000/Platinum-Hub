@@ -25,6 +25,19 @@ export function nzTodayDateString(): string {
   return nzDateKey(new Date().toISOString())
 }
 
+// The NZ calendar day of a stored value: plain dates (YYYY-MM-DD) are already
+// a day, timestamps are converted. Never slice a timestamp to get its day -
+// that gives the UTC date, which is yesterday for most of a NZ morning.
+export function nzDayOf(value: string): string {
+  return value.length === 10 ? value : nzDateKey(value)
+}
+
+// Displays a plain date or a timestamp as its NZ day, on the server or in a
+// browser. Options are Intl.DateTimeFormat's (day, month, year, weekday).
+export function formatNZDay(value: string, options: Intl.DateTimeFormatOptions = {}): string {
+  return new Date(`${nzDayOf(value)}T00:00:00Z`).toLocaleDateString('en-NZ', { ...options, timeZone: 'UTC' })
+}
+
 // Monday of the week containing the given YYYY-MM-DD date.
 export function mondayOf(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00Z`)

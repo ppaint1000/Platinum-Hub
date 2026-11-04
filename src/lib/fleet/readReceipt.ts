@@ -1,3 +1,4 @@
+import { addDays, nzTodayDateString } from "@/lib/timesheets/formatNZ";
 // Reads date / odometer / litres / total cost off a fuel receipt photo, free and
 // entirely on the driver's phone: tesseract.js (open-source OCR) runs in
 // the browser, fetching its engine + English data from the jsDelivr CDN on
@@ -81,11 +82,11 @@ function validDate(year: number, month: number, day: number): string | null {
   if (year < 100) year += 2000;
   const d = new Date(year, month - 1, day);
   if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
-  const now = new Date();
-  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  const yearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-  if (d > tomorrow || d < yearAgo) return null;
-  return `${year}-${pad(month)}-${pad(day)}`;
+  const ymd = `${year}-${pad(month)}-${pad(day)}`;
+  const today = nzTodayDateString();
+  const yearAgo = `${Number(today.slice(0, 4)) - 1}${today.slice(4)}`;
+  if (ymd > addDays(today, 1) || ymd < yearAgo) return null;
+  return ymd;
 }
 
 export function parseReceiptText(text: string): ReceiptReading {

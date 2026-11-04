@@ -18,6 +18,7 @@ import { AssignSalesPersonBanner } from "@/components/jobs/AssignSalesPersonBann
 import { JobSubNav } from "@/components/jobs/JobSubNav";
 import { fetchSalesTeam, needsSalesPerson } from "@/lib/jobs/salesTeam";
 import type { JobStatus } from "@/lib/jobs/status";
+import { formatNZDay } from "@/lib/timesheets/formatNZ";
 
 type JobRow = {
   id: string;
@@ -128,11 +129,11 @@ export default async function JobLayout({
           {job.status === "lost" && (
             <p className="mt-1 text-sm text-ink-soft">
               Lost to {job.lost_to ?? "unknown"}
-              {job.lost_at && ` on ${new Date(job.lost_at).toLocaleDateString("en-NZ")}`}
+              {job.lost_at && ` on ${formatNZDay(job.lost_at)}`}
             </p>
           )}
           {job.status === "complete" && job.completed_at && (
-            <p className="mt-1 text-sm text-ink-soft">Completed {new Date(job.completed_at).toLocaleDateString("en-NZ")}</p>
+            <p className="mt-1 text-sm text-ink-soft">Completed {formatNZDay(job.completed_at)}</p>
           )}
         </div>
 

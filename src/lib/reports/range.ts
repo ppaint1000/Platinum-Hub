@@ -1,6 +1,6 @@
 // Date ranges for Reports (?range=...), NZ calendar dates. The sales year
 // is April-March, like the Sales pages.
-import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
+import { nzDayOf, nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 export const RANGES = [
   { key: "30d", label: "Last 30 days" },
@@ -57,10 +57,10 @@ export function parseRange(raw: string | undefined, fallback: RangeKey = "12m"):
   }
 }
 
-// A date (YYYY-MM-DD or ISO timestamp, compared by its first 10 chars) in range.
+// A date (YYYY-MM-DD or ISO timestamp, compared by its NZ day) in range.
 export function inRange(date: string | null | undefined, range: DateRange): boolean {
   if (!date) return false;
-  const day = date.slice(0, 10);
+  const day = nzDayOf(date);
   return (!range.from || day >= range.from) && day <= range.to;
 }
 

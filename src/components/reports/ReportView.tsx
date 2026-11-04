@@ -9,6 +9,7 @@ import { ChevronLeft, ChevronDown, ChevronUp, Download } from "lucide-react";
 import type { Cell, CellFormat, Report } from "@/lib/reports/build";
 import { PERIODS, RANGES, type DateRange } from "@/lib/reports/range";
 import { ColumnChart, DonutChart, HBarChart, LineChart } from "./charts";
+import { nzDayOf } from "@/lib/timesheets/formatNZ";
 
 const PAGE = 50;
 
@@ -37,7 +38,7 @@ function fmtCell(v: Cell, format: CellFormat): string {
 function csvCell(v: Cell, format: CellFormat): string {
   if (v === null || v === undefined) return "";
   let s: string;
-  if (format === "date") s = String(v).slice(0, 10);
+  if (format === "date") s = nzDayOf(String(v));
   else if (format === "money" || format === "hours") s = String(Math.round(Number(v) * 100) / 100);
   else if (format === "pct") s = String(Math.round(Number(v) * 1000) / 10);
   else s = String(v);

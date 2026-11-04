@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { saveEmployeeLinksAction, sendTimesheetsAction, setEarningsRateAction } from './actions'
 import type { SendResult } from '@/lib/xero/timesheets'
+import { formatNZDay } from '@/lib/timesheets/formatNZ'
 
 export type PreviewRow = {
   userId: string
@@ -242,7 +243,7 @@ export function XeroPayrollPanel(p: Props) {
                       ))}
                       <td className="px-2 py-2 text-right font-semibold tabular-nums">{r.total}</td>
                       <td className="py-2 pl-2 text-xs text-black/60">
-                        {r.sent ? `Sent ${r.sent.hours} h ${new Date(r.sent.at).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' })}` : '—'}
+                        {r.sent ? `Sent ${r.sent.hours} h ${formatNZDay(r.sent.at, { day: 'numeric', month: 'short' })}` : '—'}
                       </td>
                     </tr>
                   ))}

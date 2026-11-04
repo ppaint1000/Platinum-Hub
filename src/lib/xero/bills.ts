@@ -10,6 +10,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { accountingGet, getXeroConnection } from './client'
 import { jobKey } from './invoices'
+import { nzTodayDateString } from '@/lib/timesheets/formatNZ'
 
 type XeroBill = {
   InvoiceID: string
@@ -32,7 +33,7 @@ export async function syncXeroBills(): Promise<BillSyncResult> {
   if (!(await getXeroConnection())) return { ...result, error: 'Xero is not connected.' }
   const db = createAdminClient()
   const { data: settings } = await db.from('xero_connection').select('invoices_since, bills_synced_at').eq('id', 1).single()
-  const since = (settings?.invoices_since as string | null) ?? new Date().toISOString().slice(0, 10)
+  const since = (settings?.invoices_since as string | null) ?? nzTodayDateString()
   const [y, m, d] = since.split('-').map(Number)
 
   const bills: XeroBill[] = []

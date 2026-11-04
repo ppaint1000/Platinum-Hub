@@ -9,6 +9,7 @@ import { alertIncompleteFuelEntryAction, checkFuelEconomyAction } from "@/app/fl
 import { splitWaterblasterFuel, waterblasterSplitError } from "@/lib/fleet/waterblasterSplit";
 import { WaterblasterSplitField } from "@/components/fleet/WaterblasterSplitField";
 import { expectedHubo, huboWarning, type HuboHint } from "@/lib/fleet/hubodometer";
+import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 // usesHubo: diesel tax (RUC) goes by a hubodometer (the Dynas), so the
 // form also asks for that reading. huboHint: its last readings, to check
@@ -25,13 +26,6 @@ type GpsState =
 // and is charged to a job instead (see fleet_waterblaster_fuel.sql, whose
 // trigger turns the entry into a cost line on that job).
 const WATERBLASTER = "waterblaster";
-
-// Today as YYYY-MM-DD in the phone's own timezone - toISOString() would
-// give the UTC date, which is yesterday for most of a NZ morning.
-function todayLocal() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 export function FuelEntryForm({
   vehicles,
@@ -53,7 +47,7 @@ export function FuelEntryForm({
   const [splitWaterblaster, setSplitWaterblaster] = useState(false);
   const [waterblasterLitres, setWaterblasterLitres] = useState("");
   const splitting = !isWaterblaster && splitWaterblaster;
-  const [fuelledOn, setFuelledOn] = useState(todayLocal);
+  const [fuelledOn, setFuelledOn] = useState(nzTodayDateString);
   // True once the driver picks a date themselves - the receipt reader then
   // leaves it alone, same as it does for boxes they've typed into.
   const dateTouchedRef = useRef(false);
@@ -143,7 +137,7 @@ return;
 
     if (!vehicleId) return setError("Choose a vehicle.");
     if (!fuelledOn) return setError("Enter the date you filled up.");
-    if (fuelledOn > todayLocal()) return setError("The date can't be in the future.");
+    if (fuelledOn > nzTodayDateString()) return setError("The date can't be in the future.");
     if (isWaterblaster && !jobId) return setError("Choose the job the waterblaster fuel is for.");
     if (!receiptPhoto) return setError("Photograph the fuel receipt.");
     // The numbers are optional (an unreadable receipt shouldn't block the
@@ -272,7 +266,7 @@ return;
     setJobId("");
     setSplitWaterblaster(false);
     setWaterblasterLitres("");
-    setFuelledOn(todayLocal());
+    setFuelledOn(nzTodayDateString());
     dateTouchedRef.current = false;
     setOdometer("");
     setHubo("");
@@ -408,7 +402,7 @@ return;
           <input
             type="date"
             value={fuelledOn}
-            max={todayLocal()}
+            max={nzTodayDateString()}
             onChange={(e) => {
               dateTouchedRef.current = true;
               setFuelledOn(e.target.value);

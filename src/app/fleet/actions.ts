@@ -124,8 +124,8 @@ export async function checkFuelEconomyAction(entryId: string) {
   if (index < 0) return {};
   const fill = fills[index];
 
-  const yearBefore = new Date(fill.fuelledOn + "T00:00:00");
-  yearBefore.setFullYear(yearBefore.getFullYear() - 1);
+  const yearBefore = new Date(fill.fuelledOn + "T00:00:00Z");
+  yearBefore.setUTCFullYear(yearBefore.getUTCFullYear() - 1);
   const since = yearBefore.toISOString().slice(0, 10);
   const earlier = fills.slice(0, index).filter((f) => f.fuelledOn >= since);
   if (earlier.length < MIN_FILLS_FOR_AVERAGE) return {};

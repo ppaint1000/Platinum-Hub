@@ -1,3 +1,4 @@
+import { addDays, nzDateKey } from "@/lib/timesheets/formatNZ";
 // Each vehicle's average km per month and fuel economy (L/100km), from its
 // fuel-log odometer readings over the last 12 months, against the fleet's
 // average. A vehicle more than USAGE_TOLERANCE away from the fleet average
@@ -32,7 +33,7 @@ export type FleetUsage = {
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 
 export function fleetUsage(vehicleIds: string[], fuel: FuelLike[], today = new Date()): FleetUsage {
-  const since = new Date(today.getTime() - WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const since = addDays(nzDateKey(today.toISOString()), -WINDOW_DAYS);
   const vehicles = new Map<string, VehicleUsage>();
 
   for (const id of vehicleIds) {

@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/orders/ConfirmDialog";
 import { fmtDate, fmtDateTime, fmtMoney } from "@/lib/orders/format";
 import { latestClockInsAction } from "@/lib/jobs/recentClockInsAction";
 import { byRecentClockIn } from "@/lib/jobs/jobOrder";
+import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 type LineItem = {
   key: string;
@@ -55,7 +56,7 @@ function emptyLine(): LineItem {
 }
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return nzTodayDateString();
 }
 
 const DEFAULT_SIZES = ["1 Ltr", "2 Ltr", "4 Ltr", "10 Ltr", "15 Ltr", "20 Ltr"];

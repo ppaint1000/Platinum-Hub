@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui";
 import { LostToField } from "./LostToField";
+import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 type Step = "closed" | "ask" | "who";
 
@@ -23,7 +24,7 @@ export function MarkAsLostButton({ jobId, lostToOptions }: { jobId: string; lost
       .from("jobs")
       .update({
         status: "lost",
-        lost_at: new Date().toISOString().slice(0, 10),
+        lost_at: nzTodayDateString(),
         lost_to: lostToValue,
       })
       .eq("id", jobId);

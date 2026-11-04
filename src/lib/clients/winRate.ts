@@ -1,6 +1,8 @@
 // Shared by the Clients win-rate report and the Clients dashboard, so both
 // always cover the same period and count quotes the same way.
 
+import { nzDayStartUtcIso, nzTodayDateString } from "@/lib/timesheets/formatNZ";
+
 export type Period = "month" | "quarter" | "year";
 
 export function parsePeriod(value: string | undefined): Period {
@@ -8,10 +10,9 @@ export function parsePeriod(value: string | undefined): Period {
 }
 
 export function periodStart(period: Period): Date {
-  const now = new Date();
-  if (period === "month") return new Date(now.getFullYear(), now.getMonth(), 1);
-  if (period === "quarter") return new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
-  return new Date(now.getFullYear(), 0, 1);
+  const [year, month] = nzTodayDateString().split("-").map(Number);
+  const first = period === "month" ? month : period === "quarter" ? Math.floor((month - 1) / 3) * 3 + 1 : 1;
+  return new Date(nzDayStartUtcIso(`${year}-${String(first).padStart(2, "0")}-01`));
 }
 
 import { isWonStatus, type JobStatus } from "@/lib/jobs/status";

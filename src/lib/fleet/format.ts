@@ -1,3 +1,4 @@
+import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 export function fmtDate(d: string | null | undefined) {
   if (!d) return "—";
   const dt = new Date(d + "T00:00:00");
@@ -14,6 +15,7 @@ export function fmtDateTime(d: string | null | undefined) {
   const dt = new Date(d);
   if (isNaN(dt.getTime())) return d;
   return dt.toLocaleString("en-NZ", {
+    timeZone: "Pacific/Auckland",
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -34,10 +36,9 @@ export function fmtKm(n: number | null | undefined) {
 
 export function daysUntil(dateStr: string | null | undefined): number | null {
   if (!dateStr) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const d = new Date(dateStr + "T00:00:00");
-  return Math.round((d.getTime() - today.getTime()) / 86400000);
+  const today = Date.parse(nzTodayDateString() + "T00:00:00Z");
+  const d = Date.parse(dateStr.slice(0, 10) + "T00:00:00Z");
+  return Math.round((d - today) / 86400000);
 }
 
 export type ExpiryStatus = "none" | "ok" | "warn" | "critical";

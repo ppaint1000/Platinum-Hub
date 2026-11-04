@@ -8,6 +8,7 @@ import { JobHealth, type HealthItem } from "@/components/jobs/JobHealth";
 import { jobMargin } from "@/lib/jobs/margin";
 import { fetchClaims, fetchVariations, money, variationTotals } from "@/lib/jobs/jobFinance";
 import type { JobStatus } from "@/lib/jobs/status";
+import { formatNZDay } from "@/lib/timesheets/formatNZ";
 
 type JobRow = {
   id: string;
@@ -37,7 +38,7 @@ const GREEN = "#15803D";
 const BLUE = "#1F4E8C";
 
 const nzDate = (d: string | null) =>
-  d ? new Date(d.length === 10 ? `${d}T00:00:00` : d).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" }) : "—";
+  d ? formatNZDay(d, { day: "numeric", month: "short", year: "numeric" }) : "—";
 
 function Card({ title, action, children, className = "" }: { title: string; action?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (

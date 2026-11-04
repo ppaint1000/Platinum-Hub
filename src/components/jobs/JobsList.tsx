@@ -7,6 +7,7 @@ import { Panel, StatusRow, StatusLabel, Money } from "@/components/ui";
 import { jobStatusLabel } from "@/design/tailwind.tokens";
 
 import type { JobStatus } from "@/lib/jobs/status";
+import { formatNZDay } from "@/lib/timesheets/formatNZ";
 
 export type JobListRow = {
   id: string;
@@ -36,7 +37,7 @@ export type JobListRow = {
 const STAGE_TABS: JobStatus[] = ["quoted", "on_hold", "won", "scheduled", "in_progress", "complete", "invoiced", "paid", "lost"];
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-NZ", { day: "2-digit", month: "short", year: "numeric" });
+  return formatNZDay(iso, { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function matches(job: JobListRow, query: string) {

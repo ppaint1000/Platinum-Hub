@@ -11,6 +11,7 @@ import { splitWaterblasterFuel, waterblasterSplitError } from "@/lib/fleet/water
 import { WaterblasterSplitField } from "@/components/fleet/WaterblasterSplitField";
 import { withJobFirst } from "@/lib/jobs/jobOrder";
 import { expectedHubo, huboWarning, type HuboHint } from "@/lib/fleet/hubodometer";
+import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 // usesHubo / huboHint: diesel tax goes by a hubodometer (lib/fleet/formVehicles.ts).
 type Vehicle = {
@@ -28,11 +29,6 @@ type Option = { id: string; label: string };
 // or odometer, charged to a job (fleet_waterblaster_fuel.sql's trigger adds
 // the cost line to that job).
 const WATERBLASTER = "waterblaster";
-
-function todayLocal() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 type FormState = {
   driverId: string;
@@ -132,7 +128,7 @@ function FuelEntryModalButton({
   const splitting = canSplit && splitWaterblaster;
 
   function emptyForm(): FormState {
-    return { driverId: "", vehicleId: startWithWaterblaster ? WATERBLASTER : "", jobId: "", fuelledOn: todayLocal(), odometer: "", hubo: "", litres: "", cost: "" };
+    return { driverId: "", vehicleId: startWithWaterblaster ? WATERBLASTER : "", jobId: "", fuelledOn: nzTodayDateString(), odometer: "", hubo: "", litres: "", cost: "" };
   }
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -190,7 +186,7 @@ function FuelEntryModalButton({
     if (!form.vehicleId) return setError("Choose a vehicle.");
     if (isWaterblaster && !form.jobId) return setError("Choose the job the waterblaster fuel is for.");
     if (!form.fuelledOn) return setError("Enter the date.");
-    if (form.fuelledOn > todayLocal()) return setError("The date can't be in the future.");
+    if (form.fuelledOn > nzTodayDateString()) return setError("The date can't be in the future.");
     if (!isWaterblaster && (!form.odometer || Number(form.odometer) <= 0))
       return setError("Enter the odometer reading.");
     // Required on new entries; older ones from before the hubo was tracked
@@ -386,7 +382,7 @@ function FuelEntryModalButton({
               <input
                 type="date"
                 value={form.fuelledOn}
-                max={todayLocal()}
+                max={nzTodayDateString()}
                 onChange={(e) => set("fuelledOn", e.target.value)}
                 className={`${inputClass} min-w-0`}
               />

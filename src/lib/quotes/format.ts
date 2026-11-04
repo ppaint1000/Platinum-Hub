@@ -1,3 +1,4 @@
+import { formatNZDay } from "@/lib/timesheets/formatNZ";
 export function fmtCurrency(value: number | null | undefined) {
   if (value == null) return "$0.00";
   return new Intl.NumberFormat("en-NZ", {
@@ -17,11 +18,7 @@ export function fmtCurrencyWhole(value: number | null | undefined) {
 
 export function fmtDate(date: string | null | undefined) {
   if (!date) return "—";
-  return new Intl.DateTimeFormat("en-NZ", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(date));
+  return formatNZDay(date, { day: "numeric", month: "short", year: "numeric" });
 }
 
 export function fmtSqm(value: number | null | undefined) {

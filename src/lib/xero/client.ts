@@ -4,6 +4,7 @@
 // xero_connection (service role only) and are refreshed here as needed.
 // Server-side only.
 import { createAdminClient } from '@/lib/supabase/admin'
+import { nzTodayDateString } from '@/lib/timesheets/formatNZ'
 
 const AUTHORIZE_URL = 'https://login.xero.com/identity/connect/authorize'
 const TOKEN_URL = 'https://identity.xero.com/connect/token'
@@ -213,7 +214,7 @@ export async function xeroEmployees(): Promise<XeroEmployee[]> {
     all.push(...(r.employees ?? []))
     if ((r.employees ?? []).length < 100) break
   }
-  return all.filter((e) => !e.endDate || e.endDate.slice(0, 10) >= new Date().toISOString().slice(0, 10))
+  return all.filter((e) => !e.endDate || e.endDate.slice(0, 10) >= nzTodayDateString())
 }
 
 export async function xeroCalendars(): Promise<XeroCalendar[]> {

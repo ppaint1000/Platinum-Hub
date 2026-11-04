@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 // The quote's own columns worth carrying over to a copy — its details, rates
 // and allowances. (Ids and timestamps are left for the database to set.)
@@ -67,7 +68,7 @@ export async function copyCosting(sourceId: string, name: string) {
   for (const key of QUOTE_FIELDS) if (key in source) quoteRow[key] = source[key];
   quoteRow.location = name;
   quoteRow.status = "draft";
-  quoteRow.valid_until = new Date().toLocaleDateString("en-CA"); // today, yyyy-mm-dd
+  quoteRow.valid_until = nzTodayDateString(); // today, yyyy-mm-dd
 
   const { data: created, error: createErr } = await supabase
     .from("quotes")

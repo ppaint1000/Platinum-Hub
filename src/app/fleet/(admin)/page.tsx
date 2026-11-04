@@ -7,6 +7,7 @@ import { SERVICE_INTERVAL_KM, SERVICE_SOON_KM, nextServiceFor, type NextService 
 import { fleetUsage } from "@/lib/fleet/usage";
 import { currentHubo, usesHubo } from "@/lib/fleet/hubodometer";
 import { UsageRings } from "@/components/fleet/UsageRings";
+import { nzTodayDateString, nzDayOf } from "@/lib/timesheets/formatNZ";
 
 type Vehicle = {
   id: string;
@@ -80,7 +81,7 @@ export default async function FleetDashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isArray(r.vehicle) ? r.vehicle[0] ?? null : r.vehicle, }));
 
-  const thisMonth = new Date().toISOString().slice(0, 7);
+  const thisMonth = nzTodayDateString().slice(0, 7);
   // By the fill-up date, not when it was logged.
   const monthEntries = fList.filter((f) => f.fuelled_on.slice(0, 7) === thisMonth);
   const monthSpend = monthEntries.reduce((s, f) => s + Number(f.cost_total), 0);
@@ -339,7 +340,7 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
                     )}
                   </div>
                   <span className="flex-none text-xs text-muted">
-                    {fmtDate(a.date.slice(0, 10))}
+                    {fmtDate(nzDayOf(a.date))}
                   </span>
                 </div>
               );

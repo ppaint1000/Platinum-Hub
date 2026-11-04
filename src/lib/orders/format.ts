@@ -14,6 +14,7 @@ export function fmtDateTime(d: string | null | undefined) {
   const dt = new Date(d);
   if (isNaN(dt.getTime())) return d;
   return dt.toLocaleString("en-NZ", {
+    timeZone: "Pacific/Auckland",
     day: "2-digit",
     month: "short",
     year: "numeric",

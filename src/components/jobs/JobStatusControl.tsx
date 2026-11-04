@@ -7,6 +7,7 @@ import { Button } from "@/components/ui";
 import { LostToField } from "./LostToField";
 import { ConfirmDialog } from "@/components/orders/ConfirmDialog";
 import { notifyJobCompletedAction } from "@/app/jobs/notify-actions";
+import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 const STATUS_OPTIONS = [
   { value: "draft", label: "Draft" },
@@ -81,7 +82,7 @@ export function JobStatusControl({
 
     const update: Record<string, unknown> = { status: target };
     if (target === "lost") {
-      update.lost_at = new Date().toISOString().slice(0, 10);
+      update.lost_at = nzTodayDateString();
       update.lost_to = lostTo.trim();
     } else {
       update.lost_at = null;

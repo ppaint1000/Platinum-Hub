@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { setLeadSourceAction } from "@/app/jobs/actions";
 import { LEAD_SOURCES } from "@/lib/jobs/leadSources";
+import { formatNZDay } from "@/lib/timesheets/formatNZ";
 
 export type LeadSourceJob = {
   id: string;
@@ -21,7 +22,7 @@ export type LeadSourceJob = {
 };
 
 const money = (n: number) => "$" + Math.round(n).toLocaleString("en-NZ");
-const nzDate = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "2-digit" }) : "—");
+const nzDate = (d: string | null) => (d ? formatNZDay(d, { day: "numeric", month: "short", year: "2-digit" }) : "—");
 
 export function LeadSourcePicker({ jobs, statusLabel }: { jobs: LeadSourceJob[]; statusLabel: Record<string, string> }) {
   const router = useRouter();

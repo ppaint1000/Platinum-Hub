@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { fillUpsForVehicle, totalsFor, type FillUp, type FuelEntryInput, type Totals } from "@/lib/fleet/fuelEconomy";
 import { fmtDate, fmtMoney } from "@/lib/fleet/format";
+import { addDays, nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 type VehicleOption = { id: string; name: string };
 
@@ -23,9 +24,7 @@ type PeriodKey = (typeof PERIODS)[number]["key"];
 function periodStart(key: PeriodKey): string | null {
   const days = PERIODS.find((p) => p.key === key)!.days;
   if (days === null) return null;
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return addDays(nzTodayDateString(), -days);
 }
 
 function perKm(n: number | null) {

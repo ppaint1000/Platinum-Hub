@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { overBudgetColor } from "@/design/tailwind.tokens";
 import { addManualActualCostAction } from "@/app/jobs/costs/actions";
+import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 type CategoryOption = { id: string; label: string };
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return nzTodayDateString();
 }
 
 export function AddCostLineButton({

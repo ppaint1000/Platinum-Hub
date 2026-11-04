@@ -5,7 +5,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/mailer";
 import { notificationRecipients } from "@/lib/notifications/recipients";
-import { addDays, mondayOf, nzDateKey, nzTimeString, nzTodayDateString } from "@/lib/timesheets/formatNZ";
+import { addDays, mondayOf, nzDateKey, nzTimeString, nzTodayDateString, nzDayStartUtcIso } from "@/lib/timesheets/formatNZ";
 import { fetchVariations, LIVE_STATUSES, variationTotals, groupBy } from "@/lib/jobs/jobFinance";
 
 type Alert = { key: string; title: string; detail: string; link: string };
@@ -19,7 +19,7 @@ async function findAlerts(origin: string): Promise<Alert[]> {
   const alerts: Alert[] = [];
 
   const [{ data: requests }, { data: jobs }, { data: openShifts }] = await Promise.all([
-    db.from("requests").select("created_at").gte("created_at", `${weekAgo}T00:00:00Z`),
+    db.from("requests").select("created_at").gte("created_at", nzDayStartUtcIso(weekAgo)),
     db
       .from("jobs")
       .select("id, job_number, name, status, quoted_at, won_at, lost_at, completed_at, quoted_sell_total")

@@ -8,6 +8,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/mailer";
 import { SITE_URL } from "@/lib/timesheets/siteUrl";
+import { addDays, nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 export type DripTrigger = "request_created" | "proposal_sent" | "job_paid" | "job_lost";
 
@@ -299,7 +300,7 @@ export async function runDrips(): Promise<void> {
         .from("jobs")
         .select("id, client:clients(id, name, email)")
         .eq("status", "lost")
-        .gte("lost_at", weekAgo.slice(0, 10))
+        .gte("lost_at", addDays(nzTodayDateString(), -7))
         .returns<{ id: string; client: { id: string; name: string; email: string | null } | null }[]>(),
     ]);
     for (const j of paid ?? []) await enrolDrip({ trigger: "job_paid", email: j.client?.email, name: j.client?.name, clientId: j.client?.id, jobId: j.id });

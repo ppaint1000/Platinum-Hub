@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { findOrCreateCategoryId } from "@/lib/jobs/findOrCreateCategory";
+import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 // The category field here is free text, not a fixed picklist — pick an
 // existing category or type a new one (findOrCreateCategoryId creates it).
@@ -173,7 +174,7 @@ export async function setCategoryActualAction(
           description: "Manual adjustment",
           amount: delta,
           source: "manual",
-          incurred_at: new Date().toISOString().slice(0, 10),
+          incurred_at: nzTodayDateString(),
         });
 
   if (error) return { error: error.message };

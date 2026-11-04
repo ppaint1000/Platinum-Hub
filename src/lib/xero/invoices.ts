@@ -8,6 +8,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { accountingGet, getXeroConnection } from './client'
 import { fetchVariations, groupBy, variationTotals } from '@/lib/jobs/jobFinance'
+import { nzTodayDateString } from '@/lib/timesheets/formatNZ'
 
 type XeroInvoice = {
   InvoiceID: string
@@ -37,7 +38,7 @@ export async function syncXeroInvoices(): Promise<SyncResult> {
   if (!conn) return { ...result, error: 'Xero is not connected.' }
   const db = createAdminClient()
   const { data: settings } = await db.from('xero_connection').select('invoices_since, invoices_synced_at').eq('id', 1).single()
-  const since = (settings?.invoices_since as string | null) ?? new Date().toISOString().slice(0, 10)
+  const since = (settings?.invoices_since as string | null) ?? nzTodayDateString()
   const [y, m, d] = since.split('-').map(Number)
 
   // Everything changed since the last check (the first time: all from `since`).

@@ -18,6 +18,7 @@ import { overBudgetColor } from "@/design/tailwind.tokens";
 import { TempPasswordReveal } from "./TempPasswordReveal";
 import { UserMore, type StaffType } from "./UserMore";
 import { SetPasswordForm } from "@/app/timesheets/admin/staff/set-password-form";
+import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 export type PayRate = {
   employmentType: "contractor" | "employee";
@@ -152,7 +153,7 @@ function effectiveRate(r: PayRate): number {
 // timesheet history for their first-ever rate. Now just a starting
 // point — admin can override it in the date field.
 function defaultEffectiveFrom(hasExistingRate: boolean): string {
-  return hasExistingRate ? new Date().toISOString().slice(0, 10) : "2020-01-01";
+  return hasExistingRate ? nzTodayDateString() : "2020-01-01";
 }
 
 export function UsersTable({ users, staffTypes }: { users: UserRow[]; staffTypes: StaffType[] }) {

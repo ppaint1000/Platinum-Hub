@@ -1,10 +1,12 @@
+import { nzDateKey } from "@/lib/timesheets/formatNZ";
 // Sales year runs Apr-Mar (NZ tax year), not Jan-Dec. "Start year" is the
 // calendar year April falls in - e.g. start year 2026 covers Apr 2026
 // through Mar 2027. sales_targets/jobs are still keyed by plain calendar
 // year+month, so this just windows 12 specific (year, month) pairs over
 // that storage rather than changing it.
 export function fiscalYearStart(today = new Date()): number {
-  return today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+  const [year, month] = nzDateKey(today.toISOString()).split("-").map(Number);
+  return month >= 4 ? year : year - 1;
 }
 
 export function fiscalMonths(startYear: number): { year: number; month: number }[] {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireAppAccess } from "@/lib/auth/requireAppAccess";
 import { Panel } from "@/components/ui";
+import { nzDateKey } from "@/lib/timesheets/formatNZ";
 
 type JobRow = {
   quoted_sell_total: number | null;
@@ -16,7 +17,8 @@ type JobRow = {
 // Apr-Mar (NZ tax year), keyed by a "start year" (the calendar year April
 // falls in).
 function fiscalYearStart(today = new Date()): number {
-  return today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+  const [year, month] = nzDateKey(today.toISOString()).split("-").map(Number);
+  return month >= 4 ? year : year - 1;
 }
 
 function fiscalMonths(startYear: number): { year: number; month: number }[] {

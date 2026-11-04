@@ -18,6 +18,7 @@ import {
 import { PRODUCTION_STAGES, SUPERVISOR_STAGES, type JobStatus } from "@/lib/jobs/status";
 import type { ProductionJob } from "@/lib/jobs/production";
 import { BLUE, NAVY, RED, money } from "@/components/dashboard/parts";
+import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 const TZ = "Pacific/Auckland";
 const shortDate = (iso: string) =>
@@ -128,7 +129,7 @@ export function ProductionBoard({
               status: to,
               updated_at: now,
               scheduled_at: to === "scheduled" && !j.scheduled_at ? now : j.scheduled_at,
-              completed_at: to === "complete" && !j.completed_at ? now.slice(0, 10) : j.completed_at,
+              completed_at: to === "complete" && !j.completed_at ? nzTodayDateString() : j.completed_at,
               invoiced_at: to === "invoiced" && !j.invoiced_at ? now : j.invoiced_at,
               paid_at: to === "paid" && !j.paid_at ? now : j.paid_at,
             }
