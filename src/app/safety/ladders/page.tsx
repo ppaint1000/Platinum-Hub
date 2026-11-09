@@ -8,7 +8,7 @@ import type { Ladder, LadderInspection } from "@/lib/safety/laddersShared";
 import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 export default async function SafetyLaddersPage() {
-  const { supabase, isManager } = await safetyContext();
+  const { supabase, isManager, isAdmin } = await safetyContext();
   const [{ data: ladders, error }, { data: inspections }, staff] = await Promise.all([
     supabase.from("ladders").select("*").order("asset_no").returns<Ladder[]>(),
     supabase.from("ladder_inspections").select("*").order("inspected_on", { ascending: false }).order("created_at", { ascending: false }).returns<LadderInspection[]>(),
@@ -25,6 +25,7 @@ export default async function SafetyLaddersPage() {
       inspections={inspections ?? []}
       staff={staff}
       isManager={isManager}
+      isAdmin={isAdmin}
       today={nzTodayDateString()}
     />
   );

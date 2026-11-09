@@ -89,12 +89,15 @@ export function SafetyLadders({
   inspections,
   staff,
   isManager,
+  isAdmin,
   today,
 }: {
   ladders: Ladder[];
   inspections: LadderInspection[];
   staff: Person[];
   isManager: boolean;
+  // Admins can remove a ladder from the register outright.
+  isAdmin: boolean;
   today: string;
 }) {
   const router = useRouter();
@@ -143,6 +146,15 @@ export function SafetyLadders({
         after?.();
         router.refresh();
       }
+    });
+  }
+
+  function removeLadder(id: string, assetNo: string) {
+    if (!confirm(`Remove ladder ${assetNo} from the register? This deletes it and its inspection history, and can't be undone.`)) return;
+    run(() => deleteLadderAction(id), () => {
+      setLadderForm((f) => (f?.id === id ? null : f));
+      setInspectionForm((f) => (f?.ladderId === id ? null : f));
+      setHistoryFor((h) => (h === id ? null : h));
     });
   }
 
@@ -220,14 +232,7 @@ export function SafetyLadders({
           pending={pending}
           onClose={() => setLadderForm(null)}
           onSave={(d) => run(() => saveLadderAction(d), () => setLadderForm(null))}
-          onDelete={
-            ladderForm.id
-              ? () => {
-                  if (!confirm("Delete this ladder and all its inspections? To keep the history, set it to Retired instead.")) return;
-                  run(() => deleteLadderAction(ladderForm.id!), () => setLadderForm(null));
-                }
-              : undefined
-          }
+          onDelete={ladderForm.id && isAdmin ? () => removeLadder(ladderForm.id!, ladderForm.assetNo) : undefined}
         />
       )}
 
@@ -341,6 +346,16 @@ export function SafetyLadders({
                           {history.length > 0 && (
                             <button type="button" className={`${secondaryBtn} px-3 py-1.5`} onClick={() => setHistoryFor(open ? null : l.id)}>
                               {open ? "Hide" : `History (${history.length})`}
+                            </button>
+                          )}
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              className={`${secondaryBtn} px-3 py-1.5 text-[#B91C1C]`}
+                              disabled={pending}
+                              onClick={() => removeLadder(l.id, l.asset_no)}
+                            >
+                              Remove
                             </button>
                           )}
                         </div>
@@ -514,7 +529,7 @@ function LadderForm({
         </button>
         {onDelete && (
           <button type="button" className={`${secondaryBtn} ml-auto text-[#B91C1C]`} onClick={onDelete} disabled={pending}>
-            Delete
+            Remove ladder
           </button>
         )}
       </div>

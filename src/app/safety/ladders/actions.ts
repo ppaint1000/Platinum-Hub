@@ -86,9 +86,12 @@ export async function setLadderStatusAction(id: string, status: LadderStatus): P
   return done();
 }
 
-// Deletes the ladder and its inspection history. Retiring keeps the history.
+// Removes the ladder from the register, with its inspection history -
+// admins only. (Retiring instead keeps the history.)
 export async function deleteLadderAction(id: string): Promise<Result> {
   const supabase = await createClient();
+  const { data: role } = await supabase.rpc("current_profile_role");
+  if (role !== "admin") return { error: "Only an admin can remove a ladder." };
   const { error } = await supabase.from("ladders").delete().eq("id", id);
   if (error) return { error: error.message };
   return done();
