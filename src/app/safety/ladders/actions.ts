@@ -22,7 +22,9 @@ export type LadderInput = {
   assetNo: string;
   ladderType: LadderType;
   material: LadderMaterial;
+  // The size, in metres or steps (sizeUnit).
   lengthM: string;
+  sizeUnit: "m" | "steps";
   ratingKg: string;
   standard: string;
   brand: string;
@@ -41,8 +43,12 @@ export async function saveLadderAction(l: LadderInput): Promise<Result> {
   if (!LADDER_TYPES.some((t) => t.value === l.ladderType)) return { error: "Pick the type of ladder." };
   if (!MATERIALS.some((m) => m.value === l.material)) return { error: "Pick what it's made of." };
   if (!STATUSES.some((s) => s.value === l.status)) return { error: "Pick its status." };
-  const length = l.lengthM.trim() ? Number(l.lengthM) : null;
-  if (length !== null && !(length > 0 && length < 100)) return { error: "That length isn't right." };
+  const size = l.lengthM.trim() ? Number(l.lengthM) : null;
+  const inSteps = l.sizeUnit === "steps";
+  if (size !== null && inSteps && !(Number.isInteger(size) && size > 0 && size < 100)) return { error: "Put the number of steps as a whole number." };
+  if (size !== null && !inSteps && !(size > 0 && size < 100)) return { error: "That length isn't right." };
+  const length = inSteps ? null : size;
+  const steps = inSteps ? size : null;
   const rating = l.ratingKg.trim() ? Math.round(Number(l.ratingKg)) : null;
   if (rating !== null && !(rating > 0)) return { error: "That rating isn't right." };
   const every = Math.round(Number(l.inspectEveryDays));
@@ -54,6 +60,7 @@ export async function saveLadderAction(l: LadderInput): Promise<Result> {
     ladder_type: l.ladderType,
     material: l.material,
     length_m: length,
+    steps,
     rating_kg: rating,
     standard: l.standard.trim() || null,
     brand: l.brand.trim() || null,

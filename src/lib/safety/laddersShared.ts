@@ -46,6 +46,8 @@ export type Ladder = {
   ladder_type: LadderType;
   material: LadderMaterial;
   length_m: number | null;
+  // Size in steps, for ladders measured that way (instead of length_m).
+  steps: number | null;
   rating_kg: number | null;
   standard: string | null;
   brand: string | null;
@@ -109,7 +111,7 @@ export function describeLadder(l: Ladder): string {
   return [
     typeLabel(l.ladder_type),
     materialLabel(l.material),
-    l.length_m ? `${Number(l.length_m)} m` : null,
+    l.steps ? `${l.steps} step${l.steps === 1 ? "" : "s"}` : l.length_m ? `${Number(l.length_m)} m` : null,
     l.rating_kg ? `${l.rating_kg} kg` : null,
   ]
     .filter(Boolean)

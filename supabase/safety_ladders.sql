@@ -36,6 +36,8 @@ create table if not exists public.ladders (
 create unique index if not exists ladders_asset_no_key on public.ladders (lower(asset_no));
 -- Who the ladder is with (their reminders go to them too); location above
 -- is free text alongside it.
+-- Size can be given in steps instead of metres (stepladders).
+alter table public.ladders add column if not exists steps integer check (steps is null or steps > 0);
 alter table public.ladders add column if not exists assigned_to uuid references public.profiles(id) on delete set null;
 
 alter table public.ladders enable row level security;

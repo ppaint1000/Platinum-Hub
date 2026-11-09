@@ -54,6 +54,7 @@ const blankLadder = (today: string): LadderInput => ({
   ladderType: "step",
   material: "aluminium",
   lengthM: "",
+  sizeUnit: "m",
   ratingKg: "120",
   standard: "AS/NZS 1892",
   brand: "",
@@ -70,7 +71,8 @@ const ladderDraft = (l: Ladder): LadderInput => ({
   assetNo: l.asset_no,
   ladderType: l.ladder_type,
   material: l.material,
-  lengthM: l.length_m != null ? String(Number(l.length_m)) : "",
+  lengthM: l.steps != null ? String(l.steps) : l.length_m != null ? String(Number(l.length_m)) : "",
+  sizeUnit: l.steps != null ? "steps" : "m",
   ratingKg: l.rating_kg != null ? String(l.rating_kg) : "",
   standard: l.standard ?? "",
   brand: l.brand ?? "",
@@ -442,8 +444,21 @@ function LadderForm({
             ))}
           </select>
         </Field>
-        <Field label="Length (m)">
-          <input className={input} inputMode="decimal" value={d.lengthM} onChange={(e) => set("lengthM", e.target.value)} placeholder="e.g. 3.6" />
+        <Field label="Size">
+          <div className="flex gap-2">
+            <input
+              className={input}
+              inputMode={d.sizeUnit === "steps" ? "numeric" : "decimal"}
+              value={d.lengthM}
+              onChange={(e) => set("lengthM", e.target.value)}
+              placeholder={d.sizeUnit === "steps" ? "e.g. 6" : "e.g. 3.6"}
+              aria-label={d.sizeUnit === "steps" ? "Number of steps" : "Length in metres"}
+            />
+            <select className={`${input} w-auto`} value={d.sizeUnit} onChange={(e) => set("sizeUnit", e.target.value as LadderInput["sizeUnit"])} aria-label="Size in">
+              <option value="m">metres</option>
+              <option value="steps">steps</option>
+            </select>
+          </div>
         </Field>
         <Field label="Load rating (kg)">
           <input className={input} inputMode="numeric" value={d.ratingKg} onChange={(e) => set("ratingKg", e.target.value)} />
