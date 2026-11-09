@@ -21,6 +21,7 @@ import {
   Inbox,
   Kanban,
   Mail,
+  Megaphone,
   LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
@@ -56,6 +57,7 @@ const GROUPS: { title: string; links: Link_[] }[] = [
       { href: "/sales", label: "Sales", icon: TrendingUp },
       { href: "/reminders", label: "Repaint reminders", icon: BellRing },
       { href: "/drips", label: "Drips & reviews", icon: Mail },
+      { href: "/marketing", label: "Marketing", icon: Megaphone },
     ],
   },
   {

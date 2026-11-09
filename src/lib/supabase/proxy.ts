@@ -71,6 +71,8 @@ export async function updateSession(request: NextRequest, event?: NextFetchEvent
     path.startsWith("/p/") ||
     /^\/api\/proposals\/[^/]+\/(viewed|accepted|declined)$/.test(path) ||
     path.startsWith("/u/") ||
+    // Unsubscribe from Marketing emails (secret token per contact).
+    path.startsWith("/mu/") ||
     // Replies from the 8am clock-on reminder (signed per person and day).
     path.startsWith("/r/") ||
     // "Inspect now" from a ladder reminder email (signed per person and ladder).
