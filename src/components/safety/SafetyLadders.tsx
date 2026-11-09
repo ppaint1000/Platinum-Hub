@@ -2,10 +2,11 @@
 
 import { Fragment, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardCheck, Pencil, Plus, Printer } from "lucide-react";
+import { ClipboardCheck, Mail, Pencil, Plus, Printer } from "lucide-react";
 import {
   deleteInspectionAction,
   deleteLadderAction,
+  resendLadderReminderAction,
   saveInspectionAction,
   saveLadderAction,
   setLadderStatusAction,
@@ -14,6 +15,8 @@ import {
 } from "@/app/safety/ladders/actions";
 import {
   CHECKS,
+  checksFor,
+  resultsFromTicks,
   describeLadder,
   dueState,
   fmtDay,
@@ -23,7 +26,6 @@ import {
   MATERIALS,
   nextDue,
   STATUSES,
-  type CheckResult,
   type DueState,
   type Ladder,
   type LadderInspection,
@@ -107,6 +109,7 @@ export function SafetyLadders({
   const [showRetired, setShowRetired] = useState(false);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   const latest = useMemo(() => latestInspections(inspections), [inspections]);
@@ -149,6 +152,18 @@ export function SafetyLadders({
     });
   }
 
+  function resend(ladderId?: string, assetNo?: string) {
+    const what = assetNo ? `ladder ${assetNo}` : "every ladder that needs inspecting";
+    if (!confirm(`Email the reminder with the "Inspect now" form for ${what}? It goes to the supervisors and whoever ${assetNo ? "it's" : "each ladder is"} kept with.`)) return;
+    setError(null);
+    setNotice(null);
+    start(async () => {
+      const r = await resendLadderReminderAction(ladderId);
+      if (r.error) setError(r.error);
+      else setNotice(`Reminder emailed${assetNo ? ` for ${assetNo}` : ` - ${r.sent} ladder${r.sent === 1 ? "" : "s"}`}.`);
+    });
+  }
+
   function removeLadder(id: string, assetNo: string) {
     if (!confirm(`Remove ladder ${assetNo} from the register? This deletes it and its inspection history, and can't be undone.`)) return;
     run(() => deleteLadderAction(id), () => {
@@ -167,7 +182,8 @@ export function SafetyLadders({
     setInspectionForm({
       ladderId,
       inspectedOn: today,
-      checks: Object.fromEntries(CHECKS.map((c) => [c.key, "pass" as CheckResult])),
+      // Nothing ticked yet - they tick each item that's OK.
+      checks: resultsFromTicks(ladderById.get(ladderId)?.ladder_type ?? "step", () => false),
       notes: "",
     });
     scrollTo("ladder-inspection-form");
@@ -208,11 +224,17 @@ export function SafetyLadders({
       </div>
 
       {error && <p className="text-sm font-semibold text-[#B91C1C]">{error}</p>}
+      {notice && <p className="text-sm font-semibold text-[#166534]">{notice}</p>}
 
       <div className="flex flex-wrap items-center gap-2 print:hidden">
         {isManager && (
           <button type="button" className={primaryBtn} onClick={() => openLadder(blankLadder(today))}>
             <Plus className="h-4 w-4" /> Add ladder
+          </button>
+        )}
+        {isAdmin && (
+          <button type="button" className={secondaryBtn} onClick={() => resend()} disabled={pending || counts.overdue + counts.taggedOut === 0}>
+            <Mail className="h-4 w-4" /> Resend reminders
           </button>
         )}
         <button type="button" className={secondaryBtn} onClick={() => window.print()} disabled={!ladders.length}>
@@ -346,6 +368,11 @@ export function SafetyLadders({
                           {history.length > 0 && (
                             <button type="button" className={`${secondaryBtn} px-3 py-1.5`} onClick={() => setHistoryFor(open ? null : l.id)}>
                               {open ? "Hide" : `History (${history.length})`}
+                            </button>
+                          )}
+                          {isAdmin && l.status !== "retired" && (
+                            <button type="button" className={`${secondaryBtn} px-3 py-1.5`} disabled={pending} onClick={() => resend(l.id, l.asset_no)}>
+                              <Mail className="h-4 w-4" /> Email
                             </button>
                           )}
                           {isAdmin && (
@@ -537,12 +564,6 @@ function LadderForm({
   );
 }
 
-const RESULT_BTN: Record<CheckResult, { label: string; on: string }> = {
-  pass: { label: "Pass", on: "border-[#166534] bg-[#EAF7EE] text-[#166534]" },
-  fail: { label: "Fail", on: "border-[#B91C1C] bg-[#FDECEC] text-[#B91C1C]" },
-  na: { label: "N/A", on: "border-[#7A828F] bg-[#F5F4F0] text-[#5B6472]" },
-};
-
 function InspectionForm({
   draft,
   ladder,
@@ -559,13 +580,19 @@ function InspectionForm({
   onDelete?: () => void;
 }) {
   const [d, setD] = useState(draft);
-  const failing = Object.values(d.checks).includes("fail");
+  // Tick boxes: ticked = OK (pass), unticked = not OK (fail). Rope & pulley
+  // only shows on extension ladders (else n/a).
+  const items = ladder ? checksFor(ladder.ladder_type) : CHECKS.filter((c) => d.checks[c.key] !== "na");
+  const unticked = items.filter((c) => d.checks[c.key] !== "pass");
+  const failing = unticked.length > 0;
+  const touched = !!d.id || unticked.length < items.length;
   return (
     <form
       id="ladder-inspection-form"
-      className={`${card} flex flex-col gap-4 p-4 print:hidden ${failing ? "border-[#F5B5B5]" : ""}`}
+      className={`${card} flex flex-col gap-4 p-4 print:hidden ${failing && touched ? "border-[#F5B5B5]" : ""}`}
       onSubmit={(e) => {
         e.preventDefault();
+        if (failing && !confirm(`${unticked.map((c) => c.label).join(", ")} ${unticked.length === 1 ? "isn't" : "aren't"} ticked, so this ladder will FAIL and be tagged out. Save it as failed?`)) return;
         onSave(d);
       }}
     >
@@ -578,41 +605,36 @@ function InspectionForm({
       <Field label="Date checked">
         <input type="date" className={`${input} sm:w-48`} value={d.inspectedOn} onChange={(e) => setD({ ...d, inspectedOn: e.target.value })} required />
       </Field>
+      <p className="text-sm">
+        Check each item and <b>tick it if it&apos;s OK</b>. Leave it unticked if it isn&apos;t - the ladder will fail and be tagged out.
+      </p>
       <ul className="flex flex-col divide-y divide-[#EFEDE7] rounded-lg border border-[#E3E1DA]">
-        {CHECKS.map((c) => (
-          <li key={c.key} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2.5">
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold">{c.label}</div>
-              <div className="text-xs text-[#5B6472]">{c.hint}</div>
-            </div>
-            <div className="flex gap-1.5" role="radiogroup" aria-label={c.label}>
-              {(Object.keys(RESULT_BTN) as CheckResult[]).map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  role="radio"
-                  aria-checked={d.checks[c.key] === v}
-                  onClick={() => setD({ ...d, checks: { ...d.checks, [c.key]: v } })}
-                  className={`min-w-14 rounded-lg border px-3 py-2 text-sm font-semibold ${
-                    d.checks[c.key] === v ? RESULT_BTN[v].on : "border-[#D9D6CC] bg-white text-[#9AA1AC]"
-                  }`}
-                >
-                  {RESULT_BTN[v].label}
-                </button>
-              ))}
-            </div>
+        {items.map((c) => (
+          <li key={c.key}>
+            <label className="flex cursor-pointer items-start gap-3 px-3 py-3">
+              <input
+                type="checkbox"
+                checked={d.checks[c.key] === "pass"}
+                onChange={(e) => setD({ ...d, checks: { ...d.checks, [c.key]: e.target.checked ? "pass" : "fail" } })}
+                className="mt-0.5 h-6 w-6 flex-none accent-[#166534]"
+              />
+              <span>
+                <span className="block text-sm font-semibold">{c.label} OK</span>
+                <span className="block text-xs text-[#5B6472]">{c.hint}</span>
+              </span>
+            </label>
           </li>
         ))}
       </ul>
-      <Field label={failing ? "What's wrong with it? (required)" : "Notes"}>
+      <Field label={failing && touched ? "What's wrong with it? (required)" : "Notes"}>
         <textarea className={input} rows={2} value={d.notes} onChange={(e) => setD({ ...d, notes: e.target.value })} required={failing} />
       </Field>
-      {failing && !d.id && (
-        <p className="text-sm font-semibold text-[#B91C1C]">Failed - saving this tags the ladder out. Put a &quot;Do not use&quot; tag on it now.</p>
+      {failing && touched && !d.id && (
+        <p className="text-sm font-semibold text-[#B91C1C]">Not everything is ticked - saving this fails the ladder and tags it out. Put a &quot;Do not use&quot; tag on it.</p>
       )}
       <div className="flex flex-wrap gap-2">
         <button type="submit" className={primaryBtn} disabled={pending}>
-          {pending ? "Saving..." : failing ? "Save - failed" : "Save - passed"}
+          {pending ? "Saving..." : failing ? "Save - failed" : "Save - all OK"}
         </button>
         <button type="button" className={secondaryBtn} onClick={onClose}>
           Cancel

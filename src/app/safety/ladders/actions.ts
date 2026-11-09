@@ -4,7 +4,9 @@
 // is checked by the database (supabase/safety_ladders.sql) - managers do
 // everything; anyone else with Health & safety can record an inspection.
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { sendLadderReminderNow } from "@/lib/safety/ladders";
 import { CHECKS, LADDER_TYPES, MATERIALS, STATUSES, type CheckResult, type LadderMaterial, type LadderStatus, type LadderType } from "@/lib/safety/laddersShared";
 
 type Result = { error?: string };
@@ -134,4 +136,16 @@ export async function deleteInspectionAction(id: string): Promise<Result> {
   const { error } = await supabase.from("ladder_inspections").delete().eq("id", id);
   if (error) return { error: error.message };
   return done();
+}
+
+// An admin resending the reminder email (with the "Inspect now" links) -
+// for one ladder, or (no ladderId) every ladder that needs inspecting.
+export async function resendLadderReminderAction(ladderId?: string): Promise<{ error?: string; sent?: number }> {
+  const supabase = await createClient();
+  const { data: role } = await supabase.rpc("current_profile_role");
+  if (role !== "admin") return { error: "Only an admin can resend the reminder." };
+  const h = await headers();
+  const origin = h.get("origin") ?? `https://${h.get("host")}`;
+  const r = await sendLadderReminderNow(origin, ladderId);
+  return r.error ? { error: r.error } : { sent: r.sent };
 }

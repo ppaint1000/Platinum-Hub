@@ -73,6 +73,8 @@ export async function updateSession(request: NextRequest, event?: NextFetchEvent
     path.startsWith("/u/") ||
     // Replies from the 8am clock-on reminder (signed per person and day).
     path.startsWith("/r/") ||
+    // "Inspect now" from a ladder reminder email (signed per person and ladder).
+    path.startsWith("/l/") ||
     // "I've read this" on a Hub WARNING email (secret token in the link).
     path.startsWith("/security/ack/");
 

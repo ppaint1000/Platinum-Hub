@@ -40,6 +40,18 @@ export const CHECKS: { key: string; label: string; hint: string }[] = [
   { key: "labels", label: "Labels & rating", hint: "Load rating (120 kg+) and AS/NZS 1892 label readable" },
 ];
 
+// The checks that apply to this kind of ladder (rope & pulley only on
+// extension ladders); the rest are recorded as n/a.
+export function checksFor(ladderType: LadderType) {
+  return CHECKS.filter((c) => c.key !== "ropes" || ladderType === "extension");
+}
+
+// Tick boxes → results: ticked = pass, unticked = fail, not applicable = n/a.
+export function resultsFromTicks(ladderType: LadderType, ticked: (key: string) => boolean): Record<string, CheckResult> {
+  const applies = new Set(checksFor(ladderType).map((c) => c.key));
+  return Object.fromEntries(CHECKS.map((c) => [c.key, applies.has(c.key) ? (ticked(c.key) ? "pass" : "fail") : "na"])) as Record<string, CheckResult>;
+}
+
 export type Ladder = {
   id: string;
   asset_no: string;
