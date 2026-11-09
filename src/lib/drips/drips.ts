@@ -7,6 +7,7 @@
 // Never throws.
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/mailer";
+import { CUSTOMER_EMAILS_ON } from "@/lib/email/customerEmailsSwitch";
 import { SITE_URL } from "@/lib/timesheets/siteUrl";
 import { addDays, nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
@@ -69,6 +70,7 @@ export async function enrolDrip(input: {
   proposalId?: string | null;
   jobId?: string | null;
 }): Promise<void> {
+  if (!CUSTOMER_EMAILS_ON) return;
   try {
     const email = input.email?.trim();
     if (!email || !email.includes("@")) return;
@@ -285,6 +287,7 @@ export async function runDrips(): Promise<void> {
   lastRun = Date.now();
   try {
     const admin = createAdminClient();
+    if (!CUSTOMER_EMAILS_ON) return;
     const { data: settings } = await admin.from("drip_settings").select("paused").maybeSingle<{ paused: boolean }>();
     if (!settings || settings.paused) return;
 

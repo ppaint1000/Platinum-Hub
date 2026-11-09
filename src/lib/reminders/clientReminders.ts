@@ -7,6 +7,7 @@
 // Never throws.
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/mailer";
+import { CUSTOMER_EMAILS_ON } from "@/lib/email/customerEmailsSwitch";
 import { notificationRecipients } from "@/lib/notifications/recipients";
 import { SITE_URL } from "@/lib/timesheets/siteUrl";
 import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
@@ -112,7 +113,7 @@ export async function runClientReminders(): Promise<void> {
 
       const to = r.client.email?.trim();
       let emailed = false;
-      if (r.email_customer && to) emailed = (await sendEmail({ to, fromName: "Platinum Painters", ...customerEmail(r) })).sent;
+      if (CUSTOMER_EMAILS_ON && r.email_customer && to) emailed = (await sendEmail({ to, fromName: "Platinum Painters", ...customerEmail(r) })).sent;
 
       const office = (await notificationRecipients("client_reminder_due", { ownerUserId: r.client.sales_person_id })).join(", ");
       if (office) {
@@ -127,7 +128,9 @@ export async function runClientReminders(): Promise<void> {
             (r.note ? `Note: ${r.note}\n\n` : "") +
             (emailed
               ? `They've been emailed. A follow-up call is a good idea.\n\n`
-              : r.email_customer
+              : !CUSTOMER_EMAILS_ON && r.email_customer
+                ? `They weren't emailed (automatic customer emails are turned off) - give them a call.\n\n`
+                : r.email_customer
                 ? `They weren't emailed (no email address on their Clients page) - give them a call.\n\n`
                 : `They weren't emailed (not ticked) - give them a call.\n\n`) +
             `Client: ${SITE_URL}/clients/${r.client.id}\nAll reminders: ${SITE_URL}/reminders\n`,

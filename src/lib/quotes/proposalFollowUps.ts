@@ -9,6 +9,7 @@
 // (like the absence check), at most every 15 minutes per server.
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/mailer";
+import { CUSTOMER_EMAILS_ON } from "@/lib/email/customerEmailsSwitch";
 import { notificationRecipients } from "@/lib/notifications/recipients";
 import { SITE_URL } from "@/lib/timesheets/siteUrl";
 
@@ -115,6 +116,7 @@ async function remind(p: Row, kind: "unopened" | "followup") {
 
 // The customer's reminder: once, N days after sending (0 = off).
 async function remindCustomers() {
+  if (!CUSTOMER_EMAILS_ON) return;
   const admin = createAdminClient();
   const { data: settings } = await admin
     .from("proposal_settings")

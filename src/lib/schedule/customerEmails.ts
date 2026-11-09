@@ -6,6 +6,7 @@
 // Sent to the client's email on their Clients page. Never throws.
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/mailer";
+import { CUSTOMER_EMAILS_ON } from "@/lib/email/customerEmailsSwitch";
 import { addDays, nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
 const PHONE = "021 116 4005";
@@ -55,6 +56,7 @@ export async function emailBookingConfirmation(
   end: string,
   changed: boolean
 ): Promise<string | null> {
+  if (!CUSTOMER_EMAILS_ON) return "Automatic customer emails are turned off, so the customer wasn't emailed.";
   try {
     const info = await jobInfo(jobId);
     const to = info?.client?.email?.trim();
@@ -86,6 +88,7 @@ export async function emailBookingConfirmation(
 // The day-before reminders. Runs when anyone opens a Hub page, at most
 // every 15 minutes per server; each booking's reminder goes once.
 export async function runBookingReminders(): Promise<void> {
+  if (!CUSTOMER_EMAILS_ON) return;
   if (Date.now() - lastRun < EVERY_MS) return;
   lastRun = Date.now();
   try {
