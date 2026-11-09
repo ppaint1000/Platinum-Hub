@@ -34,6 +34,9 @@ create table if not exists public.ladders (
   updated_at timestamptz not null default now()
 );
 create unique index if not exists ladders_asset_no_key on public.ladders (lower(asset_no));
+-- Who the ladder is with (their reminders go to them too); location above
+-- is free text alongside it.
+alter table public.ladders add column if not exists assigned_to uuid references public.profiles(id) on delete set null;
 
 alter table public.ladders enable row level security;
 drop policy if exists ladders_select on public.ladders;

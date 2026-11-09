@@ -128,9 +128,9 @@ export const EMAIL_NOTIFICATIONS: EmailNotification[] = [
     group: "Jobs & production",
     label: "When a ladder is overdue for inspection or fails one",
     description:
-      "A ladder in the register that's past its inspection date, has never been inspected, or has been tagged out after a failed check - see Health & safety → Ladders.",
+      "A ladder in the register that's past its inspection date, has never been inspected, or has been tagged out after a failed check - see Health & safety → Ladders. The person a ladder is kept with always gets theirs.",
     audiences: ["admin", "supervisor"],
-    defaultOn: { admin: true, supervisor: true },
+    defaultOn: { admin: false, supervisor: true },
   },
   {
     key: "timesheet_change_request",

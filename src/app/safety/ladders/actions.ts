@@ -27,6 +27,8 @@ export type LadderInput = {
   standard: string;
   brand: string;
   location: string;
+  // The person it's kept with, or "".
+  assignedTo: string;
   inServiceOn: string;
   inspectEveryDays: string;
   status: LadderStatus;
@@ -56,6 +58,7 @@ export async function saveLadderAction(l: LadderInput): Promise<Result> {
     standard: l.standard.trim() || null,
     brand: l.brand.trim() || null,
     location: l.location.trim() || null,
+    assigned_to: l.assignedTo || null,
     in_service_on: l.inServiceOn || null,
     inspect_every_days: every,
     status: l.status,

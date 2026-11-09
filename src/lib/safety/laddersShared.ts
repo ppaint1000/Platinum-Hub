@@ -50,6 +50,8 @@ export type Ladder = {
   standard: string | null;
   brand: string | null;
   location: string | null;
+  // The person it's kept with (profiles.id).
+  assigned_to: string | null;
   in_service_on: string | null;
   inspect_every_days: number;
   status: LadderStatus;

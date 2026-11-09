@@ -58,6 +58,7 @@ const blankLadder = (today: string): LadderInput => ({
   standard: "AS/NZS 1892",
   brand: "",
   location: "",
+  assignedTo: "",
   inServiceOn: today,
   inspectEveryDays: "30",
   status: "in_service",
@@ -74,6 +75,7 @@ const ladderDraft = (l: Ladder): LadderInput => ({
   standard: l.standard ?? "",
   brand: l.brand ?? "",
   location: l.location ?? "",
+  assignedTo: l.assigned_to ?? "",
   inServiceOn: l.in_service_on ?? "",
   inspectEveryDays: String(l.inspect_every_days),
   status: l.status,
@@ -127,7 +129,7 @@ export function SafetyLadders({
   const shown = ladders.filter(
     (l) =>
       (showRetired || l.status !== "retired") &&
-      (!q || [l.asset_no, l.location, l.brand, describeLadder(l)].some((v) => v?.toLowerCase().includes(q))),
+      (!q || [l.asset_no, l.location, l.brand, describeLadder(l), l.assigned_to ? personName.get(l.assigned_to) : null].some((v) => v?.toLowerCase().includes(q))),
   );
 
   function run(fn: () => Promise<{ error?: string }>, after?: () => void) {
@@ -212,6 +214,7 @@ export function SafetyLadders({
         <LadderForm
           key={ladderForm.id ?? "new"}
           draft={ladderForm}
+          staff={staff}
           pending={pending}
           onClose={() => setLadderForm(null)}
           onSave={(d) => run(() => saveLadderAction(d), () => setLadderForm(null))}
@@ -283,7 +286,16 @@ export function SafetyLadders({
                         </div>
                         {l.notes && <div className="mt-0.5 text-xs text-[#5B6472]">{l.notes}</div>}
                       </td>
-                      <td className="px-3 py-3">{l.location ?? "—"}</td>
+                      <td className="px-3 py-3">
+                        {l.assigned_to || l.location ? (
+                          <>
+                            {l.assigned_to && <div className="font-semibold">{personName.get(l.assigned_to) ?? "Former staff"}</div>}
+                            {l.location && <div className={l.assigned_to ? "text-xs text-[#5B6472]" : ""}>{l.location}</div>}
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                       <td className="whitespace-nowrap px-3 py-3">
                         {last ? (
                           <>
@@ -381,18 +393,22 @@ function Field({ label, children, wide }: { label: string; children: React.React
 
 function LadderForm({
   draft,
+  staff,
   pending,
   onClose,
   onSave,
   onDelete,
 }: {
   draft: LadderInput;
+  staff: Person[];
   pending: boolean;
   onClose: () => void;
   onSave: (d: LadderInput) => void;
   onDelete?: () => void;
 }) {
   const [d, setD] = useState(draft);
+  // Someone who's since left stays selectable on a ladder still with them.
+  const people = d.assignedTo && !staff.some((p) => p.id === d.assignedTo) ? [...staff, { id: d.assignedTo, full_name: "Former staff" }] : staff;
   const set = <K extends keyof LadderInput>(k: K, v: LadderInput[K]) => setD((x) => ({ ...x, [k]: v }));
   return (
     <form
@@ -438,8 +454,19 @@ function LadderForm({
         <Field label="Brand / model">
           <input className={input} value={d.brand} onChange={(e) => set("brand", e.target.value)} />
         </Field>
-        <Field label="Kept at">
-          <input className={input} value={d.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Dyna 1, yard" />
+        <Field label="Kept at" wide>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <select className={input} value={d.assignedTo} onChange={(e) => set("assignedTo", e.target.value)} aria-label="Person it's kept with">
+              <option value="">No one - yard / store</option>
+              {people.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.full_name}
+                </option>
+              ))}
+            </select>
+            <input className={input} value={d.location} onChange={(e) => set("location", e.target.value)} placeholder="Where - e.g. Dyna 1, yard, site" aria-label="Where it's kept" />
+          </div>
+          <span className="text-xs font-normal text-[#5B6472]">The person picked gets the inspection reminders, along with the supervisors.</span>
         </Field>
         <Field label="In service since">
           <input type="date" className={input} value={d.inServiceOn} onChange={(e) => set("inServiceOn", e.target.value)} />
