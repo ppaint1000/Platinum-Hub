@@ -1,5 +1,5 @@
 // Health & safety (like HazardCo): reports, incidents, the hazard register,
-// tasks, documents and contractors. Anyone with Health & safety ticked on
+// tasks, documents, training, the ladder register and contractors. Anyone with Health & safety ticked on
 // the Users page.
 import type { Metadata } from "next";
 import { HubTopBar } from "@/components/dashboard/HubTopBar";

@@ -1,11 +1,12 @@
 // Health & safety overview (like HazardCo's dashboard): this month's
-// reports, incidents and tasks, quick buttons to start a report, and
+// reports, incidents, tasks and ladders, quick buttons to start a report, and
 // what's recent.
 import Link from "next/link";
 import { REPORT_FORMS, reportForm, summaryOf, type ReportData } from "@/lib/safety/forms";
 import { fmtDay, safetyContext } from "@/lib/safety/data";
 import { card } from "@/components/safety/styles";
 import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
+import { dueState, latestInspections, type Ladder, type LadderInspection } from "@/lib/safety/laddersShared";
 
 type Row = { id: string; report_type: string; report_date: string; data: ReportData; author: { full_name: string } | null };
 
@@ -13,7 +14,7 @@ export default async function SafetyOverviewPage() {
   const { supabase, isManager } = await safetyContext();
   const today = nzTodayDateString();
   const monthStart = today.slice(0, 8) + "01";
-  const [{ data: month }, { data: recent }, { data: tasks }, { count: hazards }] = await Promise.all([
+  const [{ data: month }, { data: recent }, { data: tasks }, { count: hazards }, { data: ladders }, { data: ladderChecks }] = await Promise.all([
     supabase.from("safety_reports").select("report_type").eq("status", "completed").gte("report_date", monthStart).returns<{ report_type: string }[]>(),
     supabase
       .from("safety_reports")
@@ -25,22 +26,38 @@ export default async function SafetyOverviewPage() {
       .returns<Row[]>(),
     supabase.from("safety_tasks").select("id, due_on").eq("status", "open").returns<{ id: string; due_on: string | null }[]>(),
     supabase.from("safety_hazards").select("id", { count: "exact", head: true }).eq("active", true),
+    supabase.from("ladders").select("*").neq("status", "retired").returns<Ladder[]>(),
+    supabase.from("ladder_inspections").select("id, ladder_id, inspected_on, created_at").returns<LadderInspection[]>(),
   ]);
   const reportsThisMonth = (month ?? []).length;
   const incidentsThisMonth = (month ?? []).filter((r) => r.report_type === "incident").length;
   const openTasks = (tasks ?? []).length;
   const overdue = (tasks ?? []).filter((t) => t.due_on && t.due_on < today).length;
+  // Ladders overdue for inspection, never inspected, or tagged out.
+  const lastCheck = latestInspections(ladderChecks ?? []);
+  const laddersNeedingAttention = (ladders ?? []).filter((l) => {
+    if (l.status === "tagged_out") return true;
+    const s = dueState(l, lastCheck.get(l.id), today);
+    return s === "overdue" || s === "never";
+  }).length;
 
   const tiles = [
     { label: "Reports this month", value: reportsThisMonth, href: "/safety/reports" },
     { label: "Incidents this month", value: incidentsThisMonth, href: "/safety/incidents", alert: incidentsThisMonth > 0 },
     { label: isManager ? "Open tasks" : "Your open tasks", value: openTasks, href: "/safety/tasks", note: overdue ? `${overdue} overdue` : undefined, alert: overdue > 0 },
     { label: "Hazards on the register", value: hazards ?? 0, href: "/safety/hazards" },
+    {
+      label: "Ladders",
+      value: (ladders ?? []).length,
+      href: "/safety/ladders",
+      note: laddersNeedingAttention ? `${laddersNeedingAttention} need inspecting or tagged out` : undefined,
+      alert: laddersNeedingAttention > 0,
+    },
   ];
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="grid grid-cols-2 gap-2.5 md:gap-4 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-2.5 md:grid-cols-3 md:gap-4 lg:grid-cols-5">
         {tiles.map((t) => (
           <Link key={t.label} href={t.href} className={`${card} block p-4 hover:border-[#9DB6D9]`}>
             <p className="text-sm font-semibold text-[#5B6472]">{t.label}</p>

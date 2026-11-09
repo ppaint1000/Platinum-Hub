@@ -11,6 +11,7 @@ import { sendRucAlerts } from '@/lib/fleet/rucAlerts'
 import { autoSendTimesheets, weeklyBudgetTrend } from '@/lib/automation/weekly'
 import { fillMissingBudgets } from '@/lib/quotes/costingBudget'
 import { sendTrainingExpiryAlerts } from '@/lib/safety/training'
+import { sendLadderInspectionAlerts } from '@/lib/safety/ladders'
 import { safeEqual } from '@/lib/security/safeEqual'
 
 // Called by Supabase's scheduler (supabase/marketing_and_alerts.sql) at 7am
@@ -54,6 +55,8 @@ export async function POST(request: NextRequest) {
   await safely('rucAlerts', () => sendRucAlerts(origin))
   // Training (Health & safety) due within 30 days, or expired.
   await safely('trainingExpiry', () => sendTrainingExpiryAlerts(origin))
+  // Ladders overdue for inspection, never inspected, or tagged out.
+  await safely('ladderInspections', () => sendLadderInspectionAlerts(origin))
   // Won jobs priced in Costing with no budget yet get the costing's cost figures.
   await safely('budgetsFromCosting', () => fillMissingBudgets(db))
 

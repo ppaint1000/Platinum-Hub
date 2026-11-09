@@ -12,6 +12,7 @@ const TABS = [
   { href: "/safety/templates", label: "Templates" },
   { href: "/safety/documents", label: "Documents" },
   { href: "/safety/training", label: "Training" },
+  { href: "/safety/ladders", label: "Ladders" },
   { href: "/safety/contractors", label: "Contractors", managers: true },
 ];
 
