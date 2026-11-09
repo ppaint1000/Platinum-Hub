@@ -99,7 +99,13 @@ export default async function ClockPage() {
   // Every In progress job must be clockable - give it an active site first.
   await ensureClockSitesForInProgressJobs()
 
-  const [{ data: siteRows }, { data: openEntryRow }, { data: acknowledgements }, { data: extraDocRows }] =
+  // Supervisors (and admins) can switch sites during the day without
+  // clocking off; they see today's site visits under the clock.
+  const canSwitch = profile.role === 'supervisor' || profile.role === 'admin'
+  const dayStart = new Date(`${nzDay(new Date().toISOString())}T00:00:00+13:00`)
+  dayStart.setUTCHours(dayStart.getUTCHours() - 1) // either side of daylight saving; filtered to NZ today below
+
+  const [{ data: siteRows }, { data: openEntryRow }, { data: acknowledgements }, { data: extraDocRows }, { data: todayRows }] =
     await Promise.all([
       admin
         .from('sites')
@@ -125,7 +131,26 @@ export default async function ClockPage() {
         .select('site_id')
         .eq('user_id', profile.id),
       supabase.from('site_documents').select('id, site_id, name').order('created_at'),
+      canSwitch
+        ? supabase
+            .from('timesheet_entries')
+            .select('id, clock_in_at, clock_out_at, sites(name)')
+            .eq('user_id', profile.id)
+            .gte('clock_in_at', dayStart.toISOString())
+            .order('clock_in_at')
+            .returns<{ id: string; clock_in_at: string; clock_out_at: string | null; sites: { name: string } | { name: string }[] | null }[]>()
+        : Promise.resolve({ data: [] as { id: string; clock_in_at: string; clock_out_at: string | null; sites: { name: string } | { name: string }[] | null }[] }),
     ])
+
+  const today = nzDay(new Date().toISOString())
+  const todayVisits = (todayRows ?? [])
+    .filter((r) => nzDay(r.clock_in_at) === today)
+    .map((r) => ({
+      id: r.id,
+      site: (Array.isArray(r.sites) ? r.sites[0]?.name : r.sites?.name) ?? 'Site',
+      from: r.clock_in_at,
+      to: r.clock_out_at,
+    }))
 
   const acknowledgedSiteIds = new Set((acknowledgements ?? []).map((a) => a.site_id as string))
 
@@ -176,7 +201,7 @@ export default async function ClockPage() {
       <main className="relative flex flex-1 flex-col items-center justify-center gap-6 p-4">
         <Watermark />
         <p className="text-sm text-black/60">Signed in as {profile.full_name}</p>
-        <ClockWidget sites={sites} openEntry={openEntry} />
+        <ClockWidget sites={sites} openEntry={openEntry} canSwitch={canSwitch} todayVisits={todayVisits} />
         {/* Quick links for the phone - the menu above has the rest. */}
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Link href="/timesheets/timesheet" className={pillClass}>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import { clockIn, clockOut } from '@/lib/timesheets/actions/timesheet'
+import { clockIn, clockOut, switchSite } from '@/lib/timesheets/actions/timesheet'
 import { getDeviceId, getDeviceLabel } from '@/lib/timesheets/deviceId'
 
 type ExtraDocument = { id: string; name: string }
@@ -25,6 +25,7 @@ type OpenEntry = {
   extraDocuments: ExtraDocument[]
 }
 type Coords = { lat: number | null; lng: number | null }
+type Visit = { id: string; site: string; from: string; to: string | null }
 
 // How long the lunch break was (asked once they say they had one).
 const BREAK_OPTIONS = [
@@ -91,9 +92,14 @@ function useNow(active: boolean) {
 export function ClockWidget({
   sites,
   openEntry,
+  canSwitch = false,
+  todayVisits = [],
 }: {
   sites: Site[]
   openEntry: OpenEntry | null
+  // Supervisors: switch to another site without clocking off.
+  canSwitch?: boolean
+  todayVisits?: Visit[]
 }) {
   const [siteId, setSiteId] = useState('')
   const selectedSite = sites.find((s) => s.id === siteId) ?? null
@@ -126,6 +132,42 @@ export function ClockWidget({
         : Number(breakChoice)
   const lunchAnswered =
     hadLunch === 'no' || (hadLunch === 'yes' && !!breakChoice && (breakChoice !== 'custom' || breakMinutes > 0))
+
+  // Switching site (supervisors): pick the next site, then one tap.
+  const [switching, setSwitching] = useState(false)
+  const [nextSiteId, setNextSiteId] = useState('')
+  const [nextSafetyChecked, setNextSafetyChecked] = useState(false)
+  const [switchedTo, setSwitchedTo] = useState<string | null>(null)
+  const nextSite = sites.find((s) => s.id === nextSiteId) ?? null
+  const nextNeedsSafetyAck = Boolean(nextSite?.hasSafetyPlan && !nextSite.safetyAcknowledged)
+
+  function cancelSwitch() {
+    setSwitching(false)
+    setNextSiteId('')
+    setNextSafetyChecked(false)
+  }
+
+  function handleSwitch() {
+    if (!openEntry || !nextSiteId) return
+    setError('')
+    startTransition(async () => {
+      const coords = await getPosition()
+      const result = await switchSite({
+        entryId: openEntry.id,
+        siteId: nextSiteId,
+        notes,
+        safetyAcknowledged: nextSafetyChecked,
+        lat: coords.lat,
+        lng: coords.lng,
+        deviceId: getDeviceId(),
+        deviceLabel: getDeviceLabel(),
+      })
+      if (result?.error) return setError(result.error)
+      cancelSwitch()
+      setNotes('')
+      setSwitchedTo(result?.siteName ?? 'the next site')
+    })
+  }
 
   const startMs = openEntry ? new Date(openEntry.clock_in_at).getTime() : null
   const now = useNow(Boolean(openEntry))
@@ -241,6 +283,11 @@ export function ClockWidget({
     return (
       <div className="w-full max-w-sm space-y-4">
         <p className="text-center text-sm text-black/60">{siteName}</p>
+        {switchedTo && (
+          <p className="rounded-md border border-green-600 bg-green-50 px-3 py-2 text-center text-sm font-semibold text-green-800">
+            Switched - you&apos;re now on {switchedTo}.
+          </p>
+        )}
 
         {openEntry.site_id &&
           (openEntry.workOrderUrl ||
@@ -328,19 +375,91 @@ export function ClockWidget({
 
         {error && <p className="text-center text-sm text-red-600">{error}</p>}
 
-        {!asking ? (
-          <button
-            onClick={() => {
-              setError('')
-              setAsking(true)
-            }}
-            className="w-full rounded-md bg-red-600 px-4 py-3 text-white"
-          >
-            Stop and clock out
-          </button>
+        {switching ? (
+          <div className="space-y-3 rounded-lg border border-black/10 p-4">
+            <label htmlFor="next-site" className="block text-sm font-medium">
+              Switch to which site?
+            </label>
+            <select
+              id="next-site"
+              value={nextSiteId}
+              onChange={(e) => {
+                setNextSiteId(e.target.value)
+                setNextSafetyChecked(false)
+              }}
+              className="w-full rounded-md border border-black/20 px-3 py-2"
+            >
+              <option value="" disabled>
+                Select the next site…
+              </option>
+              {sites
+                .filter((s) => s.id !== openEntry.site_id)
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+            </select>
+            {nextSite?.hasSafetyPlan && (
+              <a
+                href={`/api/timesheets/site-documents/${nextSite.id}/safety-plan`}
+                target="_blank"
+                className="block rounded-md border border-black/20 px-3 py-2 text-center text-sm font-medium hover:bg-black/5"
+              >
+                Safety Plan
+              </a>
+            )}
+            {nextNeedsSafetyAck && (
+              <label className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-left text-sm">
+                <input type="checkbox" checked={nextSafetyChecked} onChange={(e) => setNextSafetyChecked(e.target.checked)} className="mt-0.5" />
+                <span>I have read and understood the Site Safety Plan for this site.</span>
+              </label>
+            )}
+            <p className="text-xs text-black/50">
+              Clocks you off {siteName} and on to the next site now. Any note above stays with {siteName}. Lunch is asked when you clock off for the day.
+            </p>
+            <button
+              onClick={handleSwitch}
+              disabled={pending || !nextSiteId || (nextNeedsSafetyAck && !nextSafetyChecked)}
+              className="w-full rounded-md bg-[#1F4E8C] px-4 py-3 font-semibold text-white disabled:opacity-50"
+            >
+              {pending ? 'Switching…' : nextSite ? `Switch to ${nextSite.label}` : 'Switch site'}
+            </button>
+            <button type="button" onClick={cancelSwitch} disabled={pending} className="w-full text-center text-sm text-black/60 underline">
+              Cancel - stay on {siteName}
+            </button>
+          </div>
+        ) : !asking ? (
+          <div className="space-y-2">
+            {canSwitch && (
+              <button
+                onClick={() => {
+                  setError('')
+                  setSwitchedTo(null)
+                  setSwitching(true)
+                }}
+                className="w-full rounded-md bg-[#1F4E8C] px-4 py-3 font-semibold text-white"
+              >
+                Switch site
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setError('')
+                setSwitchedTo(null)
+                setAsking(true)
+              }}
+              className="w-full rounded-md bg-red-600 px-4 py-3 text-white"
+            >
+              {canSwitch ? 'Clock off for the day' : 'Stop and clock out'}
+            </button>
+          </div>
         ) : (
           <div className="space-y-3 rounded-lg border border-black/10 p-4">
-            <p className="text-sm font-medium">Did you have a lunch break?</p>
+            <p className="text-sm font-medium">Did you have a lunch break{canSwitch && todayVisits.length > 1 ? ' today' : ''}?</p>
+            {canSwitch && todayVisits.length > 1 && (
+              <p className="text-xs text-black/50">It comes off your longest site visit today.</p>
+            )}
             <div className="grid grid-cols-2 gap-2">
               {(['yes', 'no'] as const).map((v) => (
                 <button
@@ -408,6 +527,7 @@ export function ClockWidget({
             </button>
           </div>
         )}
+        {canSwitch && todayVisits.length > 0 && <TodayVisits visits={todayVisits} now={now} />}
       </div>
     )
   }
@@ -510,6 +630,32 @@ export function ClockWidget({
           </button>
         </>
       )}
+    </div>
+  )
+}
+
+// A supervisor's sites so far today, under the clock.
+function TodayVisits({ visits, now }: { visits: Visit[]; now: number }) {
+  const time = (iso: string) => formatTimestamp(new Date(iso).getTime()).time
+  const mins = (v: Visit) => Math.max(0, Math.round(((v.to ? new Date(v.to).getTime() : now) - new Date(v.from).getTime()) / 60000))
+  const total = visits.reduce((sum, v) => sum + mins(v), 0)
+  const hm = (m: number) => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`
+  return (
+    <div className="rounded-lg border border-black/10 p-3 text-sm">
+      <p className="mb-2 flex justify-between text-xs uppercase tracking-wide text-black/50">
+        <span>Today</span>
+        <span>{hm(total)}</span>
+      </p>
+      <ul className="space-y-1">
+        {visits.map((v) => (
+          <li key={v.id} className={`flex justify-between gap-2 ${v.to ? '' : 'font-semibold'}`}>
+            <span className="min-w-0 truncate">{v.site}</span>
+            <span className="whitespace-nowrap tabular-nums text-black/60">
+              {time(v.from)}–{v.to ? time(v.to) : 'now'} · {hm(mins(v))}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
