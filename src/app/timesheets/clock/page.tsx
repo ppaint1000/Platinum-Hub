@@ -176,8 +176,22 @@ export default async function ClockPage() {
         .order('name')
         .returns<SiteRow[]>()
     : { data: [] as SiteRow[] }
-  const officeIds = new Set((officeRows ?? []).map((s) => s.id))
-  const clockable = [...(officeRows ?? []), ...ordered.filter((s) => !officeIds.has(s.id))]
+  // And Travel (supabase/sites_travel.sql) - for driving between sites, with
+  // its own one-tap button. Empty until that's run.
+  const { data: travelRows } = canSwitch
+    ? await admin
+        .from('sites')
+        .select('id, name, extent_of_work_filename, safety_plan_filename, customers:clients(name), jobs(status, work_order_url, in_progress_at)')
+        .eq('is_travel', true)
+        .eq('is_active', true)
+        .order('name')
+        .limit(1)
+        .returns<SiteRow[]>()
+    : { data: [] as SiteRow[] }
+  const travelSiteId = travelRows?.[0]?.id ?? null
+  const pinned = [...(officeRows ?? []), ...(travelRows ?? [])]
+  const pinnedIds = new Set(pinned.map((s) => s.id))
+  const clockable = [...pinned, ...ordered.filter((s) => !pinnedIds.has(s.id))]
 
   const sites = clockable.map((s) => ({
     id: s.id,
@@ -215,7 +229,7 @@ export default async function ClockPage() {
       <main className="relative flex flex-1 flex-col items-center justify-center gap-6 p-4">
         <Watermark />
         <p className="text-sm text-black/60">Signed in as {profile.full_name}</p>
-        <ClockWidget sites={sites} openEntry={openEntry} canSwitch={canSwitch} todayVisits={todayVisits} />
+        <ClockWidget sites={sites} openEntry={openEntry} canSwitch={canSwitch} todayVisits={todayVisits} travelSiteId={travelSiteId} />
         {/* Quick links for the phone - the menu above has the rest. */}
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Link href="/timesheets/timesheet" className={pillClass}>

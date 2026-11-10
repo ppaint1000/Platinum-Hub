@@ -94,12 +94,15 @@ export function ClockWidget({
   openEntry,
   canSwitch = false,
   todayVisits = [],
+  travelSiteId = null,
 }: {
   sites: Site[]
   openEntry: OpenEntry | null
   // Supervisors: switch to another site without clocking off.
   canSwitch?: boolean
   todayVisits?: Visit[]
+  // The Travel site: one tap from the clock screen.
+  travelSiteId?: string | null
 }) {
   const [siteId, setSiteId] = useState('')
   const selectedSite = sites.find((s) => s.id === siteId) ?? null
@@ -147,16 +150,16 @@ export function ClockWidget({
     setNextSafetyChecked(false)
   }
 
-  function handleSwitch() {
-    if (!openEntry || !nextSiteId) return
+  function handleSwitch(toSiteId: string = nextSiteId) {
+    if (!openEntry || !toSiteId) return
     setError('')
     startTransition(async () => {
       const coords = await getPosition()
       const result = await switchSite({
         entryId: openEntry.id,
-        siteId: nextSiteId,
+        siteId: toSiteId,
         notes,
-        safetyAcknowledged: nextSafetyChecked,
+        safetyAcknowledged: toSiteId === nextSiteId && nextSafetyChecked,
         lat: coords.lat,
         lng: coords.lng,
         deviceId: getDeviceId(),
@@ -419,7 +422,7 @@ export function ClockWidget({
               Clocks you off {siteName} and on to the next site now. Any note above stays with {siteName}. Lunch is asked when you clock off for the day.
             </p>
             <button
-              onClick={handleSwitch}
+              onClick={() => handleSwitch()}
               disabled={pending || !nextSiteId || (nextNeedsSafetyAck && !nextSafetyChecked)}
               className="w-full rounded-md bg-[#1F4E8C] px-4 py-3 font-semibold text-white disabled:opacity-50"
             >
@@ -432,16 +435,30 @@ export function ClockWidget({
         ) : !asking ? (
           <div className="space-y-2">
             {canSwitch && (
-              <button
-                onClick={() => {
-                  setError('')
-                  setSwitchedTo(null)
-                  setSwitching(true)
-                }}
-                className="w-full rounded-md bg-[#1F4E8C] px-4 py-3 font-semibold text-white"
-              >
-                Switch site
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setError('')
+                    setSwitchedTo(null)
+                    setSwitching(true)
+                  }}
+                  className="flex-1 rounded-md bg-[#1F4E8C] px-4 py-3 font-semibold text-white"
+                >
+                  Switch site
+                </button>
+                {travelSiteId && openEntry.site_id !== travelSiteId && (
+                  <button
+                    onClick={() => {
+                      setSwitchedTo(null)
+                      handleSwitch(travelSiteId)
+                    }}
+                    disabled={pending}
+                    className="flex-1 rounded-md bg-amber-500 px-4 py-3 font-semibold text-white disabled:opacity-50"
+                  >
+                    {pending ? 'Switching…' : 'Travel'}
+                  </button>
+                )}
+              </div>
             )}
             <button
               onClick={() => {
