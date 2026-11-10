@@ -143,6 +143,32 @@ function Field({ name, children }: { name: string; children: React.ReactNode }) 
   );
 }
 
+// A bin button on each row/card: asks first, then deletes and refreshes.
+function DeleteButton({ label, confirmText, onDelete, className = "" }: { label: string; confirmText: string; onDelete: () => Promise<{ error?: string }>; className?: string }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={pending}
+      className={`rounded p-1.5 text-[#5B6472] hover:bg-[#FBEAEA] hover:text-[#B91C1C] disabled:opacity-50 ${className}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!confirm(confirmText)) return;
+        start(async () => {
+          const r = await onDelete();
+          if (r.error) alert(r.error);
+          else router.refresh();
+        });
+      }}
+    >
+      <Trash2 className="h-4 w-4" />
+    </button>
+  );
+}
+
 // ── Contacts ───────────────────────────────────────────────────────────
 
 function ContactsTab({ data, group }: { data: MarketingData; group: GroupFilter }) {
@@ -198,9 +224,16 @@ function ContactsTab({ data, group }: { data: MarketingData; group: GroupFilter 
               )}
             </div>
             {g.company && (
-              <button className="rounded p-1.5 hover:bg-white" aria-label="Edit company" onClick={() => setEditCompany(g.company!)}>
-                <Pencil className="h-4 w-4" />
-              </button>
+              <div className="flex shrink-0 items-center gap-0.5">
+                <button className="rounded p-1.5 hover:bg-white" aria-label="Edit company" title="Edit company" onClick={() => setEditCompany(g.company!)}>
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <DeleteButton
+                  label="Delete company"
+                  confirmText={`Delete ${g.company.name}?${g.contacts.length ? ` Its ${g.contacts.length} contact(s) will stay, under "No company".` : ""}`}
+                  onDelete={() => deleteCompanyAction(g.company!.id)}
+                />
+              </div>
             )}
           </div>
           {g.contacts.length === 0 ? (
@@ -222,6 +255,7 @@ function ContactsTab({ data, group }: { data: MarketingData; group: GroupFilter 
                     {c.last_contacted && <div className="mt-1 text-[#5B6472]">Last: {fmt(c.last_contacted)}</div>}
                     {c.follow_up && <div className={c.follow_up <= data.todayKey ? "mt-0.5 font-bold text-[#B91C1C]" : "mt-0.5 text-[#5B6472]"}>Follow up: {fmt(c.follow_up)}</div>}
                   </div>
+                  <DeleteButton label="Delete contact" confirmText={`Delete ${c.name}${c.role ? ` (${c.role})` : ""}?`} onDelete={() => deleteContactAction(c.id)} className="-mr-1.5 -mt-1 shrink-0" />
                 </li>
               ))}
             </ul>
@@ -385,7 +419,13 @@ function BuildingsTab({ data }: { data: MarketingData }) {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {data.buildings.map((b) => (
-            <Card key={b.id} className="cursor-pointer overflow-hidden hover:shadow-md">
+            <Card key={b.id} className="relative cursor-pointer overflow-hidden hover:shadow-md">
+              <DeleteButton
+                label="Delete building"
+                confirmText={`Delete ${b.name} and its photos?`}
+                onDelete={() => deleteBuildingAction(b.id)}
+                className="absolute right-2 top-2 z-10 bg-white/90 shadow-sm"
+              />
               <div onClick={() => setEdit(b)}>
                 {b.photos[0] ? (
                   // eslint-disable-next-line @next/next/no-img-element
