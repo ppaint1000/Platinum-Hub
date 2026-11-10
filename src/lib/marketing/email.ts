@@ -11,7 +11,7 @@ export const MARKETING_PLACEHOLDERS = [
   ["{our_buildings}", "Buildings we've painted for their company, with photos"],
 ] as const;
 
-export const GROUPS = ["Body corporate", "Retirement village", "Building management", "Commercial property"] as const;
+export const GROUPS = ["Body corporate", "Retirement village", "Building management", "Commercial property", "Aged care", "Early childhood", "Hospitality"] as const;
 export type Group = (typeof GROUPS)[number];
 
 // Starting wording for each group - edit on the Send email tab before sending.
@@ -72,6 +72,51 @@ I'm getting in touch from Platinum Painters, an Auckland painting company workin
 We know a repaint has to protect the asset without getting in the way of tenants. We plan access and staging around your tenants, manage our own health and safety and site access (scaffold and EWP), and keep you updated throughout. Proposals are prepared to Resene specifications with clear, itemised pricing - useful for budgeting and capex planning.
 
 We'd welcome the chance to be added to your contractor list and to quote on any repaints, refurbishments or planned maintenance painting across your portfolio.
+
+Kind regards,
+Platinum Painters`,
+  },
+  "Aged care": {
+    subject: "Painting for your care homes - Platinum Painters",
+    body: `Hi {first_name},
+
+I'm getting in touch from Platinum Painters, an Auckland painting company working on residential, commercial and multi-unit buildings.
+
+{our_buildings}
+
+We understand a care home is a home and a workplace at the same time. We work around residents' routines and your staff, keep corridors and exits clear and safe, tidy up at the end of every day, and can use low-odour, low-VOC Resene products in occupied areas. Work can be staged room by room or wing by wing so the home keeps running normally.
+
+If you have any rooms, wings or exteriors coming up for a repaint - or ongoing maintenance painting between residents - we'd be glad to measure up and provide a proposal at no cost.
+
+Kind regards,
+Platinum Painters`,
+  },
+  "Early childhood": {
+    subject: "Painting for your centres - Platinum Painters",
+    body: `Hi {first_name},
+
+I'm getting in touch from Platinum Painters, an Auckland painting company working on residential, commercial and multi-unit buildings.
+
+{our_buildings}
+
+We know centres can't have painters working around children. We're happy to plan work for weekends, after hours or your holiday closedown periods, can use low-odour, low-VOC Resene products, and leave every room clean and ready for the next day. Proposals are prepared to Resene specifications with clear pricing for each centre.
+
+If you have centres coming up for an interior or exterior repaint, we'd be glad to measure up and provide a proposal at no cost - or to be added to your contractor list for planned maintenance.
+
+Kind regards,
+Platinum Painters`,
+  },
+  "Hospitality": {
+    subject: "Painting for your property - Platinum Painters",
+    body: `Hi {first_name},
+
+I'm getting in touch from Platinum Painters, an Auckland painting company working on hotels, apartments, commercial and multi-unit buildings.
+
+{our_buildings}
+
+We know rooms out of action cost you money. We can work room by room or floor by floor around your occupancy, plan noisier work for quieter times, keep guest areas tidy and safe, and turn rooms around quickly. Proposals are prepared to Resene specifications with clear pricing, so refurbishment and maintenance budgets are easy to plan.
+
+If you have rooms, corridors, common areas or exteriors coming up for a repaint, we'd be glad to measure up and provide a proposal at no cost.
 
 Kind regards,
 Platinum Painters`,
