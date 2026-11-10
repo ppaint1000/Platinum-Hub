@@ -39,6 +39,7 @@ import { runClientReminders } from "@/lib/reminders/clientReminders";
 import { runDrips } from "@/lib/drips/drips";
 import { NAVY } from "./parts";
 import { SidePanel } from "./SidePanel";
+import { getCurrentProfile } from "@/lib/supabase/profile";
 
 // group: shown together in a desktop drop-down tab with that name.
 export type NavItem = { href: string; label: string; icon: LucideIcon; external?: boolean; group?: string };
@@ -389,13 +390,16 @@ export async function TopBar({ items, activeHref }: { items: NavItem[]; activeHr
     alerts = { "/absences": absences, "/jobs": hours.waiting, "/users": hours.noRate, "/production": toInvoice };
   }
   const anyAlert = Object.values(alerts).some((n) => n > 0);
+  // Admin-only links in the side menu (e.g. Marketing) are hidden from staff
+  // who see this bar on shared pages such as Clients.
+  const viewerIsAdmin = isAdminBar && (await getCurrentProfile()).role === "admin";
   return (
     <header className="sticky top-0 z-20 text-white shadow-sm" style={{ background: NAVY }}>
       {/* Wide enough for the row of tabs */}
       <div className={breakpoint.row}>
         <div className="mx-auto flex h-16 max-w-[92rem] items-stretch gap-4 2xl:gap-6">
           <div className="flex items-center gap-1">
-            {isAdminBar && <SidePanel />}
+            {isAdminBar && <SidePanel isAdmin={viewerIsAdmin} />}
             <Logo href={home} className="w-28" />
           </div>
           <nav aria-label="Main" className="flex-1">

@@ -37,7 +37,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-type Link_ = { href: string; label: string; icon: LucideIcon };
+// adminOnly: hidden for anyone who isn't an admin (this menu also shows on
+// pages shared with staff, e.g. Clients).
+type Link_ = { href: string; label: string; icon: LucideIcon; adminOnly?: boolean };
 
 const GROUPS: { title: string; links: Link_[] }[] = [
   {
@@ -57,7 +59,7 @@ const GROUPS: { title: string; links: Link_[] }[] = [
       { href: "/sales", label: "Sales", icon: TrendingUp },
       { href: "/reminders", label: "Repaint reminders", icon: BellRing },
       { href: "/drips", label: "Drips & reviews", icon: Mail },
-      { href: "/marketing", label: "Marketing", icon: Megaphone },
+      { href: "/marketing", label: "Marketing", icon: Megaphone, adminOnly: true },
     ],
   },
   {
@@ -95,7 +97,7 @@ const GROUPS: { title: string; links: Link_[] }[] = [
 
 const KEY = "pp-side-panel";
 
-export function SidePanel() {
+export function SidePanel({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -165,7 +167,7 @@ export function SidePanel() {
             <div key={g.title} className="mt-3 px-3">
               <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-[#8A99AD]">{g.title}</p>
               <ul className="flex flex-col gap-0.5">
-                {g.links.map((l) => {
+                {g.links.filter((l) => isAdmin || !l.adminOnly).map((l) => {
                   const Icon = l.icon;
                   const here = l.href === current;
                   return (
