@@ -165,7 +165,21 @@ export default async function ClockPage() {
 
   const ordered = await clockInOrder(admin, siteRows ?? [])
 
-  const sites = ordered.map((s) => ({
+  // Supervisors can also clock in at the office (supabase/sites_office.sql) -
+  // listed first. Before that's run the column doesn't exist and this is empty.
+  const { data: officeRows } = canSwitch
+    ? await admin
+        .from('sites')
+        .select('id, name, extent_of_work_filename, safety_plan_filename, customers:clients(name), jobs(status, work_order_url, in_progress_at)')
+        .eq('is_office', true)
+        .eq('is_active', true)
+        .order('name')
+        .returns<SiteRow[]>()
+    : { data: [] as SiteRow[] }
+  const officeIds = new Set((officeRows ?? []).map((s) => s.id))
+  const clockable = [...(officeRows ?? []), ...ordered.filter((s) => !officeIds.has(s.id))]
+
+  const sites = clockable.map((s) => ({
     id: s.id,
     workOrderUrl: workOrderBySite.get(s.id) ?? null,
     // Just the site - painters don't need to see the customer.
