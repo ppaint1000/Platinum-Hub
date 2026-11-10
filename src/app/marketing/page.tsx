@@ -39,7 +39,7 @@ export default async function MarketingPage() {
   return (
     <DashboardShell fontClass={dashboardFontClass} topBar={<TopBar items={ADMIN_NAV} activeHref="/marketing" />} todayKey={nzTodayDateString()} title="Marketing">
       {companies.error ? (
-        <p className="rounded-lg border border-[#E3E1DA] bg-white p-4 text-sm">Marketing needs its database scripts run first: supabase/marketing.sql, then supabase/marketing_groups.sql.</p>
+        <p className="rounded-lg border border-[#E3E1DA] bg-white p-4 text-sm">Marketing needs its database scripts run first: supabase/marketing.sql, then supabase/marketing_groups.sql, then supabase/marketing_commercial.sql.</p>
       ) : (
         <MarketingManager data={data} />
       )}

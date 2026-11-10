@@ -11,7 +11,7 @@ export const MARKETING_PLACEHOLDERS = [
   ["{our_buildings}", "Buildings we've painted for their company, with photos"],
 ] as const;
 
-export const GROUPS = ["Body corporate", "Retirement village", "Building management"] as const;
+export const GROUPS = ["Body corporate", "Retirement village", "Building management", "Commercial property"] as const;
 export type Group = (typeof GROUPS)[number];
 
 // Starting wording for each group - edit on the Send email tab before sending.
@@ -57,6 +57,21 @@ I'm getting in touch from Platinum Painters, an Auckland painting company specia
 We work to your building rules and access requirements, manage our own health and safety and site access (scaffold and EWP), and keep you updated so you can keep owners and tenants informed. Proposals are prepared to Resene specifications, with clear pricing your committee or owner can approve.
 
 We'd welcome the chance to be added to your contractor list, and are happy to quote on any repaints, touch-ups or maintenance painting coming up.
+
+Kind regards,
+Platinum Painters`,
+  },
+  "Commercial property": {
+    subject: "Painting for your commercial portfolio - Platinum Painters",
+    body: `Hi {first_name},
+
+I'm getting in touch from Platinum Painters, an Auckland painting company working on commercial, industrial, retail and multi-unit buildings.
+
+{our_buildings}
+
+We know a repaint has to protect the asset without getting in the way of tenants. We plan access and staging around your tenants, manage our own health and safety and site access (scaffold and EWP), and keep you updated throughout. Proposals are prepared to Resene specifications with clear, itemised pricing - useful for budgeting and capex planning.
+
+We'd welcome the chance to be added to your contractor list and to quote on any repaints, refurbishments or planned maintenance painting across your portfolio.
 
 Kind regards,
 Platinum Painters`,
