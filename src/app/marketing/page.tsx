@@ -16,7 +16,7 @@ export const maxDuration = 120;
 export default async function MarketingPage() {
   const supabase = await requireAdmin();
   const [companies, contacts, buildings, campaigns] = await Promise.all([
-    supabase.from("marketing_companies").select("id, name, phone, email, address, website, notes").order("name"),
+    supabase.from("marketing_companies").select("id, name, category, phone, email, address, website, notes").order("name"),
     supabase
       .from("marketing_contacts")
       .select("id, company_id, name, role, phone, email, notes, status, last_contacted, follow_up, unsubscribed")
@@ -39,7 +39,7 @@ export default async function MarketingPage() {
   return (
     <DashboardShell fontClass={dashboardFontClass} topBar={<TopBar items={ADMIN_NAV} activeHref="/marketing" />} todayKey={nzTodayDateString()} title="Marketing">
       {companies.error ? (
-        <p className="rounded-lg border border-[#E3E1DA] bg-white p-4 text-sm">Marketing needs its database script (supabase/marketing.sql) run first.</p>
+        <p className="rounded-lg border border-[#E3E1DA] bg-white p-4 text-sm">Marketing needs its database scripts run first: supabase/marketing.sql, then supabase/marketing_groups.sql.</p>
       ) : (
         <MarketingManager data={data} />
       )}

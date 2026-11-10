@@ -20,9 +20,9 @@ import {
   sendCampaignAction,
   sendTestAction,
 } from "@/app/marketing/actions";
-import { DEFAULT_BODY, DEFAULT_SUBJECT, MARKETING_PLACEHOLDERS } from "@/lib/marketing/email";
+import { GROUPS, MARKETING_PLACEHOLDERS, TEMPLATES, type Group } from "@/lib/marketing/email";
 
-type Company = { id: string; name: string; phone: string | null; email: string | null; address: string | null; website: string | null; notes: string | null };
+type Company = { id: string; name: string; category: string | null; phone: string | null; email: string | null; address: string | null; website: string | null; notes: string | null };
 type Contact = {
   id: string;
   company_id: string | null;
@@ -50,9 +50,15 @@ const ghost = "rounded-lg border border-[#D9D6CC] bg-white px-3 py-2 text-sm fon
 const fmt = (key: string | null) => (key ? new Date(`${key}T00:00:00Z`).toLocaleDateString("en-NZ", { day: "numeric", month: "short", timeZone: "UTC" }) : "—");
 
 type Tab = "contacts" | "buildings" | "send" | "history";
+type GroupFilter = Group | "All";
+const groupOf = (c: Company | undefined | null) => (c?.category as Group | null) ?? "Body corporate";
 
 export function MarketingManager({ data }: { data: MarketingData }) {
   const [tab, setTab] = useState<Tab>("contacts");
+  const [group, setGroup] = useState<GroupFilter>("All");
+  const companyById = new Map(data.companies.map((c) => [c.id, c]));
+  const inGroup = (g: GroupFilter, companyId: string | null) => g === "All" || (!!companyId && groupOf(companyById.get(companyId)) === g);
+  const groupCount = (g: GroupFilter) => data.contacts.filter((c) => inGroup(g, c.company_id)).length;
   const tabs: [Tab, string][] = [
     ["contacts", `Contacts (${data.contacts.length})`],
     ["buildings", `Buildings (${data.buildings.length})`],
@@ -72,9 +78,23 @@ export function MarketingManager({ data }: { data: MarketingData }) {
           </button>
         ))}
       </div>
-      {tab === "contacts" && <ContactsTab data={data} />}
+      {(tab === "contacts" || tab === "send") && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-semibold text-[#5B6472]">Group:</span>
+          {(["All", ...GROUPS] as GroupFilter[]).map((g) => (
+            <button
+              key={g}
+              onClick={() => setGroup(g)}
+              className={`rounded-lg px-3 py-1 font-semibold ${group === g ? "bg-[#1F4E8C] text-white" : "border border-[#D9D6CC] bg-white text-[#16202E]"}`}
+            >
+              {g} ({groupCount(g)})
+            </button>
+          ))}
+        </div>
+      )}
+      {tab === "contacts" && <ContactsTab data={data} group={group} />}
       {tab === "buildings" && <BuildingsTab data={data} />}
-      {tab === "send" && <SendTab data={data} />}
+      {tab === "send" && <SendTab key={group} data={data} group={group} />}
       {tab === "history" && <HistoryTab data={data} />}
     </div>
   );
@@ -125,13 +145,14 @@ function Field({ name, children }: { name: string; children: React.ReactNode }) 
 
 // ── Contacts ───────────────────────────────────────────────────────────
 
-function ContactsTab({ data }: { data: MarketingData }) {
+function ContactsTab({ data, group }: { data: MarketingData; group: GroupFilter }) {
   const [editContact, setEditContact] = useState<Partial<Contact> | null>(null);
   const [editCompany, setEditCompany] = useState<Partial<Company> | null>(null);
   const [filter, setFilter] = useState("");
   const q = filter.trim().toLowerCase();
   const groups = useMemo(() => {
-    const list = [...data.companies.map((c) => ({ company: c as Company | null, key: c.id })), { company: null, key: "none" }];
+    const companies = data.companies.filter((c) => group === "All" || groupOf(c) === group);
+    const list = [...companies.map((c) => ({ company: c as Company | null, key: c.id })), ...(group === "All" ? [{ company: null, key: "none" }] : [])];
     return list
       .map((g) => ({
         ...g,
@@ -140,14 +161,14 @@ function ContactsTab({ data }: { data: MarketingData }) {
         ),
       }))
       .filter((g) => g.contacts.length || (g.company && (!q || g.company.name.toLowerCase().includes(q))));
-  }, [data, q]);
+  }, [data, q, group]);
   const due = data.contacts.filter((c) => c.follow_up && c.follow_up <= data.todayKey && !["Won", "Not interested"].includes(c.status));
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
         <input className={`${input} max-w-xs`} placeholder="Search name, company, status…" value={filter} onChange={(e) => setFilter(e.target.value)} />
-        <button className={ghost} onClick={() => setEditCompany({})}>
+        <button className={ghost} onClick={() => setEditCompany({ category: group === "All" ? "Body corporate" : group })}>
           <Plus className="mr-1 inline h-4 w-4" />
           Company
         </button>
@@ -165,7 +186,10 @@ function ContactsTab({ data }: { data: MarketingData }) {
         <Card key={g.key} className="overflow-hidden">
           <div className="flex items-start justify-between gap-3 border-b border-[#E3E1DA] bg-[#FAF9F6] px-4 py-3">
             <div>
-              <div className="font-bold text-[#16202E]">{g.company?.name ?? "No company"}</div>
+              <div className="font-bold text-[#16202E]">
+                {g.company?.name ?? "No company"}
+                {g.company && group === "All" && <span className="ml-2 rounded bg-[#F0EEE8] px-1.5 py-0.5 text-xs font-semibold text-[#5B6472]">{groupOf(g.company)}</span>}
+              </div>
               {g.company && (
                 <div className="text-xs text-[#5B6472]">
                   {[g.company.phone, g.company.email, g.company.address].filter(Boolean).join(" · ")}
@@ -293,6 +317,7 @@ function ContactForm({ contact, companies, onClose }: { contact: Partial<Contact
 function CompanyForm({ company, onClose }: { company: Partial<Company>; onClose: () => void }) {
   const [f, setF] = useState({
     name: company.name ?? "",
+    category: company.category ?? "Body corporate",
     phone: company.phone ?? "",
     email: company.email ?? "",
     address: company.address ?? "",
@@ -304,6 +329,13 @@ function CompanyForm({ company, onClose }: { company: Partial<Company>; onClose:
   return (
     <Modal title={company.id ? "Edit company" : "New company"} onClose={onClose}>
       <div className="flex flex-col gap-3">
+        <Field name="Group">
+          <select className={input} value={f.category} onChange={(e) => set("category", e.target.value)}>
+            {GROUPS.map((g) => (
+              <option key={g}>{g}</option>
+            ))}
+          </select>
+        </Field>
         {(["name", "phone", "email", "address", "website"] as const).map((k) => (
           <Field key={k} name={k[0].toUpperCase() + k.slice(1)}>
             <input className={input} value={f[k]} onChange={(e) => set(k, e.target.value)} />
@@ -516,10 +548,15 @@ function BuildingForm({ building, companies, onClose }: { building: Partial<Buil
 
 // ── Send ───────────────────────────────────────────────────────────────
 
-function SendTab({ data }: { data: MarketingData }) {
-  const [subject, setSubject] = useState(DEFAULT_SUBJECT);
-  const [body, setBody] = useState(DEFAULT_BODY);
-  const sendable = data.contacts.filter((c) => c.email && !c.unsubscribed);
+function SendTab({ data, group }: { data: MarketingData; group: GroupFilter }) {
+  // Each group starts with its own wording (All uses the body corporate one).
+  const template = TEMPLATES[group === "All" ? "Body corporate" : group];
+  const [subject, setSubject] = useState(template.subject);
+  const [body, setBody] = useState(template.body);
+  const companyById = new Map(data.companies.map((c) => [c.id, c]));
+  const sendable = data.contacts.filter(
+    (c) => c.email && !c.unsubscribed && (group === "All" || (!!c.company_id && groupOf(companyById.get(c.company_id)) === group)),
+  );
   const [ticked, setTicked] = useState<Set<string>>(new Set());
   const [companyFilter, setCompanyFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -529,8 +566,14 @@ function SendTab({ data }: { data: MarketingData }) {
   const [busy, start] = useTransition();
   const companyName = new Map(data.companies.map((c) => [c.id, c.name]));
   const shown = sendable.filter((c) => (!companyFilter || c.company_id === companyFilter) && (!statusFilter || c.status === statusFilter));
-  const noEmail = data.contacts.filter((c) => !c.email && !c.unsubscribed).length;
+  const noEmail = data.contacts.filter(
+    (c) => !c.email && !c.unsubscribed && (group === "All" || (!!c.company_id && groupOf(companyById.get(c.company_id)) === group)),
+  ).length;
   const firstTicked = data.contacts.find((c) => ticked.has(c.id)) ?? sendable[0];
+  const resetWording = () => {
+    setSubject(template.subject);
+    setBody(template.body);
+  };
 
   const toggle = (id: string) => setTicked((s) => (s.has(id) ? (s.delete(id), new Set(s)) : new Set(s).add(id)));
   const tickShown = () => setTicked((s) => new Set([...s, ...shown.map((c) => c.id)]));
@@ -544,6 +587,12 @@ function SendTab({ data }: { data: MarketingData }) {
         <Field name="Message">
           <textarea className={`${input} font-mono text-[13px]`} rows={14} value={body} onChange={(e) => setBody(e.target.value)} />
         </Field>
+        <p className="text-xs text-[#5B6472]">
+          Wording for: <span className="font-semibold text-[#16202E]">{group === "All" ? "Body corporate (pick a group above for other wording)" : group}</span> ·{" "}
+          <button className="font-semibold text-[#1F4E8C] hover:underline" onClick={resetWording}>
+            Reset to the starting wording
+          </button>
+        </p>
         <div className="text-xs text-[#5B6472]">
           {MARKETING_PLACEHOLDERS.map(([k, d]) => (
             <div key={k}>
@@ -589,7 +638,7 @@ function SendTab({ data }: { data: MarketingData }) {
         <div className="flex flex-wrap gap-2">
           <select className={`${input} w-auto`} value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)}>
             <option value="">All companies</option>
-            {data.companies.map((c) => (
+            {data.companies.filter((c) => group === "All" || groupOf(c) === group).map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>

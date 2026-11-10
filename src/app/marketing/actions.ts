@@ -11,13 +11,13 @@ const emailOk = (s: string | null) => !s || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)
 
 // ── Companies ──────────────────────────────────────────────────────────
 
-export type CompanyInput = { id?: string; name: string; phone?: string; email?: string; address?: string; website?: string; notes?: string };
+export type CompanyInput = { id?: string; name: string; category?: string; phone?: string; email?: string; address?: string; website?: string; notes?: string };
 
 export async function saveCompanyAction(c: CompanyInput): Promise<Result> {
   if (!c.name.trim()) return { error: "The company needs a name." };
   if (!emailOk(clean(c.email))) return { error: "That email doesn't look right." };
   const supabase = await requireAdmin();
-  const row = { name: c.name.trim(), phone: clean(c.phone), email: clean(c.email), address: clean(c.address), website: clean(c.website), notes: clean(c.notes) };
+  const row = { name: c.name.trim(), category: c.category || "Body corporate", phone: clean(c.phone), email: clean(c.email), address: clean(c.address), website: clean(c.website), notes: clean(c.notes) };
   const { error } = c.id ? await supabase.from("marketing_companies").update(row).eq("id", c.id) : await supabase.from("marketing_companies").insert(row);
   if (error) return { error: error.message.includes("duplicate") ? "There's already a company with that name." : error.message };
   revalidatePath("/marketing");
@@ -131,7 +131,7 @@ async function loadForSend(contactIds: string[]) {
   const supabase = await requireAdmin();
   const [contacts, companies, buildings] = await Promise.all([
     supabase.from("marketing_contacts").select("id, name, email, unsubscribed, unsubscribe_token, company_id, status").in("id", contactIds).returns<ContactRow[]>(),
-    supabase.from("marketing_companies").select("id, name").returns<{ id: string; name: string }[]>(),
+    supabase.from("marketing_companies").select("id, name, category").returns<{ id: string; name: string; category: string | null }[]>(),
     supabase
       .from("marketing_buildings")
       .select("name, address, year_painted, description, photos, company_id, featured")
@@ -139,11 +139,18 @@ async function loadForSend(contactIds: string[]) {
       .returns<BuildingRow[]>(),
   ]);
   const companyName = new Map((companies.data ?? []).map((c) => [c.id, c.name]));
+  const companyGroup = new Map((companies.data ?? []).map((c) => [c.id, c.category ?? "Body corporate"]));
   const all = buildings.data ?? [];
-  const featured = all.filter((b) => b.featured).slice(0, 4);
+  const featured = all.filter((b) => b.featured);
+  // Their own company's buildings first; otherwise starred buildings, the
+  // ones from the same group (e.g. other villages for a village) first.
   const pick = (companyId: string | null) => {
     const own = companyId ? all.filter((b) => b.company_id === companyId).slice(0, 4) : [];
-    return own.length ? { list: own, own: true } : { list: featured, own: false };
+    if (own.length) return { list: own, own: true };
+    const group = companyId ? companyGroup.get(companyId) : undefined;
+    const same = featured.filter((b) => b.company_id && companyGroup.get(b.company_id) === group);
+    const list = [...same, ...featured.filter((b) => !same.includes(b))].slice(0, 4);
+    return { list, own: false };
   };
   return { supabase, contacts: contacts.data ?? [], companyName, pick };
 }

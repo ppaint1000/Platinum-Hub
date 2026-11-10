@@ -11,8 +11,14 @@ export const MARKETING_PLACEHOLDERS = [
   ["{our_buildings}", "Buildings we've painted for their company, with photos"],
 ] as const;
 
-export const DEFAULT_SUBJECT = "Body corporate painting - Platinum Painters";
-export const DEFAULT_BODY = `Hi {first_name},
+export const GROUPS = ["Body corporate", "Retirement village", "Building management"] as const;
+export type Group = (typeof GROUPS)[number];
+
+// Starting wording for each group - edit on the Send email tab before sending.
+export const TEMPLATES: Record<Group, { subject: string; body: string }> = {
+  "Body corporate": {
+    subject: "Body corporate painting - Platinum Painters",
+    body: `Hi {first_name},
 
 I'm getting in touch from Platinum Painters, an Auckland painting company specialising in body corporate, commercial and residential repaints.
 
@@ -23,7 +29,42 @@ We prepare detailed proposals to Resene specifications, work around residents, a
 If you have any buildings coming up for maintenance or a repaint, we'd be glad to measure up and provide a proposal at no cost.
 
 Kind regards,
-Platinum Painters`;
+Platinum Painters`,
+  },
+  "Retirement village": {
+    subject: "Village painting and maintenance - Platinum Painters",
+    body: `Hi {first_name},
+
+I'm getting in touch from Platinum Painters, an Auckland painting company that looks after body corporate, commercial and residential buildings.
+
+{our_buildings}
+
+We know a village is people's home. Our team works tidily and quietly around residents, keeps walkways safe and clear, and lets you know each day where we'll be working. We prepare detailed proposals to Resene specifications and can stage work villa by villa or block by block to suit your schedule.
+
+If you have any villas, apartments or communal buildings coming up for a repaint - or ongoing maintenance painting between residents - we'd be glad to measure up and provide a proposal at no cost.
+
+Kind regards,
+Platinum Painters`,
+  },
+  "Building management": {
+    subject: "Painting contractor for your buildings - Platinum Painters",
+    body: `Hi {first_name},
+
+I'm getting in touch from Platinum Painters, an Auckland painting company specialising in apartment, body corporate and commercial buildings.
+
+{our_buildings}
+
+We work to your building rules and access requirements, manage our own health and safety and site access (scaffold and EWP), and keep you updated so you can keep owners and tenants informed. Proposals are prepared to Resene specifications, with clear pricing your committee or owner can approve.
+
+We'd welcome the chance to be added to your contractor list, and are happy to quote on any repaints, touch-ups or maintenance painting coming up.
+
+Kind regards,
+Platinum Painters`,
+  },
+};
+
+export const DEFAULT_SUBJECT = TEMPLATES["Body corporate"].subject;
+export const DEFAULT_BODY = TEMPLATES["Body corporate"].body;
 
 const PHONE = "021 116 4005";
 const SENDER_LINE = "Platinum Painters NZ Ltd · 21 Poland Road, Wairau Valley, Auckland · " + PHONE;
@@ -32,7 +73,8 @@ export type MailBuilding = { name: string; address: string | null; year_painted:
 export type MailContact = { name: string; email: string; unsubscribe_token: string; company: string | null };
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const firstName = (name: string) => name.trim().split(/\s+/)[0] || "there";
+// "Village Manager" / "Building Manager" rows (no name published yet) get "Hi there".
+const firstName = (name: string) => (/manager|reception|office|team|coordinator/i.test(name) ? "there" : name.trim().split(/\s+/)[0] || "there");
 
 function buildingLine(b: MailBuilding) {
   return [b.name, b.address && b.address !== b.name ? b.address : null, b.year_painted ? `painted ${b.year_painted}` : null].filter(Boolean).join(" - ");
@@ -51,7 +93,7 @@ export function renderMarketingEmail(
     ? ""
     : ownCompanyWork
       ? `Some of the buildings we've painted that ${contact.company ?? "your company"} manages:`
-      : "Some of the body corporate buildings we've painted recently:";
+      : "Some of the buildings we've painted recently:";
 
   // Plain text
   const textBuildings = buildings.length ? `${intro}\n${buildings.map((b) => `• ${buildingLine(b)}`).join("\n")}` : "";
