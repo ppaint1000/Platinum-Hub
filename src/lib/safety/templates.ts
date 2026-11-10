@@ -53,7 +53,7 @@ export const SAFETY_TEMPLATES: SafetyTemplate[] = [
   // People, meetings and incidents
   { key: "worker_induction", group: "People, meetings and incidents", name: "Worker Induction", description: "Take a new worker through our health and safety before they start." },
   { key: "site_induction", group: "People, meetings and incidents", name: "Site Induction", description: "Record that anyone coming on site knows the site rules, emergency procedures and safety documents.", hubHref: "/safety/reports/new?type=site_induction" },
-  { key: "toolbox", group: "People, meetings and incidents", name: "Toolbox / Safety Meeting", description: "Record what was covered at a team safety meeting and who was there.", hubHref: "/safety/reports/new?type=toolbox" },
+  { key: "toolbox", group: "People, meetings and incidents", name: "Toolbox / Safety Meeting", description: "Record what was covered at a team safety meeting and who was there.", hubHref: "/safety/toolbox" },
   { key: "incident_investigation", group: "People, meetings and incidents", name: "Incident Investigation", description: "Who, what, when, how and why for an injury, incident or near miss.", hubHref: "/safety/reports/new?type=incident" },
   { key: "contractor_prequal", group: "People, meetings and incidents", name: "Contractor Pre-Qualification", description: "Check a contractor has a working health and safety system before they start.", hubHref: "/safety/contractors" },
 ];

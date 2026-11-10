@@ -7,6 +7,7 @@ const TABS = [
   { href: "/safety", label: "Overview" },
   { href: "/safety/reports", label: "Reports" },
   { href: "/safety/incidents", label: "Incidents" },
+  { href: "/safety/toolbox", label: "Toolbox", managers: true },
   { href: "/safety/hazards", label: "Hazard register" },
   { href: "/safety/tasks", label: "Tasks" },
   { href: "/safety/templates", label: "Templates" },
