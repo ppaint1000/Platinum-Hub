@@ -96,7 +96,7 @@ export default async function JobOverviewPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const supabase = await requireAppAccess("jobs");
 
-  const [{ data: job }, { data: budgetRows }, { data: totals }, { data: sites }, { data: bookings }, { data: hoursWaiting }, variations, claims] =
+  const [{ data: job }, { data: budgetRows }, { data: totals }, { data: sites }, { data: bookings }, { data: hoursWaiting }, variations, claims, { data: supervisionRows }] =
     await Promise.all([
       supabase
         .from("jobs")
@@ -122,7 +122,11 @@ export default async function JobOverviewPage({ params }: { params: Promise<{ id
       supabase.rpc("job_hours_pending", { p_job_id: id }),
       fetchVariations(supabase, [id]),
       fetchClaims(supabase, [id]),
+      // Supervisors' time here (supabase/job_supervision.sql) - costed on its
+      // own, never in Hours, Labour or the margin.
+      supabase.rpc("job_supervision", { p_job_id: id }),
     ]);
+  const supervision = ((supervisionRows ?? []) as { amount: number; hours: number; missing_rate: boolean }[])[0] ?? null;
 
   if (!job) return null;
 
@@ -199,6 +203,13 @@ export default async function JobOverviewPage({ params }: { params: Promise<{ id
               )}
             </Detail>
           </div>
+          {supervision && Number(supervision.hours) > 0 && (
+            <p className="-mt-2 mb-5 text-sm text-ink-soft">
+              <span className="font-semibold text-ink">Supervision:</span> {money(Number(supervision.amount))} · {Number(supervision.hours).toFixed(1)} h
+              {supervision.missing_rate && <span className="text-[#B91C1C]"> (no hourly rate set for the supervisor - Users page)</span>}
+              <span className="text-ink-faint"> - not in Hours, Labour or the margin</span>
+            </p>
+          )}
           <div className="space-y-5">
             <Progress
               share={contractValue > 0 ? claimed / contractValue : 0}
