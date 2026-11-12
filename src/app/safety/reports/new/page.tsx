@@ -7,12 +7,8 @@ import { ReportFormClient } from "@/components/safety/ReportFormClient";
 import { card } from "@/components/safety/styles";
 import { nzTodayDateString } from "@/lib/timesheets/formatNZ";
 
-export default async function NewSafetyReportPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ type?: string; id?: string; vehicle?: string; odometer?: string }>;
-}) {
-  const { type, id, vehicle, odometer } = await searchParams;
+export default async function NewSafetyReportPage({ searchParams }: { searchParams: Promise<{ type?: string; id?: string }> }) {
+  const { type, id } = await searchParams;
   const { supabase } = await safetyContext();
 
   if (id) {
@@ -51,19 +47,7 @@ export default async function NewSafetyReportPage({
     <ReportFormClient
       form={form}
       sites={await safetySites()}
-      initial={{
-        siteId: "",
-        location: "",
-        reportDate: nzTodayDateString(),
-        // From the Fleet dashboard's Check button: the vehicle filled in.
-        data:
-          form.type === "vehicle_check"
-            ? {
-                ...(vehicle ? { vehicle: vehicle.slice(0, 40) } : {}),
-                ...(odometer && /^\d+$/.test(odometer) ? { odometer } : {}),
-              }
-            : {},
-      }}
+      initial={{ siteId: "", location: "", reportDate: nzTodayDateString(), data: {} }}
     />
   );
 }
