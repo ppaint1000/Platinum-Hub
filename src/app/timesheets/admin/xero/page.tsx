@@ -20,6 +20,11 @@ import {
 import { hoursForPeriod, periodDates, shiftPeriod } from '@/lib/xero/timesheets'
 import { XeroPayrollPanel, type PreviewRow } from './xero-panel'
 import { disconnectXeroAction } from './actions'
+import { TimesheetPhotos } from './timesheet-photos'
+import { recentWeekEndings } from '@/lib/timesheets/timesheetPhotos'
+
+// Collecting the week's timesheet photos from Gmail can take a while.
+export const maxDuration = 60
 
 const nzDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short' })
 
@@ -49,6 +54,7 @@ export default async function XeroPayrollPage({
       <div className="max-w-3xl space-y-4">
         <h1 className="text-2xl font-semibold">Xero payroll</h1>
         {banner}
+        <TimesheetPhotos weekEndings={recentWeekEndings()} />
         <div className="rounded-lg border border-black/10 bg-white p-5 text-sm leading-relaxed">
           <p className="mb-3 font-semibold">One-off setup (about 10 minutes):</p>
           <ol className="list-decimal space-y-2 pl-5">
@@ -76,6 +82,7 @@ export default async function XeroPayrollPage({
       <div className="max-w-3xl space-y-4">
         <h1 className="text-2xl font-semibold">Xero payroll</h1>
         {banner}
+        <TimesheetPhotos weekEndings={recentWeekEndings()} />
         <p className="text-sm text-black/70">
           Connect the Hub to your Xero organisation. Xero will ask you to choose the organisation and allow the Hub to read employees and pay settings, and add
           timesheets.
@@ -173,6 +180,7 @@ export default async function XeroPayrollPage({
         </form>
       </div>
       {banner}
+      <TimesheetPhotos weekEndings={recentWeekEndings()} />
       {loadError ? (
         <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
           <p className="font-semibold">Couldn&apos;t read from Xero: {loadError}</p>
