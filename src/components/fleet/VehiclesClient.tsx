@@ -245,7 +245,7 @@ export function VehiclesClient({
             </thead>
             <tbody>
               {initialVehicles.map((v) => (
-                <tr key={v.id} className="border-b border-border last:border-b-0 hover:bg-background">
+                <tr key={v.id} id={`v-${v.id}`} className="scroll-mt-24 border-b border-border last:border-b-0 hover:bg-background target:bg-amber-50">
                   <td className="whitespace-nowrap px-5 py-3">
                     {v.year ? `${v.year} ` : ""}
                     {v.make} {v.model}

@@ -86,7 +86,8 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
   const monthEntries = fList.filter((f) => f.fuelled_on.slice(0, 7) === thisMonth);
   const monthSpend = monthEntries.reduce((s, f) => s + Number(f.cost_total), 0);
 
-  type Alert = { severity: "warn" | "critical"; title: string; sub: string; days: number };
+  // href: where the Check button goes to deal with it.
+  type Alert = { severity: "warn" | "critical"; title: string; sub: string; days: number; href: string };
   const alerts: Alert[] = [];
 
   for (const v of vList) {
@@ -108,6 +109,7 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
               : `Due in ${days} day${days === 1 ? "" : "s"}`) +
             ` · ${fmtDate(v[field])}`,
           days,
+          href: field === "next_service_date" ? "/fleet/servicing" : `/fleet/compliance#v-${v.id}`,
         });
       }
     }
@@ -126,6 +128,7 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
             : `Due in ${days} day${days === 1 ? "" : "s"}`) +
           ` · ${fmtDate(s.next_due_date)}`,
         days,
+        href: "/fleet/servicing",
       });
     }
   }
@@ -147,6 +150,7 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
       sub: (next.status === "overdue" ? `${km} km overdue` : `${km} km to go`) + ` · due at ${next.dueAtKm!.toLocaleString("en-NZ")} km`,
       // Sorts with the date alerts: overdue first, then the soonest.
       days: next.status === "overdue" ? -1 : 0,
+      href: "/fleet/servicing",
     });
   }
 
@@ -168,6 +172,7 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
         ` · paid to ${Number(v.ruc_paid_to_km).toLocaleString("en-NZ")} km` +
         (hubo ? ` on the hubo${hubo.estimated ? " (estimated)" : ""}` : ""),
       days: left < 0 ? -1 : 0,
+      href: `/fleet/vehicles#v-${v.id}`,
     });
   }
 
@@ -182,6 +187,7 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
       title: `${v ? `${v.make} ${v.model} — ${v.plate}` : "Waterblaster"} — Fuel entry missing ${missing.join(", ")}`,
       sub: `Filled up ${fmtDate(f.fuelled_on)} · fill in from the receipt under Fuel Log`,
       days: -Infinity,
+      href: f.vehicle_id ? `/fleet/fuel?vehicle=${f.vehicle_id}` : "/fleet/waterblaster",
     });
   }
 
@@ -282,10 +288,18 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
                     a.severity === "critical" ? "bg-brand-red" : "bg-amber-500"
                   }`}
                 />
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-ink">{a.title}</p>
                   <p className="text-xs text-muted">{a.sub}</p>
                 </div>
+                {/* A plain link (full page load) so the vehicle's row is
+                    scrolled to and highlighted (#v-<id>, CSS :target). */}
+                <a
+                  href={a.href}
+                  className="flex min-h-9 flex-none items-center rounded-lg border border-border px-3 text-xs font-semibold text-ink transition hover:border-brand-red/40 hover:text-brand-red-dark"
+                >
+                  Check
+                </a>
               </div>
             ))}
           </div>
