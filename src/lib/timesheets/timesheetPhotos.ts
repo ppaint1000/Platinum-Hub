@@ -1,7 +1,7 @@
 // Staff timesheet photos from the office Gmail, for a pay week: every email
 // a staff member sent with an attachment (their timesheet photo or PDF),
 // zipped as a "Week ending DD-MM-YYYY" folder with each file named
-// "<person> - <original file name>". Reads Gmail over IMAP with the same
+// "<person> - Week ending DD-MM-YYYY.<ext>". Reads Gmail over IMAP with the same
 // app password the Hub sends email with (GMAIL_USER / GMAIL_APP_PASSWORD).
 // Server-side only.
 import "server-only";
@@ -103,11 +103,14 @@ export async function collectTimesheetPhotos(weekEnding: string): Promise<Photos
   const dir = zip.folder(folder)!;
   const used = new Set<string>();
   const files: string[] = [];
+  // "Amir Sadeghi - Week ending 08-11-2026.jpg"; a second file from the
+  // same person gets " (2)", and so on.
   for (const a of found.sort((x, y) => x.person.localeCompare(y.person))) {
-    const base = `${a.person} - ${a.filename}`;
-    const dot = base.lastIndexOf(".");
-    let name = base;
-    for (let k = 2; used.has(name.toLowerCase()); k++) name = dot > 0 ? `${base.slice(0, dot)} (${k})${base.slice(dot)}` : `${base} (${k})`;
+    const dot = a.filename.lastIndexOf(".");
+    const ext = dot > 0 ? a.filename.slice(dot).toLowerCase() : "";
+    const stem = `${a.person} - ${folder}`;
+    let name = `${stem}${ext}`;
+    for (let k = 2; used.has(name.toLowerCase()); k++) name = `${stem} (${k})${ext}`;
     used.add(name.toLowerCase());
     dir.file(name, a.content);
     files.push(name);

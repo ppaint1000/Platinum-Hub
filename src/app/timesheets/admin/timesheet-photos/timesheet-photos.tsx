@@ -30,8 +30,8 @@ export function TimesheetPhotos({ weekEndings }: { weekEndings: string[] }) {
       <div>
         <h2 className="text-base font-semibold">Staff timesheet photos</h2>
         <p className="text-sm text-black/60">
-          Gets the timesheets your staff emailed to the office Gmail for the week, as a folder called &quot;Week ending …&quot; - each file starts
-          with the person&apos;s name. Unzip it into your Documents.
+          Gets the timesheets your staff emailed to the office Gmail for the week, as a folder called &quot;Week ending …&quot; - each file is named
+          after the person and the week. Unzip it into your Documents.
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
