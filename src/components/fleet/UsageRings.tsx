@@ -1,3 +1,4 @@
+import Link from "next/link";
 // A card per vehicle with two rings: km per month and fuel economy. Each
 // ring is a gauge against the fleet average - the tick at the top is the
 // average, a full ring is twice it. Km turns red when the vehicle is more
@@ -120,9 +121,16 @@ export function UsageRings({ vehicles, usage }: { vehicles: VehicleLike[]; usage
               <p className="text-sm font-medium text-ink">
                 {v.make} {v.model} — {v.plate}
                 {(kmRed || fuelRed) && (
-                  <span className="ml-2 rounded-full px-2 py-0.5 text-xs font-semibold text-white" style={{ background: RED }}>
-                    Check
-                  </span>
+                  // Goes to this vehicle's Fuel Log - its fill-ups, litres
+                  // and odometer readings are what the gauges come from.
+                  <Link
+                    href={`/fleet/fuel?vehicle=${v.id}`}
+                    title={[fuelRed && "Using more fuel than the fleet average", kmRed && "Km per month well off the fleet average"].filter(Boolean).join(" · ") + " - see its fuel log"}
+                    className="ml-2 inline-block rounded-full px-2 py-0.5 text-xs font-semibold text-white hover:opacity-90"
+                    style={{ background: RED }}
+                  >
+                    Check →
+                  </Link>
                 )}
               </p>
               <div className="mt-3 flex justify-around gap-3">
