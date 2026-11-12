@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { BarChart3, Fuel, Wrench, Gauge, Truck } from "lucide-react";
+import { BarChart3, ClipboardCheck, Fuel, Wrench, Gauge, Truck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { daysUntil, fmtDate, fmtMoney } from "@/lib/fleet/format";
 import { missingFuelNumbers } from "@/lib/fleet/missingNumbers";
 import { SERVICE_INTERVAL_KM, SERVICE_SOON_KM, nextServiceFor, type NextService } from "@/lib/fleet/nextService";
@@ -77,6 +78,25 @@ export default async function FleetDashboardPage() {
     ]);
 
   const vList = vehicles ?? [];
+
+  // Each vehicle's last Vehicle Checklist (Health & safety), matched by rego.
+  const { data: checkRows } = await createAdminClient()
+    .from("safety_reports")
+    .select("report_date, data")
+    .eq("report_type", "vehicle_check")
+    .eq("status", "completed")
+    .order("report_date", { ascending: false })
+    .limit(500)
+    .returns<{ report_date: string; data: { vehicle?: unknown } | null }[]>();
+  const plateKey = (s: string) => s.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  const lastCheck = new Map<string, string>();
+  for (const r of checkRows ?? []) {
+    const key = typeof r.data?.vehicle === "string" ? plateKey(r.data.vehicle) : "";
+    if (key && !lastCheck.has(key)) lastCheck.set(key, r.report_date);
+  }
+  const checks = vList
+    .map((v) => ({ vehicle: v, last: lastCheck.get(plateKey(v.plate)) ?? null }))
+    .sort((a, b) => (a.last ?? "").localeCompare(b.last ?? "") || a.vehicle.plate.localeCompare(b.vehicle.plate));
   const fList = fuelEntries ?? [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isArray(r.vehicle) ? r.vehicle[0] ?? null : r.vehicle, }));
@@ -258,6 +278,8 @@ const sList = (serviceRecords ?? []).map((r: any) => ({ ...r, vehicle: Array.isA
         />
       </div>
 
+      <VehicleChecksSection checks={checks} />
+
       <UsageRings vehicles={vList} usage={usage} />
 
       <NextServiceSection services={services} />
@@ -377,6 +399,49 @@ function StatCard({
 }
 
 const kmFmt = (n: number) => `${n.toLocaleString("en-NZ")} km`;
+
+// A Check button per vehicle: opens the Vehicle Checklist (Health & safety)
+// with the rego and odometer filled in. Oldest-checked first.
+function VehicleChecksSection({ checks }: { checks: { vehicle: Vehicle; last: string | null }[] }) {
+  if (checks.length === 0) return null;
+  const today = nzTodayDateString();
+  return (
+    <div className="mt-6 rounded-xl border border-border bg-surface shadow-sm">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border px-5 py-3.5">
+        <h2 className="text-sm font-semibold text-ink">Vehicle checks</h2>
+        <Link href="/safety/reports" className="text-xs font-medium text-brand-red-dark hover:underline">
+          All checks
+        </Link>
+      </div>
+      <ul>
+        {checks.map(({ vehicle: v, last }) => {
+          const days = last ? Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${last}T00:00:00Z`)) / 86400000) : null;
+          const km = v.current_odometer_km != null ? String(v.current_odometer_km) : "";
+          const href = `/safety/reports/new?type=vehicle_check&vehicle=${encodeURIComponent(v.plate)}${km ? `&odometer=${km}` : ""}`;
+          return (
+            <li key={v.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-5 py-3 last:border-b-0">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-ink">
+                  {v.make} {v.model} — {v.plate}
+                </p>
+                <p className={`text-xs ${days === null || days > 30 ? "font-semibold text-brand-red" : "text-muted"}`}>
+                  {last ? `Last checked ${fmtDate(last)}${days === 0 ? " (today)" : days === 1 ? " (yesterday)" : ` (${days} days ago)`}` : "Never checked"}
+                </p>
+              </div>
+              <Link
+                href={href}
+                className="flex min-h-10 items-center gap-1.5 rounded-lg bg-brand-red px-4 text-sm font-semibold text-white transition hover:bg-brand-red-dark"
+              >
+                <ClipboardCheck className="h-4 w-4" />
+                Check
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
 
 // Every vehicle's next service by km, soonest first.
 function NextServiceSection({ services }: { services: { vehicle: Vehicle; next: NextService }[] }) {
