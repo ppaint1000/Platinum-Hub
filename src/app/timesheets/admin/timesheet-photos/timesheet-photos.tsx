@@ -1,6 +1,6 @@
 'use client'
 
-// Timesheets → Xero payroll: "Staff timesheet photos" - downloads the
+// Timesheets → Timesheet Photos: downloads the
 // week's timesheet photos staff emailed in, as a "Week ending DD-MM-YYYY"
 // folder (zip), each file named after the person.
 import { useState, useTransition } from 'react'
